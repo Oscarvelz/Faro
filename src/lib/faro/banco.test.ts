@@ -3454,6 +3454,76 @@ describe("banco · ola 48 — la cadencia del ingreso y el gasto por umbral (F2 
 });
 
 
+describe("banco · ola 55 — los números en palabras (la captura de Oscar, 2026-11-23)", () => {
+  function libro55(): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    ledger.months[KEY] = { lines: [
+      line({ id: "o55-sal", kind: "income-fixed", concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+      line({ id: "o55-rem", kind: "expense-fixed", concept: "Remesa a Mamá", amountMinor: 17000, categoryId: "f-remesas", bookedOn: "2026-10-10" }),
+    ] };
+    ledger.settings.display = "USD";
+    return ledger;
+  }
+
+  it("la pregunta de la captura: la suma dictada en palabras se suma", () => {
+    const r = ask(libro55(), "Si envío a Nicaragua veinticinco dólares más ciento cuatro más treinta, ¿cuánto serían?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora", r.verdict);
+    assert.ok(r.verdict.includes("$159.00"), r.verdict);
+    assert.deepEqual(r.pieces.map((p) => p.minor), [2500, 10400, 3000]);
+  });
+
+  it("las formas compuestas: «treinta y cinco», «dos mil», «quinientos»", () => {
+    const a = ask(libro55(), "¿Cuánto son treinta y cinco más quince?");
+    assert.equal(a.kind, "answer", JSON.stringify(a).slice(0, 200));
+    if (a.kind === "answer") assert.ok(a.verdict.includes("$50.00"), a.verdict);
+    const b = ask(libro55(), "¿Cuánto es dos mil más quinientos?");
+    assert.equal(b.kind, "answer", JSON.stringify(b).slice(0, 200));
+    if (b.kind === "answer") assert.ok(b.verdict.includes("$2,500.00"), b.verdict);
+  });
+
+  it("el inglés también dicta: «two hundred fifty plus fifty»", () => {
+    const r = ask(libro55(), "How much is two hundred fifty plus fifty?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora", r.verdict);
+    assert.ok(r.verdict.includes("$300.00"), r.verdict);
+  });
+
+  it("la suma en dígitos con su voz natural: «¿cuánto son 25 más 30?»", () => {
+    const r = ask(libro55(), "¿Cuánto son 25 más 30?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora", r.verdict);
+    assert.ok(r.verdict.includes("$55.00"), r.verdict);
+  });
+
+  it("la escala tras dígitos no se lee dos veces: «5 mil más 500» son $5,500", () => {
+    const r = ask(libro55(), "¿Cuánto son 5 mil más 500?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("$5,500.00"), r.verdict);
+    assert.ok(!r.verdict.includes("$6,500.00"), r.verdict);
+  });
+
+  it("el hipotético oye el monto en palabras: «si gasto doscientos» resta de verdad", () => {
+    const r = ask(libro55(), "Si gasto doscientos dólares, ¿cuánto me queda?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico", r.verdict);
+    assert.ok(r.verdict.includes("$630.00"), r.verdict);
+  });
+
+  it("los falsos amigos callan: «una» no es monto y el total sigue siendo del total", () => {
+    const a = ask(libro55(), "¿Cuánto son una más dos?");
+    assert.ok(!(a.kind === "answer" && a.family === "calculadora"), JSON.stringify(a).slice(0, 200));
+    const b = ask(libro55(), "¿Cuánto tengo en total?");
+    assert.equal(b.kind, "answer", JSON.stringify(b).slice(0, 200));
+    if (b.kind === "answer") assert.equal(b.family, "total", b.verdict);
+  });
+});
+
 describe("banco · ola 54 — el mutante del voseo muere (la Caza III, agenda f)", () => {
   it("el mapa de voseo entero está cercado, par por par", () => {
     assert.equal(normalizeEs("tenes"), "tienes");

@@ -2588,10 +2588,115 @@ function parseNumberToken(tok: string): number {
   return Number(t.replace(",", "."));
 }
 
+/* OLA 55 · LOS NÚMEROS EN PALABRAS — «veinticinco dólares más
+ * ciento cuatro más treinta»: la calle dicta los montos en
+ * palabras (la captura de Oscar, 2026-11-23: el Asesor callaba) y
+ * el lector solo leía dígitos. Este lector lee la secuencia de
+ * palabras-número en los dos idiomas — unidades, decenas con su
+ * «y», cientos, miles y millones — y la vuelve monto, con guardas
+ * contra los falsos amigos: una palabra-número solo es monto si
+ * trae moneda al lado, un verbo de dinero justo antes, un hermano
+ * en dígitos unido por «más», o compañía (dos o más secuencias en
+ * la misma pregunta se certifican entre sí: una lista de montos
+ * ES una lista de montos). «Once» queda fuera del mapa a
+ * propósito: en inglés es un adverbio («pay once») y su falso
+ * positivo costaba más que su lectura en español. La escala tras
+ * dígitos («5 mil») es del lector de dígitos: una secuencia que
+ * empieza justo después de un dígito no se lee dos veces. */
+const WORD_NUM_ES: Record<string, number> = {
+  uno: 1, un: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9,
+  diez: 10, doce: 12, trece: 13, catorce: 14, quince: 15,
+  dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19,
+  veinte: 20, veintiuno: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25,
+  veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29,
+  treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90,
+  cien: 100, ciento: 100, doscientos: 200, doscientas: 200, trescientos: 300, trescientas: 300,
+  cuatrocientos: 400, cuatrocientas: 400, quinientos: 500, quinientas: 500, seiscientos: 600, seiscientas: 600,
+  setecientos: 700, setecientas: 700, ochocientos: 800, ochocientas: 800, novecientos: 900, novecientas: 900,
+};
+const WORD_NUM_EN: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
+  seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+};
+const WORD_NUM_ALL: Record<string, number> = { ...WORD_NUM_ES, ...WORD_NUM_EN };
+const WORD_MONEY_VERB = new Set(["gastar", "gasto", "gaste", "pagar", "pague", "pago", "comprar", "compre", "compra", "enviar", "envio", "envie", "mandar", "mande", "cobrar", "cobre", "costar", "cuesta", "cuestan", "spend", "spent", "pay", "paid", "buy", "bought", "send", "sent", "cost", "costs"]);
+
+function parseWordNumber(toks: string[], start: number): { value: number; end: number } | null {
+  let i = start;
+  let total = 0;
+  let current = 0;
+  let lastKind = "";
+  let consumed = false;
+  const kindOf = (t: string, v: number): string => v < 10 ? "unit" : v < 20 ? "teen" : t.startsWith("veinti") ? "fused" : "tens";
+  while (i < toks.length) {
+    const t = toks[i];
+    if (t === "y" || t === "and") {
+      const nx = toks[i + 1];
+      const nv = nx ? WORD_NUM_ALL[nx] : undefined;
+      if (nv !== undefined && nv < 10 && ((t === "y" && lastKind === "tens") || (t === "and" && (lastKind === "hundreds" || lastKind === "hundred")))) { i++; continue; }
+      break;
+    }
+    if (t === "mil" || t === "thousand") { total += (current || 1) * 1000; current = 0; lastKind = "scale"; consumed = true; i++; continue; }
+    if (t === "millon" || t === "millones" || t === "million" || t === "millions") { total += (current || 1) * 1_000_000; current = 0; lastKind = "scale"; consumed = true; i++; continue; }
+    if (t === "hundred") {
+      if (lastKind === "hundreds" || lastKind === "hundred") break;
+      current = (current || 1) * 100; lastKind = "hundred"; consumed = true; i++; continue;
+    }
+    const v = WORD_NUM_ALL[t];
+    if (v === undefined) break;
+    if (v >= 100) {
+      if (lastKind === "hundreds" || lastKind === "hundred") break;
+      current += v; lastKind = "hundreds"; consumed = true; i++; continue;
+    }
+    if (lastKind === "unit" || lastKind === "teen" || lastKind === "fused") break;
+    if (lastKind === "tens" && v >= 20) break;
+    if (lastKind === "hundreds" || lastKind === "hundred") { /* «ciento cuatro», «two hundred five»: la unidad sigue desnuda */ }
+    else if (lastKind !== "" && lastKind !== "tens" && lastKind !== "scale") break;
+    current += v; lastKind = kindOf(t, v); consumed = true; i++;
+  }
+  if (!consumed) return null;
+  const value = total + current;
+  return value > 0 ? { value, end: i } : null;
+}
+
+function wordAmountsIn(raw: string): FoundAmount[] {
+  const toks = foldQ(raw).split(/[^a-z0-9]+/).filter(Boolean);
+  const cands: Array<{ value: number; start: number; end: number }> = [];
+  for (let i = 0; i < toks.length;) {
+    const t = toks[i];
+    if (WORD_NUM_ALL[t] !== undefined || t === "mil" || t === "millon" || t === "millones" || t === "thousand" || t === "million" || t === "millions" || t === "hundred") {
+      if (i > 0 && /\d/.test(toks[i - 1])) { i++; continue; }
+      const p = parseWordNumber(toks, i);
+      if (p) { cands.push({ value: p.value, start: i, end: p.end }); i = p.end; continue; }
+    }
+    i++;
+  }
+  if (!cands.length) return [];
+  const hasDigit = /\d/.test(raw);
+  const out: FoundAmount[] = [];
+  for (const cd of cands) {
+    const prev = toks[cd.start - 1] ?? "";
+    const next1 = toks[cd.end] ?? "";
+    const next2 = toks[cd.end + 1] ?? "";
+    const curWord = [next1, next2].find((x) => /^(dolares|dollars|cordobas|pesos)$/.test(x)) ?? "";
+    const certified = !!curWord
+      || WORD_MONEY_VERB.has(prev)
+      || cands.length >= 2
+      || (hasDigit && (prev === "mas" || prev === "plus" || next1 === "mas" || next1 === "plus"));
+    if (!certified) continue;
+    const currency: Currency = /^(cordobas|pesos)$/.test(curWord) ? "NIO" : "USD";
+    const value = prev === "menos" ? -cd.value : cd.value;
+    out.push({ minor: Math.round(value * 100), currency, label: "" });
+  }
+  return out;
+}
+
 /** Los montos que la pregunta TRAE, con su moneda y el concepto que los
  * sigue o precede («300 dólares de cumpleaños», «50 en comida»). */
 function amountsIn(raw: string): FoundAmount[] {
-  const out: FoundAmount[] = [];
+  const out: FoundAmount[] = wordAmountsIn(raw);
   // OLA 9 (cura de la CAZA-TRAMPAS, clase 1): el SIGNO y la ESCALA ya no
   // se evaporan. «−200» se leía +200 y «1 billón» se leía $1: un lector
   // que lee a medias es peor que uno que calla. El signo se captura; la
@@ -2725,7 +2830,13 @@ function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | nu
     }
   }
   // SUMA PURA: «si me regalaron 300…, 200… y 150, ¿cuánto sería?»
-  if (amounts.length >= 2 && /(cuanto seria|cuanto es en total|en total|cuanto suman|how much would (that|it) be|in total)/.test(folded)) {
+  // OLA 55: la suma pura oye su voz natural entera — «¿cuánto
+  // son…?», «¿cuánto serían…?», «¿cuánto es A más B?», «how much
+  // is X plus Y», «what is X plus Y» — y no solo las formas con
+  // «en total»: la calle pregunta la suma sin nombrar el total.
+  const sumVoice55 = /(cuanto seria|cuanto serian|cuanto son|cuanto es en total|en total|cuanto suman|cuanto (da|dan)\b|how much would (that|it) be|in total|how much would|what('s| is) the (sum|total))/.test(folded)
+    || (/(cuanto es|how much is|what is|what's)/.test(folded) && /(mas|plus)/.test(folded));
+  if (amounts.length >= 2 && sumVoice55) {
     const total = amounts.reduce((a, x) => a + disp(x), 0);
     return {
       kind: "answer", family: "calculadora",
@@ -4983,6 +5094,16 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // y sus guardianes (la premisa compuesta y lo que se repite se
   // quedan en la capacidad).
   if (hasAmt && amounts.length === 1 && recurring === 0 && !/(podria|podre|could)/.test(folded) && !quedaVoice && !llegaVoice && !totalVoice && !socialVerb && (buyVerb || /can i afford/.test(folded))) return null;
+  // OLA 55 · LA SUMA PREGUNTADA NO ES UNA PREMISA: «Si envío
+  // veinticinco más ciento cuatro más treinta, ¿cuánto serían?»
+  // trae «si» y varios montos, y esta puerta la caminaba como
+  // gasto traído — pero la pregunta pide la SUMA, no un juicio de
+  // capacidad. Sin ninguna voz de capacidad (asumir, quedaría,
+  // llega, máximo, próximo pago, lo social), la forma «¿cuánto
+  // son/serían/da…?» es de la calculadora y esta puerta cede.
+  const sumAskVoice = /(cuanto (son|serian|da|dan)\b|how much (is|would)|what('s| is) the (sum|total))/.test(folded)
+    || (/(cuanto es|how much is|what is|what's)/.test(folded) && /(mas|plus)/.test(folded));
+  if (sumAskVoice && !asumirVerb && !quedaVoice && !llegaVoice && !maxVoice && !paydayVoice && !socialVerb) return null;
   const fire = llegaVoice || totalVoice || quedaMine || maxVoice || paydayVoice || (hasAmt && (asumirVerb || socialVerb || buyMine || (multiOrRecur && premiseVerb && !plainQuedaAsk))) || (!hasAmt && asumirVerb);
   if (!fire) return null;
 
@@ -8196,7 +8317,7 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, raw, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo

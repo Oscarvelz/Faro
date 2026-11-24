@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.442",
+    date: "2026-11-24",
+    level: "menor",
+    title: { es: "Los números en palabras", en: "Numbers in words" },
+    points: {
+      es: [
+        "El Asesor ya suma lo que dictas en palabras: «veinticinco dólares más ciento cuatro más treinta, ¿cuánto serían?» — $159.00, con cada parte a la vista. También en inglés: “two hundred fifty plus fifty”.",
+        "Y el «si gasto…» oye el monto dictado: «si gasto doscientos dólares, ¿cuánto me queda?» resta de verdad. Lo que no es monto no se inventa: «una» no cuenta como número.",
+      ],
+      en: [
+        "The Advisor now adds what you dictate in words: “veinticinco dólares más ciento cuatro más treinta” — $159.00, with each part in view. In English too: “two hundred fifty plus fifty.”",
+        "And the “if I spend…” hears the dictated amount: “if I spend two hundred dollars, how much is left?” really subtracts. What isn't an amount isn't invented: “one” as an article doesn't count as a number.",
+      ],
+    },
+  },
+  {
     version: "1.3.441",
     date: "2026-11-24",
     level: "menor",
