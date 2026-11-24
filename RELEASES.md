@@ -4124,3 +4124,12 @@ El puerto de la Ola 54 del banco a canon — el cierre de la Caza III. La ola no
 **Verificación.** Set focal 426/426 (banco, generador, vecinos, utilidad, modos-ola28); instrumento completo. Suite completa: 3.526/3.526. Typecheck: solo las 3 erratas de base. Build: entry `index-BHrXLAxL.js`, sin `pack.json`.
 
 **Datos de publicación.** Fuente `ae3e3687`. Rama principal: 43 archivos, cola `0868a698`. Barrido en vivo: 28/28; el sw vivo lee `faro-1.3.441` y el índice vivo referencia `index-BHrXLAxL.js`; la rama confirma el paquete byte a byte (sha de blob `a8271d2f`, 2.981.878 bytes). Snapshot: `~/workspace/faro-441-dist-snapshot`.
+
+---
+## 1.3.442 — «Los números en palabras» (2026-11-24)
+
+El puerto de la Ola 55 del banco a canon. El lector de montos solo leía dígitos, y la calle dicta en palabras: «Si envío a Nicaragua veinticinco dólares más ciento cuatro más treinta, ¿cuánto serían?» — la captura de Oscar — caía en silencio. Entra el lector de secuencias en palabras en los dos idiomas (unidades, decenas con su «y», las formas fundidas, cientos, miles y millones), con sus guardas contra los falsos amigos: una palabra-número solo es monto con moneda al lado, un verbo de dinero justo antes, un hermano en dígitos unido por «más», o compañía de otra secuencia; «una» nunca es monto y «once» queda fuera del mapa a propósito (en inglés es un adverbio). La suma pura oye su voz natural entera («¿cuánto son…?», «how much is X plus Y») y la capacidad cede la suma preguntada sin voz de capacidad, reconciliado con la cesión acotada de canon de la Ola 38. Y el «sí que no resta» muere: «Si gasto doscientos dólares, ¿cuánto me queda?» resta de verdad, porque el hipotético lee el mismo lector.
+
+**Verificación.** Espécimenes «ola 55» portados (7: la captura suma $159.00 con sus piezas, las formas compuestas, el inglés dictado, la escala tras dígitos no se lee dos veces, el hipotético resta, los falsos amigos callan). Set focal 507/507 con los censos de modos-ola12; el instrumento sigue completo: interpretación 106/106, vecinos 14/14. Suite completa: 3.533/3.533. Typecheck: solo las 3 erratas de base. Build: entry `index-DHRFPaOT.js`, sin `pack.json`.
+
+**Datos de publicación.** Fuente `6dc4f6bd`. Rama principal: 43 archivos, cola `32e5694d`. Barrido en vivo: 28/28; el sw vivo lee `faro-1.3.442` y el índice vivo referencia `index-DHRFPaOT.js`; la rama confirma el paquete byte a byte (sha de blob `73ad635e`, 2.986.043 bytes). Snapshot: `~/workspace/faro-442-dist-snapshot`.
