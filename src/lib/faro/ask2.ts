@@ -5755,7 +5755,7 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
     if (!top) return null;
     return {
       kind: "answer", family: "frecuencia",
-      verdict: L(c.lang, `Tu gasto más frecuente es «${top[0]}»: ${top[1].n} veces anotadas, por ${c.money(top[1].total)} en total. Frecuente no es lo mismo que grande: es lo que más se repite.`, `Your most frequent spend is "${top[0]}": ${top[1].n} times recorded, for ${c.money(top[1].total)} in total. Frequent isn't the same as big: it's what repeats the most.`),
+      verdict: L(c.lang, `Tu gasto más frecuente es «${top[0]}»: ${top[1].n} ${top[1].n === 1 ? "vez anotada" : "veces anotadas"}, por ${c.money(top[1].total)} en total. Frecuente no es lo mismo que grande: es lo que más se repite.`, `Your most frequent spend is "${top[0]}": recorded ${top[1].n} ${top[1].n === 1 ? "time" : "times"}, for ${c.money(top[1].total)} in total. Frequent isn't the same as big: it's what repeats the most.`),
       pieces: [{ label: top[0], minor: top[1].total }, { label: L(c.lang, "Veces", "Times"), minor: top[1].n }],
       note: null, source: ["libros.lineas"], lines: top[1].n,
     };
@@ -5820,10 +5820,15 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
     const p = periodOf(c, folded);
     const pool = allLines(c).filter((l) => inPeriod(c, l, p) && isOut(l) && filter(l));
     const total = pool.reduce((a, l) => a + view(c, l), 0);
+    // OLA 50 (la Caza III): la concordancia («fue 1 vez», no «fueron
+    // 1 veces» — el generador la cazó) y la doctrina de las piezas:
+    // minor es DINERO; un conteo jamás viaja como pieza, porque la
+    // pieza se lee en moneda («Veces: $0.01» era una cifra falsa con
+    // cara de dato). El conteo vive en el veredicto, en palabras.
     return {
       kind: "answer", family: "frecuencia",
-      verdict: L(c.lang, `En ${p.label} fueron ${pool.length} veces, por ${c.money(total)} en total.`, `In ${p.label} it was ${pool.length} times, for ${c.money(total)} in total.`),
-      pieces: [{ label: L(c.lang, "Veces", "Times"), minor: pool.length }, { label: L(c.lang, "En total", "In total"), minor: total }],
+      verdict: L(c.lang, `En ${p.label} ${pool.length === 1 ? "fue 1 vez" : `fueron ${pool.length} veces`}, por ${c.money(total)} en total.`, `In ${p.label} it was ${pool.length} ${pool.length === 1 ? "time" : "times"}, for ${c.money(total)} in total.`),
+      pieces: [{ label: L(c.lang, "En total", "In total"), minor: total }],
       note: null, source: ["libros.lineas"], lines: pool.length,
     };
   }
@@ -5835,7 +5840,10 @@ function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
     return {
       kind: "answer", family: "frecuencia",
       verdict: L(c.lang, `Vas cada ${gap} días, en promedio: ${dates.length} veces entre el ${fmtFecha(c, dates[0])} y el ${fmtFecha(c, dates[dates.length - 1])}.`, `You go every ${gap} days on average: ${dates.length} times between ${fmtFecha(c, dates[0])} and ${fmtFecha(c, dates[dates.length - 1])}.`),
-      pieces: [{ label: L(c.lang, "Cada (días)", "Every (days)"), minor: gap }, { label: L(c.lang, "Veces medidas", "Times measured"), minor: dates.length }],
+      // OLA 50: sin piezas — los días y las veces no son dinero y
+      // minor solo lleva dinero; las cifras de esta respuesta viven
+      // en el veredicto, en palabras.
+      pieces: [],
       note: L(c.lang, "La cadencia se mide de tus fechas reales, no de un plan: si un mes vas más, la media se mueve.", "The cadence is measured from your real dates, not a plan: go more one month and the mean moves."),
       source: ["libros.lineas"], lines: dates.length,
     };
@@ -8280,7 +8288,11 @@ function answerSingle(
   // parecido y la pregunta sigue hasta su silencio; el pago
   // nombrado («¿ya pagué el internet?») no trae parecido y se juzga
   // como siempre.
-  if (!/(parecid|similar|something like|like this|algo asi)/.test(folded) && /(ya pague|ya page|did i (already )?pay|have i paid)/.test(folded)) return yaPagueAnswer(c, folded);
+  // OLA 50 (la Caza III): la forma de CONTEO no es una premisa de
+  // estado — «How many times did I pay…?» trae «did I pay» dentro y
+  // esta puerta se lo robaba. El conteo es de frecuencia y se juzga
+  // en su paso. (La guarda de «parecido» es de canon y se queda.)
+  if (!/(parecid|similar|something like|like this|algo asi)/.test(folded) && /(ya pague|ya page|did i (already )?pay|have i paid)/.test(folded) && !/(how many times|cuantas veces)/.test(folded)) return yaPagueAnswer(c, folded);
   // 4 · CUENTA-ORIGEN (¿de qué cuenta…? con monto).
   // OLA 28 (Familia 2, E28-2): el superlativo no es cuenta-origen —
   // «Which account do I owe the most on?» casaba con «which account»
@@ -8675,7 +8687,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(cuantas|cuantos) (cuotas|tarjetas|cuentas|prestamos|deudas|suscripciones)/, "conteo"],
     [/(ultima vez|cuando fue la ultima|la ultima (cosa|compra|vez)|ultima remesa|last time|last (remittance|amount|send|sent)|last (get|got) paid)/, "recencia"],
     [/(ha subido|subio de precio|subieron los precios|(subio|subieron).{0,24}suscripcion|no se cobro|no me cobraron|al ano en suscripciones|cuanto.*al ano.*suscripcion|subscription.{0,24}(go up|went up|goes up)|which subscription|didnt charge|did not charge|subscriptions? cost)/, "series"],
-    [/(cuantas veces|cada cuanto|cada cuantos|que suscripciones tengo|mas frecuente|duplicad|ha subido|subio de precio|que dia (gasto|compro) mas)/, "frecuencia"],
+    [/(cuantas veces|cada cuanto|cada cuantos|que suscripciones tengo|mas frecuente|duplicad|ha subido|subio de precio|que dia (gasto|compro) mas|how many times)/, "frecuencia"],
     [/(dias de trabajo|horas de trabajo|por (dia|hora) de trabajo|cuesta.{0,30}de trabajo)/, "precio-tiempo"],
     [/(como (fue|va|me fue)|en que se me va|en que gasto mas|resumen de|como cerro|mi mes (pasado|anterior))/, "relator"],
     [/(vence|vencen|proximo pago|tengo que pagar|por pagar|se me vence|upcoming|next payment)/, "agenda"],

@@ -382,7 +382,7 @@ export const QUESTION_BANK: BankFamily[] = [
     axes: ["forma (conteo en el período × cadencia entre fechas × el listado de suscripciones) × filtro"],
     canonical: {
       es: ["¿Cuántas veces fui al súper este mes?", "¿Cada cuánto voy al súper?", "¿Qué suscripciones tengo?"],
-      en: ["How many times did I go to the store?", "What subscriptions do I have?"],
+      en: ["How many times did I go to the store?", "What subscriptions do I have?", "How many times did I pay the rent?"],
     },
     answerShape: "OLA 12: el conteo cuenta líneas del filtro en el período; la cadencia se mide entre las fechas reales (con menos de dos fechas no hay cadencia y se dice); las suscripciones se listan con su monto y su próximo vencimiento.",
     contradiction: "—",

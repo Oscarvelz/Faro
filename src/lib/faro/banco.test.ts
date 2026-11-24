@@ -3454,6 +3454,64 @@ describe("banco · ola 48 — la cadencia del ingreso y el gasto por umbral (F2 
 });
 
 
+describe("banco · ola 50 — el conteo de eventos en su casa (la Caza III, agenda a+c)", () => {
+  function libroConteo50(): LedgerState {
+    const l = createInitial("es", "oscuro");
+    for (const mk of ["2026-08", "2026-09", KEY]) {
+      l.months[mk] = { lines: [
+        line({ id: `s50-${mk}`, kind: "income-fixed", concept: "Salario", amountMinor: 150000, bookedOn: `${mk}-05`, monthKey: mk }),
+        line({ id: `r50-${mk}`, kind: "expense-fixed", concept: "Renta", amountMinor: 45000, categoryId: "f-casa", recurring: true, bookedOn: `${mk}-01`, monthKey: mk }),
+        line({ id: `i50-${mk}`, kind: "expense-fixed", concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", bookedOn: `${mk}-28`, monthKey: mk, nextDue: mk === KEY ? "2026-10-28" : "" }),
+      ] };
+    }
+    l.settings.display = "USD";
+    return l;
+  }
+
+  it("el conteo en inglés ya no cae en ya-pagué: lo responde frecuencia, con su conteo", () => {
+    const r = ask(libroConteo50(), "How many times did I pay internet this month?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "frecuencia");
+    assert.ok(r.verdict.includes("1 time"), r.verdict);
+    assert.ok(r.verdict.includes("$49.99"), r.verdict);
+    // Con «rent» la familia ya es frecuencia (la precedencia quedó
+    // curada); su CIFRA depende de la costura bilingüe — «rent»
+    // contra el concepto «Renta» sin sub en la línea — que es la
+    // Ola 51, y allí se cerca. Aquí se cerca la casa, no la cifra.
+    const rr = ask(libroConteo50(), "How many times did I pay rent this month?", "en");
+    assert.equal(rr.kind, "answer");
+    if (rr.kind === "answer") assert.equal(rr.family, "frecuencia");
+  });
+
+  it("el conteo en español dice «fue 1 vez» — y el conteo no viaja como pieza de dinero", () => {
+    const r = ask(libroConteo50(), "¿Cuántas veces pagué renta este mes?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "frecuencia");
+    assert.ok(r.verdict.includes("fue 1 vez"), r.verdict);
+    assert.ok(r.verdict.includes("$450.00"), r.verdict);
+    assert.equal(r.pieces.length, 1);
+    assert.equal(r.pieces[0].minor, 45000);
+  });
+
+  it("el conteo en inglés sin tiempo también llega a frecuencia", () => {
+    const r = ask(libroConteo50(), "How many times did I pay internet?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "frecuencia");
+  });
+
+  it("guardianes: el estado sigue en ya-pagué y los ciudadanos en conteo", () => {
+    const a = ask(libroConteo50(), "¿Ya pagué internet?");
+    assert.equal(a.kind, "answer");
+    if (a.kind === "answer") assert.equal(a.family, "ya-pague");
+    const b = ask(libroConteo50(), "How many cards do I have?", "en");
+    assert.equal(b.kind, "answer");
+    if (b.kind === "answer") assert.equal(b.family, "conteo");
+  });
+});
+
 describe("banco · ola 49 — las ausencias con nombre (F6 + F7, la Caza II)", () => {
   function libroAhorro49(conIntereses: boolean): LedgerState {
     const l = createInitial("es", "oscuro");

@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.437",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "El conteo de veces, en su casa", en: "Counting the times, in its own home" },
+    points: {
+      es: [
+        "Preguntar «¿cuántas veces pagué…?» — también en inglés — ya no se confunde con «¿ya pagué?»: el conteo lo responde su propia familia, con las veces en palabras y el total en dinero.",
+        "Un conteo ya no se disfraza de dinero: las veces y los días dejaron de aparecer como cifras en moneda en las respuestas de frecuencia, y la gramática concuerda — «fue 1 vez», «1 vez anotada».",
+      ],
+      en: [
+        "Asking \"how many times did I pay…?\" is no longer mistaken for \"did I already pay?\": the count is answered by its own family, with the times in words and the total in money.",
+        "A count no longer dresses up as money: times and days stopped appearing as currency figures in frequency answers, and the grammar agrees — \"it was 1 time\", \"recorded 1 time\".",
+      ],
+    },
+  },
+  {
     version: "1.3.436",
     date: "2026-11-23",
     level: "menor",
