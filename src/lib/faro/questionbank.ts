@@ -852,6 +852,21 @@ export const QUESTION_BANK: BankFamily[] = [
     silences: ["«¿Cuánto tengo?» a secas es la queda del delegado: esta familia exige el «en total» o «todo mi dinero».", "«¿Cuánto debo en total?» es deudas: el total de lo que se tiene no es el total de lo que se debe."],
   },
   {
+    id: "figurada",
+    cap: { es: "si tienes poco o mucho este mes, preguntado en tu forma de hablar", en: "whether you have little or a lot this month, asked in your own way of speaking" },
+    name: { es: "La pregunta en figurado: ¿estoy palmado?, ¿tengo un dineral?", en: "The figurative question: am I broke?, am I flush?" },
+    status: "viva",
+    source: ["central.queda", "central.pagos"],
+    axes: ["la figura (poco × mucho) × la vara declarada (la queda del mes contra los pagos que aún vienen)"],
+    canonical: {
+      es: ["¿Estoy palmado?", "Dime si estoy palmado", "¿Tengo un dineral?"],
+      en: ["Am I broke?", "Do I have a fortune?"],
+    },
+    answerShape: "RAMA AGENTE E2 (la idea de Alvin, traída por Oscar el 2026-11-23): la figura se entiende como hipérbole — «palmado» es «tengo poco», «un dineral» es «tengo mucho» — y se responde el juicio contra el libro: la queda del mes (readAdvisor) contra los pagos que aún vienen (duesWindow a fin de mes, sin lo que me deben). Poco = la queda no cubre lo que viene; mucho = sobra más del doble de lo que viene. La vara se declara en la nota; jamás se comprueba si el saldo es literalmente cero, porque la pregunta no era esa.",
+    contradiction: "«¿Cuánto me queda?» sin figura es la queda del delegado; «quedé palmado» contado como relato es de la capa de relato (rama agente), no de esta familia.",
+    silences: ["La figura sin forma de pregunta («gasté una fortuna en el viaje») no se responde aquí: es color del relato, no una pregunta de estado.", "«¿Cuándo me quedo en cero?» es factibilidad: pide el día, no el juicio en figurado."],
+  },
+  {
     id: "factibilidad",
     cap: { es: "si el mes te alcanza, caminando tus pagos día a día hasta el fin", en: "whether the month holds, walking your payments day by day to the end" },
     name: { es: "La factibilidad: la prueba sobre lo anotado", en: "Feasibility: the proof over what's recorded" },

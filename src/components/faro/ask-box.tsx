@@ -53,7 +53,10 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, Compass, Send, Settings, Sparkles } from "lucide-react";
-import { answerBankQuestion, answerFollowUp, bankChips, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
+import { answerBankQuestion, answerFollowUp, bankChips, classifyBankQuestion, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
+import { parseRelato, type RelatoResult } from "@/lib/faro/relato";
+import { settleRelatoDrafts } from "@/lib/faro/relato-settle";
+import { formatMoney } from "@/lib/faro/money";
 import { aliasIn, askPatternsOf, forgetAlias, learnAlias, touchAlias } from "@/lib/faro/asklearn";
 import { foldQ } from "@/lib/faro/lexicon";
 import { askPresetsOf, addAskPreset, capabilitiesText, FIXED_PRESET_Q, nextAskEntry, suggestionTrio } from "@/lib/faro/askpresets";
@@ -131,6 +134,13 @@ export function AskBox() {
   // mano?») se descarta con «Ahora no» — y la caja lo recuerda solo
   // para ESTA respuesta: la próxima propuesta vuelve a ofrecerse.
   const [proposalOff, setProposalOff] = useState(false);
+  // 1.3.445 (puerto de la Rama Agente, E1+E2): EL RELATO — cuando lo
+  // escrito no es pregunta sino el cuento de un movimiento ya hecho
+  // («pagué la luz 45»), la caja lo oye como relato: parseRelato
+  // devuelve borradores con su eco, o la pregunta por el dato que
+  // falta. La tarjeta propone y el toque dispone: «Asentarlo así»
+  // asienta por relato-settle; «Ahora no» no toca el libro.
+  const [relato, setRelato] = useState<RelatoResult | null>(null);
   // 1.3.376: cada montaje de la caja es una entrada al Asesor; el
   // número de entrada elige el trío de sugerencias del banco.
   const [entry] = useState(() => nextAskEntry());
@@ -177,8 +187,30 @@ export function AskBox() {
     const clean = q.trim();
     if (!clean || !session) return;
     setCaps(false);
+    setRelato(null);
     setAsked(clean);
     setProposalOff(false);
+    // 1.3.445 · LA COSTURA DEL RELATO: lo que no es pregunta puede ser
+    // un relato — el cuento de lo ya hecho en el banco real (la idea
+    // de Alvin). La puerta es la del propio clasificador de la casa:
+    // si el texto es pregunta (aunque le falten los signos), va a la
+    // cascada de siempre, intacta; si no lo es, el relato se intenta
+    // primero y solo un «unknown» cae a la cascada. Un relato jamás
+    // roba una pregunta, y una pregunta jamás se asienta.
+    if (!pin && has("advisor.relato")) {
+      const cls = classifyBankQuestion(clean);
+      if (!cls.isQuestion) {
+        const rr = parseRelato(session.ledger, key, lang, names, clean, todayLocal());
+        if (rr.kind !== "unknown") {
+          setRelato(rr);
+          setResult(null);
+          setFrame(null);
+          setConvo(null);
+          setText("");
+          return;
+        }
+      }
+    }
     // Ola 23 (A23-1/2/3/5): la caja enhebra el modo vigente al motor —
     // el Asesor responde en el piso de la persona, no en el de la app.
     // §20 (1.3.380): con marco vivo, el seguimiento se intenta ANTES
@@ -291,6 +323,17 @@ export function AskBox() {
     setText("");
   }
 
+  // 1.3.445: el toque que dispone del relato — el eco ya dijo lo que
+  // se oyó; este toque lo asienta en el libro por la costura de
+  // relato-settle (que jamás asienta un duplicado dos veces).
+  function confirmRelato() {
+    if (!session || relato?.kind !== "drafts") return;
+    const drafts = relato.drafts;
+    commit((s) => settleRelatoDrafts(s, drafts, lang), L("Asentar el relato", "Post the story"));
+    importToast({ text: L("Quedó asentado en tu libro.", "It's posted in your book.") });
+    setRelato(null);
+  }
+
   // La fija del sistema: «¿Qué puede hacer el asesor?» — su respuesta no pasa por
   // el motor de preguntas: es la descripción honesta generada del banco
   // en el momento (askpresets.capabilitiesText), rendida como tarjeta de
@@ -310,6 +353,7 @@ export function AskBox() {
   // preguntas sugeridas del banco reaparecen (viven solo sin respuesta).
   function closeAnswer() {
     setResult(null);
+    setRelato(null);
     setFrame(null);
     setCaps(false);
     setAsked("");
@@ -394,6 +438,37 @@ export function AskBox() {
             </div>
             <p className="ask-note">{c.limits}</p>
           </>); })()}
+        </div>
+      ) : null}
+      {relato?.kind === "drafts" ? (
+        <div className="ask-card" data-anchor="ask-relato">
+          <p className="ask-verdict">{relato.echo}</p>
+          <div className="ask-relato-rows">
+            {relato.drafts.map((d, i) => (
+              <div key={i} className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
+                <span>{d.op === "mover"
+                  ? `${L("Mover", "Move")} · ${d.from?.label ?? ""} → ${d.to?.label ?? ""}`
+                  : d.concept}</span>
+                <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
+                {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba asentado", "already posted")}</span> : null}
+              </div>
+            ))}
+          </div>
+          <div className="ask-chips">
+            {relato.drafts.some((d) => !d.duplicate) ? (
+              <>
+                <button type="button" className="ask-chip is-fixed" data-anchor="ask-relato-yes" onClick={confirmRelato}>{L("Asentarlo así", "Post it like this")}</button>
+                <button type="button" className="ask-chip" data-anchor="ask-relato-no" onClick={() => setRelato(null)}>{L("Ahora no", "Not now")}</button>
+              </>
+            ) : (
+              <button type="button" className="ask-chip is-fixed" data-anchor="ask-relato-ok" onClick={() => setRelato(null)}>{L("Entendido", "Got it")}</button>
+            )}
+          </div>
+        </div>
+      ) : null}
+      {relato?.kind === "ask" ? (
+        <div className="ask-card" data-anchor="ask-relato-ask">
+          <p className="ask-verdict">{relato.question}</p>
         </div>
       ) : null}
       {result?.kind === "unknown" ? (
@@ -514,7 +589,7 @@ export function AskBox() {
           TRES, con su propio rótulo — como «A la mano» lleva el suyo —
           y DEBAJO de las preguntas de la persona. El trío rota en cada
           entrada a la caja (askpresets.suggestionTrio). */}
-      {!result && !caps ? (
+      {!result && !caps && !relato ? (
         <div className="ask-presets" data-anchor="ask-suggest">
           <span className="ask-presets-label">{L("Sugerencias", "Suggestions")}</span>
           <div className="ask-chips">

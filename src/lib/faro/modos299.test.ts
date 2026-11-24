@@ -292,10 +292,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA LIBRO COMPARTIDO C5 (1.3.395): nace libro-compartido
     // en Ritmo (books.share-admin): ritmo +1 por alcance y el total
     // +1 — acumulados 132 · 240 · 371.
-    assert.equal(count("esencial"), 132);
-    assert.equal(count("ritmo"), 240);
-    assert.equal(count("completo"), 371);
-    assert.equal(MANUAL_TOPICS.length, 371);
+    // ENMIENDA RAMA AGENTE (1.3.445): nace asesor-relato en Esencial
+    // (su función es advisor.relato): esencial +1, ritmo +1 por
+    // alcance y el total +1 — acumulados 133 · 241 · 372.
+    assert.equal(count("esencial"), 133);
+    assert.equal(count("ritmo"), 241);
+    assert.equal(count("completo"), 372);
+    assert.equal(MANUAL_TOPICS.length, 372);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

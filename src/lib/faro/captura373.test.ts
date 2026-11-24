@@ -61,7 +61,11 @@ test("373-3 · tocar la pregunta cierra la respuesta y vuelven las sugeridas", (
   assert.ok(close.includes("setResult(null)"), "el cierre apaga la respuesta");
   assert.ok(close.includes("setCaps(false)"), "el cierre apaga la descripción");
   assert.ok(close.includes('setAsked("")'), "el cierre retira la propia tarjeta");
-  assert.ok(boxSrc.includes("{!result && !caps ? ("), "sin respuesta, las sugeridas del banco viven — el cierre las devuelve");
+  // ENMIENDA 1.3.445 (puerto de la Rama Agente): la puerta de reposo
+  // gana su tercer término — con la tarjeta del relato viva tampoco
+  // hay reposo: el relato es una respuesta en curso, no el reposo.
+  // La ley no cambia: una sola puerta, y el cierre la devuelve.
+  assert.ok(boxSrc.includes("{!result && !caps && !relato ? ("), "sin respuesta, las sugeridas del banco viven — el cierre las devuelve");
 });
 
 test("373-4 · el acabado: grupos con su marca, y el párrafo suelto retirado", () => {

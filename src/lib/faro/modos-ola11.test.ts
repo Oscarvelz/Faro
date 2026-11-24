@@ -259,6 +259,7 @@ describe("§A · el censo del apartado: toda superficie agregadora, clasificada"
     "lib/faro/bitacora.ts:summarize": ["interna", "la foto del mes y la edición del año (1.3.367) componen sobre el resumen ya clasificado; cada tarjeta nombra su cifra por su concepto — queda, apartado, deuda — y ningún total del libro lee la Bitácora"],
     "lib/faro/bitacora.ts:yearReport": ["movimiento", "la edición del año (1.3.367) presenta el entra/sale del informe anual en su tarjeta «El año en una cifra», con sus nombres de movimiento y el neto como «te quedó»"],
     "lib/faro/bitacora.ts:categorySlices": ["gasto", "la tarjeta «Dónde se fue más» de la edición (1.3.367) presenta la mayor rebanada de gasto del año con su nombre y su parte («9 de cada 10 que gastaste fueron a Casa»)"],
+    "lib/faro/relato.ts:readAdvisor": ["interna", "el relato (E2, puerto de la Rama Agente 1.3.445) compone su línea proyectada sobre la Lectura ya clasificada: toma «left» y le suma o resta los borradores oídos para responder la figura de estado con el número; no agrega sumas propias desde las líneas"],
     "lib/faro/remesas.ts:summarize": ["interna", "lee remittance del resumen; no nombra gasto"],
     "lib/faro/rules.ts:readAdvisor": ["interna", "las reglas leen la Lectura; no presentan sumas"],
     "lib/faro/today.ts:summarize": ["interna", "lee opportunity (lo libre); no nombra gasto"],

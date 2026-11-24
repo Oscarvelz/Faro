@@ -24,6 +24,7 @@ import { createInitial, makeNamer } from "./defaults.ts";
 import { addLent } from "./debts.ts";
 import { addLoan } from "./loans.ts";
 import { addReading } from "./cards.ts";
+import { readAdvisor } from "./advisor.ts";
 import { duesWindow } from "./dues.ts";
 import { convertMinor, formatGuest, formatMoney, fromGuestMinor, toGuestMinor } from "./money.ts";
 import { QUESTION_BANK, liveFamilies } from "./questionbank.ts";
@@ -3495,6 +3496,75 @@ describe("banco · ola 56 — la suma con signos y el «cuánto sería» desnudo
     if (r.kind !== "answer") return;
     assert.equal(r.family, "factibilidad", r.verdict);
     assert.ok(r.verdict.includes("$1,700.00"), r.verdict);
+  });
+});
+
+describe("rama E2 · la pregunta en figurado (la idea de Alvin) — puerto de la Rama Agente", () => {
+  const ledger = fixture();
+  const leftOf = (l: LedgerState) => readAdvisor(l, KEY, "es", makeNamer(l.structure, "es"), { today: new Date(`${TODAY}T12:00:00`) }).left;
+  const dueRestOf = (l: LedgerState) => duesWindow(l, 9, TODAY).filter((x) => x.kind !== "lent").reduce((a, x) => a + (x.amt ?? 0), 0);
+
+  it("«¿Estoy palmado?» se responde contra el libro: la lectura del mes manda", () => {
+    const r = ask(ledger, "¿Estoy palmado?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "figurada", r.verdict);
+    const left = leftOf(ledger);
+    assert.ok(left <= 0, "el fixture cierra el mes sin margen");
+    assert.ok(r.verdict.includes(formatMoney(left, "USD", "es")), r.verdict);
+    assert.ok(r.source.includes("central.queda"));
+  });
+
+  it("«¿Tengo un dineral?» en el mismo libro: no, con la cifra en la mano", () => {
+    const r = ask(ledger, "¿Tengo un dineral?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "figurada", r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(leftOf(ledger), "USD", "es")), r.verdict);
+  });
+
+  it("la puerta conoce la familia", () => {
+    assert.equal(classifyBankQuestion("¿Estoy palmado?").family, "figurada");
+    assert.equal(classifyBankQuestion("¿Tengo un dineral?").family, "figurada");
+  });
+
+  it("la figura sin forma de pregunta no se roba: «gasté una fortuna en el viaje» no es esta familia", () => {
+    const r = ask(ledger, "gasté una fortuna en el viaje");
+    assert.ok(r.kind !== "answer" || r.family !== "figurada", JSON.stringify(r).slice(0, 200));
+  });
+
+  it("el espejo en inglés: «Am I broke?»", () => {
+    const r = ask(ledger, "Am I broke?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "figurada", r.verdict);
+  });
+
+  it("en un libro suelto, el dineral es sí y el palmado es no — con las dos cifras de la vara", () => {
+    let suelto = createInitial("es", "oscuro");
+    suelto.months[KEY] = {
+      lines: [
+        line({ id: "sueldo", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 300000, bookedOn: "2026-10-05" }),
+        line({ id: "net", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, nextDue: "2026-10-28", bookedOn: "2026-09-28" }),
+      ],
+    };
+    suelto.settings.display = "USD";
+    const left = leftOf(suelto);
+    const due = dueRestOf(suelto);
+    assert.ok(left >= due * 2, `la vara del espécimen: quedan ${left}, vienen ${due}`);
+    const r1 = ask(suelto, "¿Tengo un dineral?");
+    assert.equal(r1.kind, "answer", JSON.stringify(r1).slice(0, 200));
+    if (r1.kind === "answer") {
+      assert.equal(r1.family, "figurada", r1.verdict);
+      assert.ok(r1.verdict.includes(formatMoney(left, "USD", "es")), r1.verdict);
+      assert.ok(r1.verdict.includes(formatMoney(due, "USD", "es")), r1.verdict);
+    }
+    const r2 = ask(suelto, "¿Estoy palmado?");
+    assert.equal(r2.kind, "answer", JSON.stringify(r2).slice(0, 200));
+    if (r2.kind === "answer") {
+      assert.equal(r2.family, "figurada", r2.verdict);
+      assert.ok(r2.verdict.includes(formatMoney(left - due, "USD", "es")), r2.verdict);
+    }
   });
 });
 

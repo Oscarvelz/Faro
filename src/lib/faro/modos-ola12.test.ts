@@ -2368,6 +2368,7 @@ const FORMAS_ESCRITOR: Record<string, [Doctrina, string, string]> = {
  * que la caza nombró — queda clasificado por su conducta real: compone
  * desde el s vivo dentro del commit. */
 const FORMAS_DELEGADAS: Record<string, [Doctrina, string, string]> = {
+  "components/faro/ask-box.tsx:confirmRelato#1": ["campo", "1.3.445 (puerto de la Rama Agente): «Asentarlo así» asienta el relato delegando en settleRelatoDrafts, que compone las líneas del relato DESDE el s vivo dentro del commit — los borradores viajan como dato y la composición es de la librería (relato-settle), que jamás asienta un duplicado", "settleRelatoDrafts"],
   "components/faro/bitacora.tsx:close#1": ["campo", "la Bitácora (1.3.367): al cerrar la serie, markEditionSeen anota el seenAt de la edición sobre el libro vivo dentro del commit — la foto no se toca, solo la marca de leída", "markEditionSeen"],
   "components/faro/review-table.tsx:save#1": ["anexa", "Captura Ola 1: la mesa guarda en UN commit compuesto desde el s vivo — commitDrafts anexa las líneas nacidas de los borradores marcados, patchDraft/dropDraft resuelven los demás, y learnFromSaved aprende la regla del comercio cuya casa se corrigió (ley 9)", "learnFromSaved"],
   "components/faro/archivo.tsx:ArchivoScreen#1": ["campo", "restaura el «Me deben» archivado por id sobre el vivo, dentro del commit", "restoreLent"],

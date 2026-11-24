@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.445",
+    date: "2026-11-24",
+    level: "grande",
+    title: { es: "El relato que se asienta", en: "The story that posts itself" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Ahora le puedes CONTAR al Asesor lo que ya hiciste en tu banco, de un tirón: «moví 200 del banco al colchón, pagué la luz 45 y me entró el salario 1200». Lo oye como un relato y te lo devuelve en borradores, cada uno con su tarjetita y ubicado en tu libro cuando tu libro ya lo conoce.",
+        "Nada se asienta sin tu sí: la tarjeta te repite lo oído en palabras llanas y pregunta «¿Lo asiento así?». Con tu toque queda escrito en tu libro; con «Ahora no», nada se toca. Y lo que ya estaba asentado ese día no se asienta dos veces: su tarjetita lo dice.",
+        "Si falta un dato — el monto, el concepto, el destino de un traslado — pregunta por ese dato y no adivina. Asentar en la cuenta equivocada es el error que esta capacidad no comete.",
+        "También entiende tu forma de hablar: «me comí un pollo con tajadas, quedé palmado, vale 150» asienta el gasto de comida por 150, y lo de «palmado» se escucha como forma de hablar, no como un dato. Y si le preguntas «¿estoy palmado?» o «¿tengo un dineral?», responde el juicio contra tu libro: lo que te queda contra los pagos que aún vienen.",
+      ],
+      en: [
+        "Now you can TELL the Advisor what you already did at your bank, all at once: “I moved 200 from the bank to my mattress, paid the power bill 45 and my salary 1200 came in”. It hears it as a story and hands it back as drafts, each with its own little card, filed in your book when your book already knows it.",
+        "Nothing posts without your yes: the card repeats what it heard in plain words and asks “Shall I post it like this?”. With your tap it is written into your book; with “Not now”, nothing is touched. And what was already posted that day is never posted twice: its little card says so.",
+        "If a fact is missing — the amount, the concept, a move's destination — it asks for that fact and does not guess. Posting into the wrong account is the one error this capability does not make.",
+        "It also understands your way of speaking: “I ate a chicken with plantains, I'm wiped out, it was 150” posts the 150 food spend, and the “wiped out” is heard as a way of speaking, not as a fact. And if you ask it “am I broke?” or “do I have a fortune?”, it answers the judgment against your book: what you have left against the payments still coming.",
+      ],
+    },
+  },
+  {
     version: "1.3.444",
     date: "2026-11-24",
     level: "menor",

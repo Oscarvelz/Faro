@@ -465,6 +465,12 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // por la misma receta de aterrizaje que sus hermanas de captura —
   // addDrafts nunca se niega: deja el gasto preguntado en la bandeja.
   "components/faro/ask-box.tsx|commit|addDrafts|addDrafts": ["aterrizaje", 1],
+  // 1.3.445 (puerto de la Rama Agente, E1+E2): «Asentarlo así» de la
+  // tarjeta del relato comete por la misma receta de aterrizaje — el
+  // toque confirmado del usuario sobre su propio libro: asienta los
+  // borradores oídos por settleRelatoDrafts, que nunca se niega y
+  // jamás asienta un duplicado.
+  "components/faro/ask-box.tsx|commit|settleRelatoDrafts|settleRelatoDrafts": ["aterrizaje", 1],
   // 1.3.383 (la integración del banco, Olas 11/17): la caja del Asesor
   // escribe los patrones aprendidos por la puerta ordinaria — el
   // olvido que el usuario ordenó («olvida…», la señal forgetWord del

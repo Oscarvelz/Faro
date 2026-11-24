@@ -84,7 +84,7 @@ export type BankFamilyId =
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
   | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
-  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total";
+  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada";
 
 export type BankPiece = { label: string; minor: number };
 /* OLA 27 · EL GRAFO QUE EXPLICA (investigación II, mecanismos #1 y
@@ -5095,6 +5095,60 @@ function estadoAnswer(c: Ctx, folded: string): BankResult | null {
  * la sensibilidad («si la renta sube a…» sobre una línea del libro)
  * sigue en el hipotético; el «me da para X» de un solo monto simple
  * sigue en el delegado. */
+/* RAMA AGENTE · E2 · LA PREGUNTA EN FIGURADO: «¿estoy palmado?»,
+   «¿tengo un dineral?» (la idea de Alvin, traída por Oscar el
+   2026-11-23). La figura se entiende como figura — la hipérbole de
+   «tengo poco» o «tengo mucho» — y se responde el juicio contra el
+   libro: lo que queda del mes (la lectura de readAdvisor) contra los
+   pagos que aún vienen este mes (duesWindow hasta fin de mes, sin lo
+   que me deben). Poco = la queda no cubre lo que viene; mucho = sobra
+   más del doble de lo que viene. La vara se declara en la nota. Jamás
+   se comprueba si el saldo es literalmente cero: la pregunta no era
+   esa, y desmentir la forma de hablar del usuario no es responderla. */
+function figuradaAnswer(c: Ctx, folded: string): BankResult | null {
+  const lowFig = /\b(palmado|palmada|pelado|pelada|quebrado|quebrada|sin un real|broke|penniless|strapped)\b/.test(folded);
+  const highFig = /\b(dineral|millonada|fortuna|fortune|flush|loaded)\b/.test(folded);
+  if (!lowFig && !highFig) return null;
+  const q = folded.includes("?");
+  const isLow = lowFig && (q || /\b(dime si|estoy|ando)\b/.test(folded));
+  const isHigh = !isLow && highFig && (/\b(dime si|tengo|do i have)\b/.test(folded) || (/\bdineral\b/.test(folded) && q));
+  if (!isLow && !isHigh) return null;
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const left = reading.left;
+  const [yy, mm, dd] = c.today.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  const dueRest = duesWindow(c.state, Math.max(0, lastDay - dd), c.today)
+    .filter((x) => x.kind !== "lent")
+    .reduce((a, x) => a + (x.amt ?? 0), 0);
+  const money = c.money;
+  let verdict: string;
+  if (isLow) {
+    verdict = left <= 0
+      ? L(c.lang, `Este mes, sí: no te queda margen. La lectura del mes está en ${money(left)}.`, `This month, yes: there's nothing left over. The month's reading is at ${money(left)}.`)
+      : left <= dueRest
+        ? L(c.lang, `Poco, sí: te quedan ${money(left)}, pero los pagos que vienen este mes suman ${money(dueRest)} — no alcanza a cubrirlos.`, `Very little: you have ${money(left)} left, but the payments still coming this month add up to ${money(dueRest)} — it won't cover them.`)
+        : L(c.lang, `Del todo, no: te quedan ${money(left)} y los pagos que vienen suman ${money(dueRest)}. Después de ellos te restan ${money(left - dueRest)}.`, `Not quite: you have ${money(left)} left and the payments coming add up to ${money(dueRest)}. After them you'd still have ${money(left - dueRest)}.`);
+  } else {
+    verdict = left <= 0
+      ? L(c.lang, `No: este mes la lectura está en ${money(left)} — no hay resto.`, `No: this month's reading is at ${money(left)} — there's nothing extra.`)
+      : dueRest === 0
+        ? L(c.lang, `Sí: te quedan ${money(left)} y no viene ningún pago más este mes.`, `Yes: you have ${money(left)} left and no more payments coming this month.`)
+        : left >= dueRest * 2
+          ? L(c.lang, `Sí: te quedan ${money(left)} y lo que viene suma ${money(dueRest)} — te sobra más del doble de lo que tienes que pagar.`, `Yes: you have ${money(left)} left and what's coming adds up to ${money(dueRest)} — you have more than twice what you need to pay.`)
+          : L(c.lang, `Tanto, no: te quedan ${money(left)} y cubres lo que viene (${money(dueRest)}), pero te restan ${money(left - dueRest)} — es estar cubierto, no sobrado.`, `Not that much: you have ${money(left)} left and you cover what's coming (${money(dueRest)}), but you'd be left with ${money(left - dueRest)} — that's covered, not flush.`);
+  }
+  return {
+    kind: "answer", family: "figurada",
+    verdict,
+    pieces: [
+      { label: L(c.lang, "Lo que queda del mes", "What's left this month"), minor: left },
+      { label: L(c.lang, "Los pagos que vienen", "The payments still coming"), minor: dueRest },
+    ],
+    note: L(c.lang, "Lo mido contra los pagos que te quedan este mes: «mucho» y «poco» solo dicen algo contra lo que viene.", "I measure it against this month's remaining payments: 'a lot' and 'a little' only mean something against what's coming."),
+    source: ["central.queda", "central.pagos"], lines: 0,
+  };
+}
+
 function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   // La sensibilidad sobre una línea del libro es del hipotético.
   // PUERTO DE LA RAMA AGENTE (2026-11-24): la señal de la
@@ -8505,6 +8559,15 @@ function answerSingle(
     }
     return { kind: "unknown" };
   }
+  // 0-- · RAMA AGENTE E2 · LA PREGUNTA EN FIGURADO («¿estoy palmado?»,
+  // «¿tengo un dineral?») se juzga ANTES que la capacidad: su voz es
+  // estrecha (la figura + la forma de pregunta) y ninguna otra familia
+  // la oye — sin este paso cae en silencio o en la queda a secas.
+  {
+    const fig = figuradaAnswer(c, folded);
+    if (fig) return fig;
+  }
+
   // 0- · OLA 37 · LA CAPACIDAD: «¿podría asumir el gasto?» con sus
   // montos (de una vez y los que se repiten) se juzga ANTES que el
   // hipotético y que el delegado — el delegado tomaba solo el primer
@@ -9062,6 +9125,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
   if (!isQuestion) return { isQuestion: false, family: null };
   const hasDigit = /\d/.test(folded);
   const G: Array<[RegExp, BankFamilyId | "aprendizaje"]> = [
+    [/(palmado|palmada|pelado|pelada|quebrado|quebrada|sin un real|dineral|millonada|am i broke|do i have a fortune)/, "figurada"],
     [/(por que (dices|dijiste|sale|es)|de donde (sale|viene) (ese|esa|el|la|este|esta)|como calculaste|why do you say|where does (that|the) (number|figure|total) come from)/, "porque"],
     [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month|puedo (ir a|salir)|cuesta.{0,30}cordobas)/, "factibilidad"],
     [/(algo (cambio|raro|nuevo)|que cambio|deberia saber|what changed|anything (unusual|off|new|change|changed))/, "deriva"],

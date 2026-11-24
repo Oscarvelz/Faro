@@ -192,9 +192,13 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // en Ritmo (su función es books.share-admin — administrar la
     // membresía). La distribución se mueve a 132 · 108 · 131
     // sobre 371.
+    // ENMIENDA RAMA AGENTE (1.3.445): nace asesor-relato en Esencial
+    // (su función es advisor.relato — contar un movimiento es
+    // captura, como capture.text). La distribución se mueve a
+    // 133 · 108 · 131 sobre 372.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 371);
-    assert.equal(count("esencial"), 132);
+    assert.equal(MANUAL_TOPICS.length, 372);
+    assert.equal(count("esencial"), 133);
     assert.equal(count("ritmo"), 108);
     assert.equal(count("completo"), 131);
   });
