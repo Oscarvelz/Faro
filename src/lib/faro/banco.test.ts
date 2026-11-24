@@ -3454,6 +3454,54 @@ describe("banco · ola 48 — la cadencia del ingreso y el gasto por umbral (F2 
 });
 
 
+describe("banco · ola 51 — la costura bilingüe (la Caza III, agenda b)", () => {
+  function libroCostura51(concepto: string): LedgerState {
+    const l = createInitial("es", "oscuro");
+    for (const mk of ["2026-08", "2026-09", KEY]) {
+      l.months[mk] = { lines: [
+        line({ id: `s51-${mk}`, kind: "income-fixed", concept: "Salario", amountMinor: 150000, bookedOn: `${mk}-05`, monthKey: mk }),
+        line({ id: `r51-${mk}`, kind: "expense-fixed", concept: concepto, amountMinor: 45000, categoryId: "f-casa", recurring: true, bookedOn: `${mk}-01`, monthKey: mk }),
+      ] };
+    }
+    l.settings.display = "USD";
+    return l;
+  }
+
+  it("el promedio en inglés encuentra la renta anotada en español: $450.00, no un cero", () => {
+    const r = ask(libroCostura51("Renta"), "How much do I spend on rent per month?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "promedio");
+    assert.ok(r.verdict.includes("$450.00"), r.verdict);
+  });
+
+  it("la historia en inglés ya no imprime el cero falso sobre la misma costura", () => {
+    const r = ask(libroCostura51("Renta"), "How much did I spend on rent this month?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "historia");
+    assert.ok(r.verdict.includes("$450.00"), r.verdict);
+    assert.ok(!r.verdict.includes("$0.00"), r.verdict);
+  });
+
+  it("el conteo en inglés cobra su cifra sobre la costura (la frontera que la Ola 50 declaró)", () => {
+    const r = ask(libroCostura51("Renta"), "How many times did I pay rent this month?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "frecuencia");
+    assert.ok(r.verdict.includes("1 time"), r.verdict);
+    assert.ok(r.verdict.includes("$450.00"), r.verdict);
+  });
+
+  it("la costura cose en los dos sentidos: concepto en inglés, pregunta en español", () => {
+    const r = ask(libroCostura51("Rent"), "¿Cuánto gasto en renta al mes?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "promedio");
+    assert.ok(r.verdict.includes("$450.00"), r.verdict);
+  });
+});
+
 describe("banco · ola 50 — el conteo de eventos en su casa (la Caza III, agenda a+c)", () => {
   function libroConteo50(): LedgerState {
     const l = createInitial("es", "oscuro");

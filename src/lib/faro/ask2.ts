@@ -47,6 +47,7 @@
  *    seguía contando entre las no nacidas.)
  */
 import { bookMode, readAdvisor, type BookMode } from "./advisor.ts";
+import { makeNamer } from "./defaults.ts";
 import { guideOf } from "./coach.ts";
 import { aliasIn, describeLearned, frequentAliases, type LearnedAlias } from "./asklearn.ts";
 import { answerQuestion, askReaches, askReachesFloor, modeWord, pieceFloor, type AskResult } from "./ask.ts";
@@ -1590,9 +1591,31 @@ function filterDescOf(c: Ctx, folded: string): FilterHit | null {
     const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
     if (f.length >= 3 && whole.test(folded) && (!best || f.length > best.len)) best = { len: f.length, hit };
   };
+  /* OLA 51 (la Caza III) · LA COSTURA BILINGÜE: los nombres de la
+   * estructura son pares canónicos (nameKey → es/en), pero las
+   * líneas del usuario viven muchas veces como CONCEPTO libre
+   * escrito en el idioma en que las anotó. Preguntar en inglés
+   * «rent» casaba la palabra con el sub «Rent» y su filtro — solo
+   * por subId — no tocaba la línea «Renta» sin sub: el candidato
+   * exacto quedaba muerto y las familias medían sobre cero líneas
+   * (el cero falso del promedio y de la historia). El ciudadano-sub
+   * ahora también abraza las líneas cuyo concepto ES su nombre, en
+   * cualquiera de los dos idiomas: en el libro de una persona, una
+   * línea llamada «Renta» ES la renta, la lleve o no el sub puesto.
+   * ADAPTACIÓN DE CANON: el abrazo vive en las tres puertas del
+   * filtro de canon — filterDescOf, filterHitOf y filterFromDesc
+   * (la que reconstruye el filtro de un marco guardado) — para que
+   * el mismo filtro sea el mismo en la pregunta, en su marco y en
+   * su seguimiento; la desc viaja intacta. */
+  const otherNames = makeNamer(c.state.structure, c.lang === "es" ? "en" : "es");
   for (const cat of c.state.structure.categories) {
     consider(c.names.cat(cat.id), { fn: (l) => l.categoryId === cat.id, desc: { kind: "category", id: cat.id, label: c.names.cat(cat.id) } });
-    for (const s of cat.subs) consider(c.names.sub(s.id), { fn: (l) => l.subId === s.id, desc: { kind: "sub", id: s.id, label: c.names.sub(s.id) } });
+    for (const s of cat.subs) {
+      const fHere = foldQ(c.names.sub(s.id)).trim();
+      const fOther = foldQ(otherNames.sub(s.id)).trim();
+      consider(c.names.sub(s.id), { fn: (l) => l.subId === s.id
+        || (!!l.concept && (foldQ(l.concept).trim() === fHere || foldQ(l.concept).trim() === fOther)), desc: { kind: "sub", id: s.id, label: c.names.sub(s.id) } });
+    }
   }
   for (const p of c.state.structure.purchases) consider(c.names.purchase(p.id), { fn: (l) => l.kind === "purchase" && l.categoryId === p.id, desc: { kind: "purchase-cat", id: p.id, label: c.names.purchase(p.id) } });
   for (const item of c.state.structure.catalog) consider(c.names.catalog(item.id), { fn: (l) => l.storeId === item.id, desc: { kind: "store", id: item.id, label: c.names.catalog(item.id) } });
@@ -1603,7 +1626,15 @@ function filterDescOf(c: Ctx, folded: string): FilterHit | null {
 function filterFromDesc(c: Ctx, d: AskFrameFilter): (l: Line) => boolean {
   switch (d.kind) {
     case "category": return (l) => l.categoryId === d.id;
-    case "sub": return (l) => l.subId === d.id;
+    case "sub": {
+      // OLA 51: el filtro reconstruido de un marco abraza igual que
+      // el filtro vivo — el concepto que ES el nombre del sub, en
+      // cualquiera de los dos idiomas, es del sub.
+      const fHere = foldQ(c.names.sub(d.id)).trim();
+      const fOther = foldQ(makeNamer(c.state.structure, c.lang === "es" ? "en" : "es").sub(d.id)).trim();
+      return (l) => l.subId === d.id
+        || (!!l.concept && (foldQ(l.concept).trim() === fHere || foldQ(l.concept).trim() === fOther));
+    }
     case "store": return (l) => l.storeId === d.id;
     case "purchase-cat": return (l) => l.kind === "purchase" && l.categoryId === d.id;
     case "remit": return (l) => roleOf(c.state, l.categoryId) === "remittance";
@@ -1657,9 +1688,18 @@ function filterHitOf(c: Ctx, folded: string): { fn: (l: Line) => boolean; desc: 
     const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
     if (f.length >= 3 && whole.test(folded)) cands.push({ len: f.length, hit });
   };
+  // OLA 51: el ciudadano-sub abraza las líneas cuyo concepto ES su
+  // nombre en cualquiera de los dos idiomas (la costura bilingüe,
+  // escrita entera en filterDescOf).
+  const otherNames = makeNamer(c.state.structure, c.lang === "es" ? "en" : "es");
   for (const cat of c.state.structure.categories) {
     consider(c.names.cat(cat.id), { fn: (l) => l.categoryId === cat.id, desc: { kind: "category", id: cat.id, label: c.names.cat(cat.id) } });
-    for (const s of cat.subs) consider(c.names.sub(s.id), { fn: (l) => l.subId === s.id, desc: { kind: "sub", id: s.id, label: c.names.sub(s.id) } });
+    for (const s of cat.subs) {
+      const fHere = foldQ(c.names.sub(s.id)).trim();
+      const fOther = foldQ(otherNames.sub(s.id)).trim();
+      consider(c.names.sub(s.id), { fn: (l) => l.subId === s.id
+        || (!!l.concept && (foldQ(l.concept).trim() === fHere || foldQ(l.concept).trim() === fOther)), desc: { kind: "sub", id: s.id, label: c.names.sub(s.id) } });
+    }
   }
   for (const p of c.state.structure.purchases) consider(c.names.purchase(p.id), { fn: (l) => l.kind === "purchase" && l.categoryId === p.id, desc: { kind: "purchase-cat", id: p.id, label: c.names.purchase(p.id) } });
   for (const item of c.state.structure.catalog) consider(c.names.catalog(item.id), { fn: (l) => l.storeId === item.id, desc: { kind: "store", id: item.id, label: c.names.catalog(item.id) } });
@@ -5580,7 +5620,7 @@ function costoVidaAnswer(c: Ctx, folded: string): BankResult | null {
   /* ¿CUÁNTO ME CUESTA X / CUÁNTO GASTAMOS EN X AL MES?: el promedio
    * mensual de ese ciudadano, medido — la puerta del promedio no oía
    * «cuesta» ni «gastamos». */
-  const cuestaVoice = /(cuanto (me |nos |se )?(cuesta|cuestan)|cuanto gastamos en|cuanto gasto en|cuanto se (me |nos )?va en|how much does .{1,30} cost|how much do we spend on)/.test(folded)
+  const cuestaVoice = /(cuanto (me |nos |se )?(cuesta|cuestan)|cuanto gastamos en|cuanto gasto en|cuanto se (me |nos )?va en|how much does .{1,30} cost|how much do (we|i) spend on)/.test(folded)
     && /(al mes|por mes|mensual|per month|monthly|a month)/.test(folded);
   if (cuestaVoice) {
     const filter = filterOf(c, folded) ?? synonymFilter();

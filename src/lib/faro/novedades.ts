@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.438",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "La costura bilingüe", en: "The bilingual seam" },
+    points: {
+      es: [
+        "Si anotaste una línea como «Renta» sin ponerle su subcategoría, el Asesor ya la encuentra preguntes como preguntes: «¿cuánto gasto en renta al mes?», «How much do I spend on rent per month?», «How many times did I pay rent?» — antes, en inglés, la línea quedaba invisible y la respuesta medía cero.",
+        "La costura cose en los dos sentidos y en todas las puertas: la pregunta, su marco y el seguimiento («¿y el mes pasado?») usan el mismo filtro, así que la cifra no cambia al seguir preguntando.",
+      ],
+      en: [
+        "If you wrote a line as “Rent” without filing it under its subcategory, the Advisor now finds it however you ask: “¿cuánto gasto en renta al mes?”, “How much do I spend on rent per month?”, “How many times did I pay rent?” — before, in English, the line stayed invisible and the answer measured zero.",
+        "The seam sews both ways and through every door: the question, its frame and the follow-up (“and last month?”) use the same filter, so the figure doesn't change as you keep asking.",
+      ],
+    },
+  },
+  {
     version: "1.3.437",
     date: "2026-11-23",
     level: "menor",
