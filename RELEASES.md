@@ -4133,3 +4133,12 @@ El puerto de la Ola 55 del banco a canon. El lector de montos solo leía dígito
 **Verificación.** Espécimenes «ola 55» portados (7: la captura suma $159.00 con sus piezas, las formas compuestas, el inglés dictado, la escala tras dígitos no se lee dos veces, el hipotético resta, los falsos amigos callan). Set focal 507/507 con los censos de modos-ola12; el instrumento sigue completo: interpretación 106/106, vecinos 14/14. Suite completa: 3.533/3.533. Typecheck: solo las 3 erratas de base. Build: entry `index-DHRFPaOT.js`, sin `pack.json`.
 
 **Datos de publicación.** Fuente `6dc4f6bd`. Rama principal: 43 archivos, cola `32e5694d`. Barrido en vivo: 28/28; el sw vivo lee `faro-1.3.442` y el índice vivo referencia `index-DHRFPaOT.js`; la rama confirma el paquete byte a byte (sha de blob `73ad635e`, 2.986.043 bytes). Snapshot: `~/workspace/faro-442-dist-snapshot`.
+
+---
+## 1.3.443 — «La suma desnuda y el ‹cuánto sería›» (2026-11-24)
+
+El puerto de la Ola 56 del banco a canon — la última de las olas del banco: con esta versión, los puertos 50–56 están todos en el motor vivo. Dos capturas de Oscar la mandan. La primera: «10 + 25 + 104 + 30», sin una sola palabra de pregunta, caía en desconocido; ahora la expresión desnuda ES la suma — si toda la pregunta son montos unidos por + / más / plus, en dígitos o en palabras, no hay otra cosa que pueda estar pidiendo. La segunda: «Si envio 30 + 104 + 25 + 60, ¿cuánto sería?» recibía el juicio de capacidad entero por una suma de $219; el «cuánto sería» desnudo ahora cede a la calculadora, y el «cuánto sería» NOMBRADO del libro («el gasto total si compro… y rento…») sigue en la capacidad, cercado como guardián — porque una respuesta que confunde es peor que ninguna. La puerta del hipotético aprende el «+» y el «más» desnudos.
+
+**Verificación.** Espécimenes «ola 56» portados (4: la expresión desnuda en dígitos y en palabras suma $169.00, la captura recibe sus $219.00 de la calculadora, el guardián nombrado se queda en factibilidad con $1,700.00). Set focal 511/511; el instrumento sigue completo: interpretación 106/106, vecinos 14/14. Suite completa: 3.537/3.537. Typecheck: solo las 3 erratas de base. Build: entry `index-DwQCIsyb.js`, sin `pack.json`.
+
+**Datos de publicación.** Fuente `9ad82dba`. Rama principal: 43 archivos, cola `6c42ce96`. Barrido en vivo: 28/28; el sw vivo lee `faro-1.3.443` y el índice vivo referencia `index-DwQCIsyb.js`; la rama confirma el paquete byte a byte (sha de blob `ac1914c5`, 2.987.324 bytes). Snapshot: `~/workspace/faro-443-dist-snapshot`.
