@@ -2836,7 +2836,15 @@ function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | nu
   // «en total»: la calle pregunta la suma sin nombrar el total.
   const sumVoice55 = /(cuanto seria|cuanto serian|cuanto son|cuanto es en total|en total|cuanto suman|cuanto (da|dan)\b|how much would (that|it) be|in total|how much would|what('s| is) the (sum|total))/.test(folded)
     || (/(cuanto es|how much is|what is|what's)/.test(folded) && /(mas|plus)/.test(folded));
-  if (amounts.length >= 2 && sumVoice55) {
+  // OLA 56 · LA EXPRESIÓN DESNUDA: «10 + 25 + 104 + 30» sin una
+  // sola palabra de pregunta (captura de Oscar, 2026-11-23) — si
+  // TODA la pregunta son montos unidos por + / más / plus, no hay
+  // otra cosa que pueda estar pidiendo: es la suma.
+  const exprToks = folded.split(/[^a-z0-9+]+/).filter(Boolean);
+  const pureExpression = amounts.length >= 2
+    && exprToks.some((t) => t === "+" || t === "mas" || t === "plus")
+    && exprToks.every((t) => t === "+" || t === "mas" || t === "plus" || t === "y" || t === "and" || /\d/.test(t) || WORD_NUM_ALL[t] !== undefined || t === "mil" || t === "millon" || t === "millones" || t === "thousand" || t === "million" || t === "millions" || t === "hundred");
+  if (amounts.length >= 2 && (sumVoice55 || pureExpression)) {
     const total = amounts.reduce((a, x) => a + disp(x), 0);
     return {
       kind: "answer", family: "calculadora",
@@ -5101,9 +5109,15 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // capacidad. Sin ninguna voz de capacidad (asumir, quedaría,
   // llega, máximo, próximo pago, lo social), la forma «¿cuánto
   // son/serían/da…?» es de la calculadora y esta puerta cede.
-  const sumAskVoice = /(cuanto (son|serian|da|dan)\b|how much (is|would)|what('s| is) the (sum|total))/.test(folded)
+  const sumAskVoice = /(cuanto (son|serian|seria|da|dan)\b|how much (is|would)|what('s| is) the (sum|total))/.test(folded)
     || (/(cuanto es|how much is|what is|what's)/.test(folded) && /(mas|plus)/.test(folded));
-  if (sumAskVoice && !asumirVerb && !quedaVoice && !llegaVoice && !maxVoice && !paydayVoice && !socialVerb) return null;
+  // OLA 56: el «cuánto sería» DESNUDO también es suma preguntada
+  // («si envio 30 + 104 + 25 + 60, ¿cuánto sería?» recibía el
+  // juicio de capacidad entero por una suma de $219 — la captura
+  // de Oscar, 2026-11-23). El «cuánto sería» NOMBRADO del libro
+  // («el gasto total», «en total») sigue siendo de esta familia:
+  // totalVoice bloquea la cesión.
+  if (sumAskVoice && !asumirVerb && !quedaVoice && !llegaVoice && !maxVoice && !paydayVoice && !socialVerb && !totalVoice) return null;
   const fire = llegaVoice || totalVoice || quedaMine || maxVoice || paydayVoice || (hasAmt && (asumirVerb || socialVerb || buyMine || (multiOrRecur && premiseVerb && !plainQuedaAsk))) || (!hasAmt && asumirVerb);
   if (!fire) return null;
 
@@ -8317,7 +8331,7 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, raw, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo

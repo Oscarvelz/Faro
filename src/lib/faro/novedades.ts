@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.443",
+    date: "2026-11-24",
+    level: "menor",
+    title: { es: "La suma desnuda y el «cuánto sería»", en: "The bare sum and “how much would it be”" },
+    points: {
+      es: [
+        "Si escribes solo la cuenta — «10 + 25 + 104 + 30», en dígitos o en palabras — el Asesor la suma: no hace falta preguntar nada más.",
+        "Y «si envío 30 + 104 + 25 + 60, ¿cuánto sería?» recibe la suma, $219.00, no un juicio de capacidad que nadie pidió. El «cuánto sería» que nombra tu libro («el gasto total si compro…») sigue juzgándose como capacidad, como debe ser.",
+      ],
+      en: [
+        "If you write just the math — “10 + 25 + 104 + 30”, in digits or in words — the Advisor adds it: nothing else needs asking.",
+        "And “if I send 30 + 104 + 25 + 60, how much would it be?” gets the sum, $219.00, not a capacity judgment nobody asked for. The “how much would it be” that names your book (“the total spend if I buy…”) is still judged as capacity, as it should be.",
+      ],
+    },
+  },
+  {
     version: "1.3.442",
     date: "2026-11-24",
     level: "menor",

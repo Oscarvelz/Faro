@@ -3454,6 +3454,50 @@ describe("banco · ola 48 — la cadencia del ingreso y el gasto por umbral (F2 
 });
 
 
+describe("banco · ola 56 — la suma con signos y el «cuánto sería» desnudo (las capturas de Oscar, 2026-11-23)", () => {
+  function libro56(): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    ledger.months[KEY] = { lines: [
+      line({ id: "o56-sal", kind: "income-fixed", concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+      line({ id: "o56-rem", kind: "expense-fixed", concept: "Remesa a Mamá", amountMinor: 17000, categoryId: "f-remesas", bookedOn: "2026-10-10" }),
+    ] };
+    ledger.settings.display = "USD";
+    return ledger;
+  }
+
+  it("la expresión desnuda con signos: «10 + 25 + 104 + 30» es la suma", () => {
+    const r = ask(libro56(), "10 + 25 + 104 + 30");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora", r.verdict);
+    assert.ok(r.verdict.includes("$169.00"), r.verdict);
+  });
+
+  it("la expresión desnuda en palabras: «diez más veinticinco más ciento cuatro más treinta»", () => {
+    const r = ask(libro56(), "diez más veinticinco más ciento cuatro más treinta");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora", r.verdict);
+    assert.ok(r.verdict.includes("$169.00"), r.verdict);
+  });
+
+  it("la captura: «si envio 30 + 104 + 25 + 60, ¿cuánto sería?» pide la suma, no el juicio", () => {
+    const r = ask(libro56(), "Si envio 30 + 104 + 25 + 60, cuanto seria?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora", r.verdict);
+    assert.ok(r.verdict.includes("$219.00"), r.verdict);
+  });
+
+  it("el guardián: el «cuánto sería» nombrado del libro sigue en factibilidad", () => {
+    const r = ask(libro56(), "¿Cuánto sería el gasto total si compro un boleto de 500 y rento una casa por 1200?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad", r.verdict);
+    assert.ok(r.verdict.includes("$1,700.00"), r.verdict);
+  });
+});
+
 describe("banco · ola 55 — los números en palabras (la captura de Oscar, 2026-11-23)", () => {
   function libro55(): LedgerState {
     const ledger = createInitial("es", "oscuro");
