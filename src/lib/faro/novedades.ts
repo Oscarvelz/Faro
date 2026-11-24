@@ -40,6 +40,26 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.444",
+    date: "2026-11-24",
+    level: "menor",
+    title: { es: "La moneda se oye", en: "The currency is heard" },
+    points: {
+      es: [
+        "El monto que no nombra su moneda se oye en la moneda de tu libro: si tu libro corre en córdobas, «pagué 500 de luz» son C$500, no $500. El signo $ y la palabra «dólares» o «córdobas» mandan cuando los escribes.",
+        "La moneda invitada ya convierte: «¿cuánto es 100 dólares en euros?» usa la tasa de tu Mesa de cambio y la nombra, con su fecha. Si tu libro no tiene la tasa de esa moneda, el Asesor lo dice y no inventa ninguna.",
+        "Y tras una respuesta puedes seguir con «¿y en córdobas?» o «¿y en euros?»: convierte la cifra que acabas de ver, nombrándola.",
+        "También: «Puedo ir a cenar si la cena me cuesta 200 córdobas» ya recibe su juicio — el costo se convierte con la tasa de tu libro y la respuesta lo dice — y «¿puedo gastar cien en zapatos?» ya no pide el monto que escribiste en palabras.",
+      ],
+      en: [
+        "An amount that doesn't name its currency is heard in your book's currency: if your book runs in córdobas, “I paid 500 for electricity” is C$500, not $500. The $ sign and the words “dollars” or “córdobas” rule when you write them.",
+        "Your guest currency now converts: “how much is 100 dollars in euros?” uses your Exchange desk's rate and names it, with its date. If your book holds no rate for that currency, the Advisor says so and invents none.",
+        "And after an answer you can follow with “and in córdobas?” or “and in euros?”: it converts the figure you just saw, naming it.",
+        "Also: “Can I go out to dinner if dinner costs 200 cordobas?” now gets its judgment — the cost is converted at your book's rate and the answer says so — and “can I spend a hundred on shoes?” no longer asks for the amount you wrote in words.",
+      ],
+    },
+  },
+  {
     version: "1.3.443",
     date: "2026-11-24",
     level: "menor",

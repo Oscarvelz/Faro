@@ -61,7 +61,7 @@ import { inView, isSpendLine, monthLines, summarize } from "./engine.ts";
 import { cushionOf, hostAccounts, libreOf } from "./funds.ts";
 import { periodRange } from "./historial.ts";
 import { foldQ, parseQuestion } from "./lexicon.ts";
-import { convertMinor, formatMoney } from "./money.ts";
+import { convertMinor, formatGuest, formatMoney, formatRate, fromGuestMinor, guestDef, toGuestMinor } from "./money.ts";
 import { QUESTION_BANK } from "./questionbank.ts";
 import { remitByPerson, remitHistory, recipientName } from "./remit-people.ts";
 import { savingsStock } from "./savings.ts";
@@ -350,7 +350,7 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
 
     /* SACAR DE LOS AHORROS: la premisa se camina contra el stock y
      * contra el colchón — no contra el mes. */
-    const amounts41 = amountsIn(raw);
+    const amounts41 = amountsIn(raw, c.display);
     if (/(sacar|retirar|saco|retiro|take out|withdraw)/.test(folded) && amounts41.length >= 1 && /(ahorr|savings)/.test(folded)) {
       const amt = convertMinor(amounts41[0].minor, amounts41[0].currency, c.display, c.rateE4);
       const total = stock0.total;
@@ -2575,7 +2575,7 @@ function futuroAnswer(c: Ctx, folded: string): BankResult | null {
 /* dice su base y su supuesto: nada se guarda, nada se anota — es un  */
 /* «si», no un hecho. «Pesos» son córdobas (la regla de Oscar).       */
 /* ------------------------------------------------------------------ */
-type FoundAmount = { minor: number; currency: Currency; label: string };
+export type FoundAmount = { minor: number; currency: Currency; label: string };
 const WORD_NUM: Record<string, number> = {
   dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, doce: 12,
   two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12,
@@ -2623,7 +2623,7 @@ const WORD_NUM_EN: Record<string, number> = {
 const WORD_NUM_ALL: Record<string, number> = { ...WORD_NUM_ES, ...WORD_NUM_EN };
 const WORD_MONEY_VERB = new Set(["gastar", "gasto", "gaste", "pagar", "pague", "pago", "comprar", "compre", "compra", "enviar", "envio", "envie", "mandar", "mande", "cobrar", "cobre", "costar", "cuesta", "cuestan", "spend", "spent", "pay", "paid", "buy", "bought", "send", "sent", "cost", "costs"]);
 
-function parseWordNumber(toks: string[], start: number): { value: number; end: number } | null {
+export function parseWordNumber(toks: string[], start: number): { value: number; end: number } | null {
   let i = start;
   let total = 0;
   let current = 0;
@@ -2661,7 +2661,7 @@ function parseWordNumber(toks: string[], start: number): { value: number; end: n
   return value > 0 ? { value, end: i } : null;
 }
 
-function wordAmountsIn(raw: string): FoundAmount[] {
+function wordAmountsIn(raw: string, def: Currency = "USD"): FoundAmount[] {
   const toks = foldQ(raw).split(/[^a-z0-9]+/).filter(Boolean);
   const cands: Array<{ value: number; start: number; end: number }> = [];
   for (let i = 0; i < toks.length;) {
@@ -2686,7 +2686,10 @@ function wordAmountsIn(raw: string): FoundAmount[] {
       || cands.length >= 2
       || (hasDigit && (prev === "mas" || prev === "plus" || next1 === "mas" || next1 === "plus"));
     if (!certified) continue;
-    const currency: Currency = /^(cordobas|pesos)$/.test(curWord) ? "NIO" : "USD";
+    // LA MONEDA SE OYE (puerto de la Rama Agente, 2026-11-24): la
+    // palabra de moneda manda; sin palabra, el monto dictado es de
+    // la moneda DEL LIBRO (def), no del dólar por defecto.
+    const currency: Currency = /^(cordobas|pesos)$/.test(curWord) ? "NIO" : /^(dolares|dollars)$/.test(curWord) ? "USD" : def;
     const value = prev === "menos" ? -cd.value : cd.value;
     out.push({ minor: Math.round(value * 100), currency, label: "" });
   }
@@ -2695,8 +2698,8 @@ function wordAmountsIn(raw: string): FoundAmount[] {
 
 /** Los montos que la pregunta TRAE, con su moneda y el concepto que los
  * sigue o precede («300 dólares de cumpleaños», «50 en comida»). */
-function amountsIn(raw: string): FoundAmount[] {
-  const out: FoundAmount[] = wordAmountsIn(raw);
+export function amountsIn(raw: string, def: Currency = "USD"): FoundAmount[] {
+  const out: FoundAmount[] = wordAmountsIn(raw, def);
   // OLA 9 (cura de la CAZA-TRAMPAS, clase 1): el SIGNO y la ESCALA ya no
   // se evaporan. «−200» se leía +200 y «1 billón» se leía $1: un lector
   // que lee a medias es peor que uno que calla. El signo se captura; la
@@ -2704,20 +2707,32 @@ function amountsIn(raw: string): FoundAmount[] {
   // billion ×1e9); «billón» ES es ambiguo (10¹² contra el billion EN)
   // y ese monto NO se lee: la familia cae en su silencio honesto antes
   // que responder con una cifra a medias.
-  const re = /(-|−|menos\s+)?(\$|c\$|us\$)?\s*(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d{1,2})?)\s*(dolares|dólares|pesos|cordobas|córdoba|usd|nio)?\s*(millones|millon|millón|million|millions|billion|billions|billones|billon|billón|mil)?/gi;
+  const re = /(-|−|menos\s+)?(\$|c\$|us\$)?\s*(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d{1,2})?)\s*(dolares|dólares|pesos|cordobas|córdoba|córdobas|usd|nio)?\s*(millones|millon|millón|million|millions|billion|billions|billones|billon|billón|mil)?/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw)) !== null) {
-    const scaleWord = (m[5] ?? "").toLowerCase();
-    if (scaleWord === "billon" || scaleWord === "billón" || scaleWord === "billones") continue;
+    // La escritura real trae acentos o no los trae, según el teléfono y
+    // el apuro: la palabra de moneda y la de escala se pliegan antes de
+    // juzgarlas. Sin el pliegue, «200 Córdobas» — con acento y plural —
+    // se leía como 200 DÓLARES (espécimen 2026-11-23, puerto de la
+    // Rama Agente).
+    const scaleWord = foldQ((m[5] ?? "").toLowerCase());
+    if (scaleWord === "billon" || scaleWord === "billones") continue;
     let value = parseNumberToken(m[3]);
     if (!Number.isFinite(value) || value === 0) continue;
     if (scaleWord === "mil") value *= 1_000;
     else if (scaleWord) value *= scaleWord.startsWith("b") ? 1_000_000_000 : 1_000_000;
     if (m[1]) value = -Math.abs(value);
-    const word = (m[4] ?? "").toLowerCase();
+    const word = foldQ((m[4] ?? "").toLowerCase());
+    // LA MONEDA SE OYE (puerto de la Rama Agente, 2026-11-24): el
+    // monto que no nombra su moneda es de la moneda DEL LIBRO (def),
+    // no del dólar por defecto — un libro en córdobas oye «500» como
+    // C$500. El signo $ y la palabra nombran su moneda y mandan
+    // sobre el defecto.
     const currency: Currency = word.startsWith("peso") || word.startsWith("cordoba") || word === "nio" || (m[2] ?? "").toLowerCase() === "c$"
       ? "NIO"
-      : "USD";
+      : (m[2] ?? "").toLowerCase() === "$" || (m[2] ?? "").toLowerCase() === "us$" || word.startsWith("dolar") || word.startsWith("dollar") || word === "usd"
+        ? "USD"
+        : def;
     // El concepto: las palabras que siguen al monto hasta la próxima
     // cifra, una coma o el cierre de la pregunta («en comida», «de
     // cumpleaños») — limpio y corto, para nombrar la pieza.
@@ -2746,7 +2761,7 @@ function amountsIn(raw: string): FoundAmount[] {
 }
 
 function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   // REPARTO: «divido 1500 en tres partes» / «entre 4 personas».
   const divMatch = folded.match(/(divid|repart|split|divide)/);
@@ -2858,7 +2873,7 @@ function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | nu
 }
 
 function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): BankResult | null {
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   if (amounts.length < 1) return null;
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   const sum = amounts.reduce((a, x) => a + disp(x), 0);
@@ -3035,9 +3050,99 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
 /* semana ⇄ mes ⇄ año, dentro de la calculadora). Cada herramienta    */
 /* dice su fuente y su supuesto, como todo en este motor.             */
 /* ------------------------------------------------------------------ */
+/* LA MONEDA INVITADA (puerto de la Rama Agente, 2026-11-24): el
+ * léxico de las 16 invitadas del catálogo de money.ts. «reales» a
+ * secas NO es el real brasileño — en Nicaragua es el dinero en
+ * general; el real entra solo con su apellido («reales brasileños»,
+ * «brazilian real», «brl»). */
+const GUEST_WORDS: Array<{ code: string; re: RegExp }> = [
+  { code: "EUR", re: /\b(euro|euros|eur)\b/ },
+  { code: "GBP", re: /\b(libra|libras|pound|pounds|gbp)\b/ },
+  { code: "MXN", re: /\b(pesos? mexicanos?|mxn)\b/ },
+  { code: "CRC", re: /\b(colon|colones|crc)\b/ },
+  { code: "GTQ", re: /\b(quetzal|quetzales|gtq)\b/ },
+  { code: "HNL", re: /\b(lempira|lempiras|hnl)\b/ },
+  { code: "PAB", re: /\b(balboa|balboas|pab)\b/ },
+  { code: "DOP", re: /\b(pesos? dominicanos?|dop)\b/ },
+  { code: "CAD", re: /\b(dolares? canadienses?|canadian dollars?|cad)\b/ },
+  { code: "AUD", re: /\b(dolares? australianos?|australian dollars?|aud)\b/ },
+  { code: "CHF", re: /\b(francos?( suizos?)?|swiss francs?|chf)\b/ },
+  { code: "BRL", re: /\b(real|reales) brasilenos?\b|\bbrazilian real\b|\bbrl\b/ },
+  { code: "COP", re: /\b(pesos? colombianos?|cop)\b/ },
+  { code: "PEN", re: /\b(sol|soles|pen)\b/ },
+  { code: "CNY", re: /\b(yuan|yuanes|cny|renminbi)\b/ },
+  { code: "JPY", re: /\b(yen|yenes|jpy)\b/ },
+];
+function guestMatch(folded: string): { code: string; index: number; end: number } | null {
+  for (const g of GUEST_WORDS) {
+    const m = g.re.exec(folded);
+    if (m) return { code: g.code, index: m.index, end: m.index + m[0].length };
+  }
+  return null;
+}
+function guestIn(folded: string): string | null {
+  return guestMatch(folded)?.code ?? null;
+}
+function guestName(lang: Lang, code: string): string {
+  const names: Record<string, [string, string]> = {
+    EUR: ["euros", "euros"], GBP: ["libras", "pounds"], MXN: ["pesos mexicanos", "Mexican pesos"], CRC: ["colones", "colones"],
+    GTQ: ["quetzales", "quetzales"], HNL: ["lempiras", "lempiras"], PAB: ["balboas", "balboas"], DOP: ["pesos dominicanos", "Dominican pesos"],
+    CAD: ["dólares canadienses", "Canadian dollars"], AUD: ["dólares australianos", "Australian dollars"], CHF: ["francos suizos", "Swiss francs"],
+    BRL: ["reales brasileños", "Brazilian reais"], COP: ["pesos colombianos", "Colombian pesos"], PEN: ["soles", "soles"],
+    CNY: ["yuanes", "yuan"], JPY: ["yenes", "yen"],
+  };
+  return (names[code] ?? [code, code])[lang === "es" ? 0 : 1];
+}
+type AnyCur = Currency | string;
+/** Formatea un minor en CUALQUIER moneda: las del libro con formatMoney, la invitada con formatGuest. */
+function fmtAny(lang: Lang, minor: number, cur: AnyCur): string {
+  return cur === "USD" || cur === "NIO" ? formatMoney(minor, cur, lang) : formatGuest(minor, cur, lang);
+}
+/** De cualquier moneda a centavos de dólar, con las tasas DEL LIBRO.
+ * Devuelve null cuando la invitada no es la configurada: sin su tasa
+ * no hay conversión honesta, y el Asesor jamás inventa una. */
+function toUsdCents(state: LedgerState, minor: number, from: AnyCur): number | null {
+  const rateE4 = state.settings.rateE4;
+  if (from === "USD") return minor;
+  if (from === "NIO") return convertMinor(minor, "NIO", "USD", rateE4);
+  const g = state.settings.guestRate;
+  if (!g || state.settings.guestCur !== from) return null;
+  return fromGuestMinor(minor, g.per, from);
+}
+/** De centavos de dólar a cualquier moneda, con las tasas del libro. */
+function fromUsdCents(state: LedgerState, usdCents: number, to: AnyCur): number | null {
+  const rateE4 = state.settings.rateE4;
+  if (to === "USD") return usdCents;
+  if (to === "NIO") return convertMinor(usdCents, "USD", "NIO", rateE4);
+  const g = state.settings.guestRate;
+  if (!g || state.settings.guestCur !== to) return null;
+  return toGuestMinor(usdCents, "USD", rateE4, g.per, to);
+}
+/** La frase de la tasa usada, nombrada con su fecha y su fuente cuando el libro las trae. */
+function rateNote(state: LedgerState, lang: Lang, involvesGuest: string | null): string {
+  const parts: string[] = [];
+  parts.push(L(lang, `dólar–córdoba ${formatRate(state.settings.rateE4)}`, `dollar–córdoba ${formatRate(state.settings.rateE4)}`));
+  if (involvesGuest) {
+    const g = state.settings.guestRate;
+    if (g) parts.push(`1 USD = ${g.per} ${involvesGuest}${g.asOf ? L(lang, ` (tasa del ${g.asOf}${g.source ? `, ${g.source}` : ""})`, ` (rate as of ${g.asOf}${g.source ? `, ${g.source}` : ""})`) : ""}`);
+  }
+  return L(lang, `Tasas de tu Mesa de cambio: ${parts.join(" · ")}. La manual que fijes manda sobre cualquier otra.`, `Your Exchange desk's rates: ${parts.join(" · ")}. A manual rate you set wins over any other.`);
+}
+/** La respuesta honesta cuando una invitada no tiene tasa en el libro. */
+function guestNoRateResult(state: LedgerState, lang: Lang, code: string): Extract<BankResult, { kind: "answer" }> {
+  const configured = state.settings.guestCur;
+  return {
+    kind: "answer", family: "conversor",
+    verdict: configured
+      ? L(lang, `Para convertir con ${guestName(lang, code)} necesito su tasa en tu Mesa de cambio, y no la tengo: tu moneda invitada es ${configured}${state.settings.guestRate ? ` (1 USD = ${state.settings.guestRate.per})` : ""}. No invento tasas — fíjala en la Mesa y te convierto al instante.`, `To convert with ${guestName(lang, code)} I need its rate at your Exchange desk, and I don't have it: your guest currency is ${configured}${state.settings.guestRate ? ` (1 USD = ${state.settings.guestRate.per})` : ""}. I don't invent rates — set it at the desk and I'll convert instantly.`)
+      : L(lang, `Para convertir con ${guestName(lang, code)} necesito su tasa, y tu libro no tiene moneda invitada configurada en la Mesa de cambio. No invento tasas — configúrala y te convierto al instante.`, `To convert with ${guestName(lang, code)} I need its rate, and your book has no guest currency set at the Exchange desk. I don't invent rates — set one and I'll convert instantly.`),
+    pieces: [], note: null, source: ["cambio.mesa"], lines: 0,
+  };
+}
+
 function conversorAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
-  if (!/(cuanto (es|son|seria|vale)|convertir|convierte|a cuanto|en (dolares|cordobas|pesos)|how much is|convert)/.test(folded)) return null;
-  const amounts = amountsIn(raw);
+  if (!/(cuanto (es|son|seria|vale)|convertir|convierte|a cuanto|en (dolares|cordobas|pesos)|how much is|convert)/.test(folded) && !guestIn(folded)) return null;
+  const amounts = amountsIn(raw, c.display);
   // OLA 9 (CAZA-TRAMPAS clase 2): el conversor solo convierte cuando
   // convertir es LA operación de la pregunta — exactamente un monto y
   // ninguna operación competidora. «¿El 20% de 1500 dólares en
@@ -3047,23 +3152,51 @@ function conversorAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   if (amounts.length !== 1) return null;
   if (/%|por ciento|porcentaje|percent|\btotal\b|suma|suman|envio|enviar|divid|repart/.test(folded)) return null;
   const a = amounts[0];
-  const target: Currency | null = /(cordobas|pesos|nio)/.test(folded) && a.currency === "USD" ? "NIO"
-    : /(dolares|usd|dollar)/.test(folded) && a.currency === "NIO" ? "USD" : null;
-  if (/(euro|libra|peso mexicano|yen)/.test(folded)) {
-    return {
-      kind: "answer", family: "conversor",
-      verdict: L(c.lang, "Esa moneda no la proceso: mi libro trabaja en dólares y córdobas; las demás son moneda invitada, de solo lectura en la vista. En dólares y córdobas sí te convierto al instante.", "I don't process that currency: my book works in dollars and córdobas; the rest are guest currency, read-only in the view. In dollars and córdobas I'll convert instantly."),
-      pieces: [], note: null, source: ["cambio.mesa"], lines: 0,
-    };
+  /* LA INVITADA ENTRA A LA CONVERSIÓN (puerto de la Rama Agente,
+   * 2026-11-24): la pared vieja («esa moneda no la proceso») cae. Si
+   * la pregunta nombra una invitada, la conversión pasa por el dólar
+   * con las tasas DEL LIBRO (rateE4 y la guestRate configurada); si
+   * el libro no tiene la tasa de ESA invitada, la respuesta lo dice
+   * y no inventa ninguna. */
+  const gm = guestMatch(folded);
+  let source: AnyCur = a.currency;
+  let srcMinor = a.minor;
+  let target: AnyCur | null = null;
+  if (gm) {
+    const otherRe = /(dolares|dollar|usd|cordobas|nio|pesos)\b/g;
+    let otherM: RegExpExecArray | null;
+    let other: { cur: Currency; index: number } | null = null;
+    while ((otherM = otherRe.exec(folded)) !== null) {
+      if (otherM.index >= gm.index && otherM.index < gm.end) continue; // dentro del nombre de la invitada («pesos mexicanos»)
+      other = { cur: /^(cordobas|nio|pesos)$/.test(otherM[1]) ? "NIO" : "USD", index: otherM.index };
+      break;
+    }
+    const guestIsTarget = /\b(en|a|to)\s+(\w{1,12}\s+)?$/.test(folded.slice(0, gm.index))
+      || (other !== null && other.index < gm.index);
+    if (guestIsTarget) {
+      target = gm.code;
+    } else {
+      source = gm.code;
+      const dec = guestDef(gm.code).dec;
+      srcMinor = dec === 0 ? Math.round(a.minor / 100) : a.minor;
+      target = other ? other.cur : c.display;
+    }
+  } else {
+    target = /(cordobas|pesos|nio)/.test(folded) && a.currency === "USD" ? "NIO"
+      : /(dolares|usd|dollar)/.test(folded) && a.currency === "NIO" ? "USD" : null;
   }
-  if (!target) return null;
-  const converted = convertMinor(a.minor, a.currency, target, c.rateE4);
-  const fmt = (n: number, cur: Currency) => formatMoney(n, cur, c.lang);
+  if (!target || target === source) return null;
+  const usd = toUsdCents(c.state, srcMinor, source);
+  if (usd === null) return guestNoRateResult(c.state, c.lang, typeof source === "string" && source !== "USD" && source !== "NIO" ? source : String(target));
+  const out = fromUsdCents(c.state, usd, target);
+  if (out === null) return guestNoRateResult(c.state, c.lang, String(target));
+  const inDisplay = (usdCents: number) => c.display === "USD" ? usdCents : convertMinor(usdCents, "USD", "NIO", c.rateE4);
+  const fmt = (n: number, cur: AnyCur) => fmtAny(c.lang, n, cur);
   return {
     kind: "answer", family: "conversor",
-    verdict: L(c.lang, `${fmt(a.minor, a.currency)} son ${fmt(converted, target)} con la tasa de tu Mesa de cambio.`, `${fmt(a.minor, a.currency)} is ${fmt(converted, target)} at your Exchange desk's rate.`),
-    pieces: [{ label: fmt(a.minor, a.currency), minor: a.currency === c.display ? a.minor : converted }, { label: fmt(converted, target), minor: target === c.display ? converted : a.minor }],
-    note: L(c.lang, "La tasa es la de tu libro (si fijaste una manual, esa manda): la misma que usa toda la app.", "The rate is your book's (a manual rate you set wins): the same one the whole app uses."),
+    verdict: L(c.lang, `${fmt(srcMinor, source)} son ${fmt(out, target)} con la tasa de tu Mesa de cambio.`, `${fmt(srcMinor, source)} is ${fmt(out, target)} at your Exchange desk's rate.`),
+    pieces: [{ label: fmt(srcMinor, source), minor: inDisplay(usd) }, { label: fmt(out, target), minor: inDisplay(usd) }],
+    note: rateNote(c.state, c.lang, gm ? gm.code : null),
     source: ["cambio.mesa"], lines: 0,
   };
 }
@@ -3444,7 +3577,7 @@ function comparadorAnswer(c: Ctx, folded: string, raw: string): BankResult | nul
   if (debts.length === 1) {
     return { kind: "answer", family: "deudas", verdict: L(c.lang, `Solo tienes una deuda anotada («${debts[0].name}», ${c.money(debts[0].left)}): con una sola cuenta no hay orden que comparar — todo el plan va a ella.`, `You have only one recorded debt (\"${debts[0].name}\", ${c.money(debts[0].left)}): with a single account there's no order to compare — the whole plan goes to it.`), pieces: [{ label: debts[0].name, minor: debts[0].left }], note: null, source: src, lines: 0 };
   }
-  const brought = amountsIn(raw);
+  const brought = amountsIn(raw, c.display);
   const plan = payoffPlan(c.state, c.today);
   const budget = brought.length ? Math.max(...brought.map((a) => convertMinor(a.minor, a.currency, c.display, c.rateE4))) : plan.budget;
   if (budget <= 0) {
@@ -3532,7 +3665,7 @@ function simuladorAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // el contexto de deuda que la protege de robarle a spend.
   if (!/(abono|abonar|pago extra|pagar|pago|pagando|abonando|meto|meter|salir de deudas|libre de deudas|debt free|pay off|pay|paying)/.test(folded)) return null;
   if (!/(deuda|tarjeta|prestamo|credito|deudas|debt|card|loan|todo lo que debo)/.test(folded) && !/(abono|abonar|pago extra)/.test(folded)) return null;
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   if (!amounts.length) return null;
   const plan = payoffPlan(c.state, c.today);
   if (!plan.debts.length) return { kind: "answer", family: "simulador", verdict: L(c.lang, "No tienes deudas anotadas que simular: ni tarjetas con saldo ni préstamos recibidos vivos.", "You have no recorded debts to simulate: no card balances and no live loans taken."), pieces: [], note: null, source: ["cobros.plan"], lines: 0 };
@@ -3593,7 +3726,7 @@ function repartoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   // ¿cuánto es el total?») son un reparto aunque la pregunta no traiga
   // el verbo repartir; y la lista puede venir tras «éramos».
   const hasVerb = /(repart|toca|tocan|la cuenta|pagamos entre|split|eramos|somos|fuimos)/.test(folded);
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   if (!amounts.length) return null;
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   const people: Array<{ name: string }> = [...peopleOf(c.state, "owe", c.today), ...peopleOf(c.state, "owed", c.today), ...(c.state.remitPeople ?? [])];
@@ -3788,7 +3921,7 @@ function ingresoSensibilidadAnswer(c: Ctx, folded: string, raw: string): BankRes
   const base = src.thisMonth > 0 ? src.thisMonth : src.typical;
   if (base <= 0) return null;
   const pctM = folded.match(/(\d+(?:[.,]\d+)?)\s?%/);
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   let newAmt: number | null = null;
   let pctTxt = "";
   if (pctM) {
@@ -3889,7 +4022,7 @@ function contrafactualAnswer(c: Ctx, folded: string, raw: string): BankResult | 
     }
   }
   if (monthly == null) {
-    const amounts = amountsIn(raw);
+    const amounts = amountsIn(raw, c.display);
     if (amounts.length && /(al mes|por mes|mensual|al ano|por ano|cada mes|per month|monthly)/.test(folded)) {
       const a = amounts[0];
       const d = convertMinor(a.minor, a.currency, c.display, c.rateE4);
@@ -3902,7 +4035,7 @@ function contrafactualAnswer(c: Ctx, folded: string, raw: string): BankResult | 
     // historia nombra la ausencia. Sin monto traído: si el nombre no
     // resuelve, se nombra; si resuelve pero no hay gasto medido, el
     // cero se dice. Con monto traído la forma es otra y no se toca.
-    if (!amountsIn(raw).length) {
+    if (!amountsIn(raw, c.display).length) {
       if (!filter) {
         const stray = strayFilterWord(c, folded, new Set(["gastar", "gasto", "gastos", "dejar", "dejo", "dejara", "comprar", "compra", "pagar", "pago", "spend", "spending", "stop"]));
         if (stray) {
@@ -4055,7 +4188,7 @@ function umbralAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   const thresholdVoice = /(menos de|menores de|debajo de|no mas de|under|less than|below)\s*\$?\s*\d/.test(folded);
   if (!hormiga && !thresholdVoice) return null;
   if (!/(gast|compr|salio|spend|spent|purchas|buy|bought)/.test(folded) && !hormiga) return null;
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   let threshold: number;
   let declared = false;
   if (amounts.length) {
@@ -4118,7 +4251,7 @@ function ingresoVolatilAnswer(c: Ctx, folded: string): BankResult | null {
 function metaAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   const tardaria = /(tardaria|tardare|cuanto tiempo|how long)/.test(folded) && /(juntar|ahorrar|reunir|save up|reach|get to)/.test(folded);
   if (!tardaria && !/(cuanto (tengo|debo|necesito|hay) que (ahorrar|guardar)|cuanto (debo|necesito) ahorrar|cuanto ahorrar|how much (do i|should i|would i) (need to )?save|how much to save)/.test(folded)) return null;
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   // OLA 28 (Familia 2, E28-2): el plazo oye «in» además de «en» —
   // la regex traía «(meses|months)» bilingüe tras un «en» solo
   // español, y «in 10 months» no casaba: la meta inglesa moría con
@@ -4277,7 +4410,7 @@ function verificacionAnswer(c: Ctx, folded: string, raw: string): BankResult | n
   if (/(gustos|antojos|capricho|treats)/.test(folded)) return null;
   if (/\bsi\b/.test(folded)) return null;
   if (!/(tengo|puedo|me alcanza|alcanza|hay|have|can i)\b/.test(folded)) return null;
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   // LA FORMA NOMBRADA (la misma caza, minutos después): «¿me alcanza
   // para pagar el Internet?» no trae monto — lo trae EL LIBRO, y el
   // delegado respondía need-amount, pidiéndole al usuario la cifra
@@ -4829,7 +4962,7 @@ function identidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
     for (const l of c.state.months[mk]?.lines ?? []) if (l.active) all.push({ l, mk });
   }
   let hits: Hit[] = [];
-  const amts = amountsIn(raw);
+  const amts = amountsIn(raw, c.display);
   if (amts.length) {
     const targets = amts.map((a) => convertMinor(a.minor, a.currency, c.display, c.rateE4));
     hits = all.filter((h) => targets.some((t) => Math.abs(view(c, h.l) - t) <= 1));
@@ -4964,7 +5097,11 @@ function estadoAnswer(c: Ctx, folded: string): BankResult | null {
  * sigue en el delegado. */
 function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   // La sensibilidad sobre una línea del libro es del hipotético.
-  if (/(sube|baja|aumenta|cuesta)/.test(folded)) {
+  // PUERTO DE LA RAMA AGENTE (2026-11-24): la señal de la
+  // sensibilidad es el CAMBIO (sube/baja/aumenta) — «cuesta» a secas
+  // ya no cede aquí, porque la premisa de costo («la cena me cuesta
+  // 200») es de ESTA puerta (la voz costMine, más abajo).
+  if (/(sube|baja|aumenta)/.test(folded)) {
     const filter = filterOf(c, folded);
     if (filter && (c.state.months[c.key]?.lines ?? []).some((l) => l.active && isOut(l) && filter(l))) return null;
   }
@@ -4990,10 +5127,15 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // Las formas cercadas de los vecinos: la división y el porcentaje
   // son de la calculadora; la conversión pura («¿cuánto es X a la
   // semana al mes?») del conversor; la meta con plazo, de la meta
-  // inversa; el monto en OTRA moneda, del hipotético (que nombra la
-  // conversión en su moneda — esta forma no convierte en silencio);
-  // y el «quedaría en mi cuenta» con saldo en cuentas, del
+  // inversa; y el «quedaría en mi cuenta» con saldo en cuentas, del
   // hipotético sobre la cuenta (su base es el saldo, no el mes).
+  // PUERTO DE LA RAMA AGENTE (2026-11-24): el monto en OTRA moneda
+  // ya NO se rechaza en esta puerta (el espécimen de la cena —
+  // «puedo ir a cenar si la cena me cuesta 200 córdobas» — moría
+  // sin puerta): si la forma no es de capacidad, el `fire` de abajo
+  // devuelve null igual y el hipotético conserva su territorio; si
+  // SÍ es de capacidad, el monto se convierte con la tasa del libro
+  // y la conversión se NOMBRA en la nota — nunca en silencio.
   if (/(divid|repart|en (dos|tres|cuatro|cinco|seis|\d+) partes|entre \d+|split)/.test(folded)) return null;
   if (/%|por ciento|porcentaje/.test(folded)) return null;
   if (/(ahorrar|juntar|reunir|guardar).{0,40}(para|en \d+ meses)|para (llegar|juntar|reunir|ahorrar)/.test(folded)) return null;
@@ -5005,8 +5147,7 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // retira del texto antes de leer las cifras, como hace la prueba.
   const dayM = /(?:el dia|el)\s*(\d{1,2})\b/.exec(folded);
   const rawForAmounts = dayM ? raw.replace(new RegExp(`(el\\s+d[ií]a\\s*|el\\s+)${dayM[1]}\\b`, "i"), " ") : raw;
-  const amounts = amountsIn(rawForAmounts);
-  if (amounts.some((a) => a.currency !== c.display)) return null;
+  const amounts = amountsIn(rawForAmounts, c.display);
   // «Cambiar» con moneda nombrada es conversión, no capacidad.
   if (/(cambiar|cambio|change|convert)/.test(folded) && /(cordobas|dolares|euros|pesos|lempiras|quetzales|dollars)/.test(folded)) return null;
   if (/(en mi cuenta|en la cuenta|en mis cuentas|in my account)/.test(folded) && savingsStock(c.state, c.key).total > 0) return null;
@@ -5025,6 +5166,15 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // es el gusto de canon («Can I spend $30 on a treat?» es canónica
   // de gustos) y el verbo suelto la secuestraba.
   const socialVerb = /(prestar|prestara|prestaria|preste|prestarle|ayudar|ayudara|ayudaria|invitar|invitara|invitaria|regalar|regalara|cambiar|cambiaria|lend|treating|treat (my|him|her|them|us|you|someone))/.test(folded);
+  // ESPÉCIMEN 2026-11-23 · LA PREMISA DE COSTO (puerto de la Rama
+  // Agente): «puedo ir a cenar si la cena me cuesta 200 córdobas»
+  // trae la capacidad en la cláusula principal («puedo ir…») y el
+  // monto como COSTO en la subordinada («…me cuesta 200»): ningún
+  // verbo de compra toca el monto. La voz es puedo/podría/can i +
+  // un verbo de costo, con monto presente.
+  const costPremise = hasAmt && /(cuesta|cuestan|costara|costaria|vale|valen|sale|salen|costs?)\b/.test(folded);
+  const puedoVoice = /\b(puedo|podria|podre|can i|could i)\b/.test(folded);
+  const costMine = costPremise && puedoVoice;
   const buyVerb = /(puedo|podria|podre) (comprar|comprarme|gastar|rentar|alquilar)/.test(folded);
   const quedaVoice = /(cuanto (me )?(quedaria|quedara|sobraria|restaria)|me quedaria|cuanto (tendre|tendria) (despues|si))/.test(folded);
   const llegaVoice = /(con cuanto (llegaria|llego|llegare)|cuanto (llegaria|llego) a fin de mes|cuanto (me )?(quedaria|quedara|sobraria) a fin de mes|how much would i have left|what would i have left)/.test(folded);
@@ -5047,7 +5197,7 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   let recurring = 0;
   let clauseSum = 0;
   for (const cl of clauses) {
-    const clAmt = amountsIn(cl).reduce((a, x) => a + convertMinor(x.minor, x.currency, c.display, c.rateE4), 0);
+    const clAmt = amountsIn(cl, c.display).reduce((a, x) => a + convertMinor(x.minor, x.currency, c.display, c.rateE4), 0);
     clauseSum += clAmt;
     if (clAmt <= 0) continue;
     // OLA 53: la cláusula que se repite también se lee en inglés —
@@ -5081,7 +5231,12 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // monto, es del delegado spend (su forma cercada); la capacidad
   // toma el comprar/gastar en condicional («¿podría comprarme…?» —
   // el delegado no lo oye) o cuando hay varios montos o repetición.
-  const buyMine = buyVerb && (amounts.length >= 2 || recurring > 0 || /(podria|podre)/.test(folded));
+  // PUERTO DE LA RAMA AGENTE (2026-11-24): el monto SOLO en
+  // palabras también es de esta puerta — el delegado spend lee
+  // dígitos y ante «¿puedo gastar cien en zapatos?» pedía el monto
+  // que la pregunta ya traía (espécimen 2026-11-23).
+  const wordsOnly = hasAmt && !/\d/.test(rawForAmounts);
+  const buyMine = buyVerb && (amounts.length >= 2 || recurring > 0 || /(podria|podre)/.test(folded) || wordsOnly);
   // ENMIENDA DE CANON (integración de la Ola 37, ajustada en la 38):
   // la forma simple del delegado spend — un solo monto, nada que se
   // repita, en presente y sin condicional, con la voz que el
@@ -5101,7 +5256,7 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // oye; los especímenes «ola 53» del banco cercan las dos formas
   // y sus guardianes (la premisa compuesta y lo que se repite se
   // quedan en la capacidad).
-  if (hasAmt && amounts.length === 1 && recurring === 0 && !/(podria|podre|could)/.test(folded) && !quedaVoice && !llegaVoice && !totalVoice && !socialVerb && (buyVerb || /can i afford/.test(folded))) return null;
+  if (hasAmt && amounts.length === 1 && recurring === 0 && !/(podria|podre|could)/.test(folded) && !quedaVoice && !llegaVoice && !totalVoice && !socialVerb && !wordsOnly && (buyVerb || /can i afford/.test(folded))) return null;
   // OLA 55 · LA SUMA PREGUNTADA NO ES UNA PREMISA: «Si envío
   // veinticinco más ciento cuatro más treinta, ¿cuánto serían?»
   // trae «si» y varios montos, y esta puerta la caminaba como
@@ -5118,7 +5273,7 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // («el gasto total», «en total») sigue siendo de esta familia:
   // totalVoice bloquea la cesión.
   if (sumAskVoice && !asumirVerb && !quedaVoice && !llegaVoice && !maxVoice && !paydayVoice && !socialVerb && !totalVoice) return null;
-  const fire = llegaVoice || totalVoice || quedaMine || maxVoice || paydayVoice || (hasAmt && (asumirVerb || socialVerb || buyMine || (multiOrRecur && premiseVerb && !plainQuedaAsk))) || (!hasAmt && asumirVerb);
+  const fire = llegaVoice || totalVoice || quedaMine || maxVoice || paydayVoice || (hasAmt && (asumirVerb || socialVerb || buyMine || costMine || (multiOrRecur && premiseVerb && !plainQuedaAsk))) || (!hasAmt && asumirVerb);
   if (!fire) return null;
 
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
@@ -5301,6 +5456,13 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   }
 
   const unknownNames = [...new Set(events.filter((e) => !e.known).map((e) => e.name))];
+  // La conversión, nombrada (puerto de la Rama Agente, 2026-11-24):
+  // si el monto venía en otra moneda, la nota dice cuánto era y en
+  // cuánto quedó a la tasa del libro.
+  const foreignAmts = amounts.filter((a) => a.currency !== c.display);
+  const convTxt = foreignAmts.length
+    ? L(c.lang, `El monto venía en otra moneda y lo convertí a la de tu libro con su tasa: ${[...new Set(foreignAmts.map((a) => `${formatMoney(a.minor, a.currency, c.lang)} = ${money(convertMinor(a.minor, a.currency, c.display, c.rateE4))}`))].join(", ")}.`, `The amount came in another currency and I converted it to your book's at its rate: ${[...new Set(foreignAmts.map((a) => `${formatMoney(a.minor, a.currency, c.lang)} = ${money(convertMinor(a.minor, a.currency, c.display, c.rateE4))}`))].join(", ")}.`)
+    : null;
   // OLA 38 · LA LECTURA DECLARADA: si la pregunta suena a CAMBIO de
   // un gasto que ya se paga («si la renta sube a…») pero el libro no
   // trae ese gasto con ese nombre, la capacidad camina el monto como
@@ -5315,6 +5477,7 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
     counted.length ? L(c.lang, `Lo de este mes (${[...new Set(counted)].join(", ")}) ya está contado en tu queda de hoy: la prueba camina lo que aún no está en ella, para no restar nada dos veces.`, `This month's (${[...new Set(counted)].join(", ")}) is already counted in today's left: the proof walks what isn't in it yet, so nothing is subtracted twice.`) : null,
     replUnmatched ? L(c.lang, "Ojo con la lectura: tu pregunta suena a cambio de un gasto que ya pagas, pero en tu libro no encontré ese gasto con ese nombre — caminé el monto como un gasto nuevo que se repite, no como el cambio de uno anotado.", "Mind the reading: your question sounds like changing an expense you already pay, but your book holds no expense under that name — I walked the amount as a new repeating expense, not as a change to a recorded one.") : null,
     unknownNames.length ? L(c.lang, `Fuera de esta prueba: ${unknownNames.join(", ")} — el libro sabe su fecha pero no el monto de su cuota, y no lo invento.`, `Outside this proof: ${unknownNames.join(", ")} — the book knows its date but not its installment amount, and I won't invent it.`) : null,
+    convTxt,
   ].filter(Boolean);
 
   const pieces: BankPiece[] = [
@@ -5350,7 +5513,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
   // El día también se lee como monto («el 28» → $28): se retira del
   // texto antes de leer los montos, o la puerta contaría dos cifras.
   const rawForAmounts = dayM ? raw.replace(new RegExp(`(el\\s+d[ií]a\\s*|el\\s+|on the\\s+|the\\s+)${dayM[1]}(?:st|nd|rd|th)?\\b`, "i"), " ") : raw;
-  const amounts = amountsIn(rawForAmounts);
+  const amounts = amountsIn(rawForAmounts, c.display);
   const isDayPay = amounts.length === 1 && /(pagar|pago|pay)\b/.test(folded) && (!!dayM || /\bmanana\b/.test(folded) || /fin de mes/.test(folded));
   const isMonth = (!isDayPay && /(alcanza|alcanzo)/.test(folded) && /\bmes\b/.test(folded) && !/(pagar|pay)\b/.test(folded))
     || /(llego a fin de mes|make it (to|through)|last the month|reach the end of the month)/.test(folded);
@@ -6158,7 +6321,7 @@ function precioTiempoAnswer(c: Ctx, folded: string, raw: string): BankResult | n
   }
   if (/(cuantos dias|cuantas horas|dias de trabajo|horas de trabajo|days of work|hours of work|cuanto trabajo|how many (days|hours) of work)/.test(folded)) {
     let amount: number | null = null;
-    const amounts = amountsIn(raw);
+    const amounts = amountsIn(raw, c.display);
     if (amounts.length) amount = Math.max(...amounts.map((a) => convertMinor(a.minor, a.currency, c.display, c.rateE4)));
     if (amount === null) {
       const filter = filterOf(c, folded);
@@ -6375,7 +6538,7 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
 }
 
 function confirmacionAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   // (c) La comparación afirmada: «¿Ana me debe más que Carlos?»
   // OLA 28 (Familia 2, E28-2): «owes?» — «Does Ana owe me more than
@@ -6545,7 +6708,7 @@ function accionesAnswer(c: Ctx, folded: string, raw: string): BankResult | null 
   const learnedPerson = aliasIn(c.learned, folded);
   const person = (learnedPerson?.kind === "person" ? people.find((p) => p.id === learnedPerson.targetId) : undefined)
     ?? people.find((p) => folded.includes(foldQ(p.name)) || foldQ(p.name).split(/\s+/).some((w) => w.length >= 3 && folded.includes(w)));
-  const amounts = amountsIn(raw);
+  const amounts = amountsIn(raw, c.display);
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   const who = person?.name ?? (folded.match(/(?:a|para)\s+([a-záéíóúñ]{3,})/)?.[1] ?? "");
   const whoLabel = who ? who.charAt(0).toUpperCase() + who.slice(1) : "";
@@ -7883,7 +8046,7 @@ function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, 
     const foldedQ = foldQ(raw);
     const flat = walkNodes(roots).map((e) => e.node);
     let target: AskNode | undefined;
-    const asked = amountsIn(raw).filter((a) => a.currency === disp).map((a) => a.minor);
+    const asked = amountsIn(raw, disp).filter((a) => a.currency === disp).map((a) => a.minor);
     if (asked.length) target = flat.find((n) => asked.some((m) => Math.abs(m - n.minor) <= 1));
     if (!target) target = flat.find((n) => foldQ(n.label).split(/\s+/).filter((w) => w.length >= 4).some((w) => new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`).test(foldedQ)));
     if (!target && frame.whyId) {
@@ -8105,6 +8268,48 @@ function splitCompound(raw: string): [string, string] | null {
   return null;
 }
 
+/* LA MONEDA SE OYE · EL ECO CONVERSOR (puerto de la Rama Agente,
+ * 2026-11-24): el seguimiento desnudo de moneda convierte la cifra
+ * TITULAR de la respuesta anterior — la última pieza del marco — con
+ * la tasa del libro. La pieza se NOMBRA en la respuesta («lo de
+ * «Cierre con el gasto»»): si no era la cifra que el usuario quería,
+ * lo ve y lo dice. Con monto nuevo no es eco: manda el conversor
+ * llano. En canon el marco conversacional es el ConvoFrame. */
+function ecoConversor(state: LedgerState, lang: Lang, frame: ConvoFrame, raw: string): Extract<BankResult, { kind: "answer" }> | null {
+  const bare = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!bare || bare.split(/\s+/).length > 8) return null;
+  if (amountsIn(raw, state.settings.display).length) return null;
+  const gm = guestMatch(bare);
+  let target: AnyCur | null = null;
+  if (gm && (/\b(en|in)\s+(\w{1,10}\s+)?$/.test(bare.slice(0, gm.index)) || /^(y|and)\b/.test(bare))) target = gm.code;
+  else if (/\b(en|in)\s+(dolares|dollars?|usd)\b/.test(bare)) target = "USD";
+  else if (/\b(en|in)\s+(cordobas|nio)\b/.test(bare)) target = "NIO";
+  if (!target) return null;
+  const pieces = frame.pieces.filter((p) => p.minor !== 0);
+  const head = pieces[pieces.length - 1];
+  if (!head) return null;
+  const display = state.settings.display;
+  const targetName = target === "USD" ? L(lang, "dólares", "dollars") : target === "NIO" ? L(lang, "córdobas", "córdobas") : guestName(lang, target);
+  if (target === display) {
+    return {
+      kind: "answer", family: "conversor",
+      verdict: L(lang, `Eso ya está en ${targetName}: lo de «${head.label}» son ${fmtAny(lang, head.minor, display)} — es la moneda en que corre tu libro.`, `That's already in ${targetName}: "${head.label}" is ${fmtAny(lang, head.minor, display)} — it's the currency your book runs in.`),
+      pieces: [{ label: head.label, minor: head.minor }], note: null, source: ["cambio.mesa"], lines: 0,
+    };
+  }
+  const usd = toUsdCents(state, head.minor, display);
+  if (usd === null) return guestNoRateResult(state, lang, String(target));
+  const out = fromUsdCents(state, usd, target);
+  if (out === null) return guestNoRateResult(state, lang, String(target));
+  return {
+    kind: "answer", family: "conversor",
+    verdict: L(lang, `Lo de «${head.label}» — ${fmtAny(lang, head.minor, display)} — en ${targetName} son ${fmtAny(lang, out, target)}.`, `"${head.label}" — ${fmtAny(lang, head.minor, display)} — in ${targetName} is ${fmtAny(lang, out, target)}.`),
+    pieces: [{ label: head.label, minor: head.minor }, { label: fmtAny(lang, out, target), minor: head.minor }],
+    note: `${L(lang, "Viene de tu respuesta anterior.", "From your previous answer.")} ${rateNote(state, lang, gm ? gm.code : null)}`,
+    source: ["cambio.mesa"], lines: 0,
+  };
+}
+
 export function answerBankQuestion(
   state: LedgerState,
   key: string,
@@ -8144,6 +8349,16 @@ export function answerBankQuestion(
     if (/(que asum|que supuest|con que supuest|sin (ese|el) supuesto|sin asumir|what did you assume|what assumption|without that assumption)/.test(fs)) {
       return supuestosResult(state, convo, lang, /(sin (ese|el) supuesto|sin asumir|without that assumption)/.test(fs), askFrame ?? null);
     }
+  }
+  // LA MONEDA SE OYE · EL ECO CONVERSOR (puerto de la Rama Agente,
+  // 2026-11-24): el seguimiento desnudo de moneda («¿y en dólares?»,
+  // «¿cuánto es en euros?») convierte la cifra titular de la
+  // respuesta anterior con la tasa del libro — antes de la
+  // reescritura de ejes, porque no cambia un eje: cambia la MONEDA
+  // de la misma cifra.
+  if (!pin && convo) {
+    const eco = ecoConversor(state, lang, convo, raw);
+    if (eco) return { ...eco, convo: buildConvoFrame(state, key, names, raw, today, eco) };
   }
   // OLA 19: el seguimiento se reescribe sobre el marco ANTES que
   // cualquier otra lectura — es una pregunta sobre la pregunta
@@ -8848,7 +9063,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
   const hasDigit = /\d/.test(folded);
   const G: Array<[RegExp, BankFamilyId | "aprendizaje"]> = [
     [/(por que (dices|dijiste|sale|es)|de donde (sale|viene) (ese|esa|el|la|este|esta)|como calculaste|why do you say|where does (that|the) (number|figure|total) come from)/, "porque"],
-    [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month)/, "factibilidad"],
+    [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month|puedo (ir a|salir)|cuesta.{0,30}cordobas)/, "factibilidad"],
     [/(algo (cambio|raro|nuevo)|que cambio|deberia saber|what changed|anything (unusual|off|new|change|changed))/, "deriva"],
     [/\b(tanda|rosca)\b/, "falta"],
     [/(cuanto (interes|rendimiento).{0,40}(ahorr|ganado)|interes ganado|interest have i earned|earned on my savings)/, "falta"],

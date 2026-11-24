@@ -529,14 +529,14 @@ export const QUESTION_BANK: BankFamily[] = [
     cap: { es: "convertir entre tus monedas con la tasa de tu propia mesa de cambio", en: "converting between your currencies at your own exchange desk's rate" },
     status: "viva",
     source: ["cambio.mesa"],
-    axes: ["dirección (USD → NIO × NIO → USD) × monto traído"],
+    axes: ["dirección (USD ↔ NIO ↔ la invitada configurada) × monto traído × el seguimiento sin monto (el eco convierte la cifra anterior)"],
     canonical: {
-      es: ["¿Cuánto es 100 dólares en córdobas?", "¿Cuánto son 5000 pesos en dólares?", "Convierte 250 dólares a córdobas"],
+      es: ["¿Cuánto es 100 dólares en córdobas?", "¿Cuánto son 5000 pesos en dólares?", "Convierte 250 dólares a córdobas", "¿Cuánto es 100 dólares en euros?"],
       en: ["How much is 100 dollars in córdobas?", "Convert 250 dollars to córdobas"],
     },
-    answerShape: "La conversión con la tasa del libro (convertMinor/rateE4 — la manual manda), nombrando la tasa como la de la Mesa de cambio: la misma que usa toda la app.",
+    answerShape: "La conversión con las tasas del libro (convertMinor/rateE4 y la tasa de la invitada configurada — la manual manda), pasando por el dólar cuando una invitada entra, y nombrando la tasa con su fecha y su fuente. El monto que no nombra su moneda se oye en la moneda del libro. El seguimiento desnudo («¿y en dólares?») convierte la cifra titular de la respuesta anterior y la nombra.",
     contradiction: "Si el usuario cree otra tasa, la respuesta no negocia: la del libro es la que la app entera usa, y se dice dónde se cambia (la Mesa).",
-    silences: ["Una moneda fuera de USD/NIO no se convierte: se dice honesto que es moneda invitada, de solo lectura — jamás una tasa traída de fuera.", "«¿Cuánto tengo en dólares?» sobre su saldo no es conversor: es Tengo/ahorros."],
+    silences: ["Una invitada SIN tasa en el libro no se convierte: se dice cuál es la invitada configurada (o que no hay ninguna) y que no se inventan tasas — jamás una tasa traída de fuera.", "«¿Cuánto tengo en dólares?» sobre su saldo no es conversor: es Tengo/ahorros."],
   },
   {
     id: "calendario",

@@ -18,14 +18,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { FARO_FUNCTION_MAP } from "./askmap.ts";
-import { answerBankQuestion, answerFollowUp, bankChips, bankSourceIds, classifyBankQuestion, convoAfterFollowUp, driftCandidates, normalizeEs, validateGraph, type AskNode } from "./ask2.ts";
+import { answerBankQuestion, answerFollowUp, bankChips, bankSourceIds, classifyBankQuestion, convoAfterFollowUp, driftCandidates, normalizeEs, validateGraph, type AskNode, type BankResult } from "./ask2.ts";
 import { describeLearned, forgetAlias, frequentAliases, learnAlias, maskShape, touchAlias, type LearnedAlias } from "./asklearn.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
 import { addLent } from "./debts.ts";
 import { addLoan } from "./loans.ts";
 import { addReading } from "./cards.ts";
 import { duesWindow } from "./dues.ts";
-import { formatMoney } from "./money.ts";
+import { convertMinor, formatGuest, formatMoney, fromGuestMinor, toGuestMinor } from "./money.ts";
 import { QUESTION_BANK, liveFamilies } from "./questionbank.ts";
 import { addRemitPerson } from "./remit-people.ts";
 import { savingsStock } from "./savings.ts";
@@ -3495,6 +3495,221 @@ describe("banco · ola 56 — la suma con signos y el «cuánto sería» desnudo
     if (r.kind !== "answer") return;
     assert.equal(r.family, "factibilidad", r.verdict);
     assert.ok(r.verdict.includes("$1,700.00"), r.verdict);
+  });
+});
+
+describe("espécimen 2026-11-23 · la cena en córdobas (la premisa de costo) — puerto de la Rama Agente", () => {
+  // El mismo libro de las olas 55/56 (queda $830), local a este bloque.
+  function libroCena(): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    ledger.months[KEY] = {
+      lines: [
+        line({ id: "salario", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "remesa", kind: "expense-fixed" as LineKind, concept: "Remesa a Mamá", amountMinor: 17000, categoryId: "f-remesas", bookedOn: "2026-10-10" }),
+      ],
+    };
+    ledger.settings.display = "USD";
+    return ledger;
+  }
+
+  it("EL ESPÉCIMEN TAL CUAL: «Puedo ir a cenar si la cena me cuesta 200 Córdobas»", () => {
+    const ledger = libroCena();
+    const conv = convertMinor(20000, "NIO", "USD", ledger.settings.rateE4);
+    const r = ask(ledger, "Puedo ir a cenar si la cena me cuesta 200 Córdobas");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad", r.verdict);
+    // El monto se juzgó CONVERTIDO (no como 200 dólares) y la
+    // conversión se nombra en la nota, nunca en silencio.
+    assert.ok(r.verdict.includes(formatMoney(conv, "USD", "es")), r.verdict);
+    assert.ok(r.note != null && r.note.includes(formatMoney(20000, "NIO", "es")), r.note ?? "");
+    assert.ok(r.note != null && r.note.includes(formatMoney(conv, "USD", "es")), r.note ?? "");
+    assert.equal(classifyBankQuestion("Puedo ir a cenar si la cena me cuesta 200 Córdobas").family, "factibilidad");
+  });
+
+  it("sin signos y sin acentos, la misma respuesta (la escritura real de la gente)", () => {
+    const ledger = libroCena();
+    const conv = convertMinor(20000, "NIO", "USD", ledger.settings.rateE4);
+    const r = ask(ledger, "puedo ir a cenar si la cena me cuesta 200 cordobas");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad", r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(conv, "USD", "es")), r.verdict);
+  });
+
+  it("el espejo en inglés: «Can I go out to dinner if dinner costs 200 cordobas?»", () => {
+    const r = ask(libroCena(), "Can I go out to dinner if dinner costs 200 cordobas?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad", r.verdict);
+  });
+
+  it("la forma de referencia de la caja, en palabras: «¿Puedo gastar cien en zapatos?» ya no pide el monto", () => {
+    const r = ask(libroCena(), "¿Puedo gastar cien en zapatos?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad", r.verdict);
+    assert.ok(r.verdict.includes("$100.00"), r.verdict);
+    assert.ok(r.verdict.includes("$730.00"), r.verdict);
+  });
+
+  it("y sin signos: «puedo gastar cien en zapatos»", () => {
+    const r = ask(libroCena(), "puedo gastar cien en zapatos");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad", r.verdict);
+  });
+
+  it("el guardián: con dígitos, la forma simple sigue siendo del delegado spend", () => {
+    const r = ask(libroCena(), "¿Puedo gastar 100 en zapatos?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "spend", r.verdict);
+  });
+
+  it("el guardián: la conversión pura sigue siendo del conversor", () => {
+    const r = ask(libroCena(), "¿Cuánto es 200 córdobas en dólares?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "conversor", r.verdict);
+  });
+
+  it("el guardián: el «cuánto me quedaría si… cuesta» sin «puedo» sigue siendo del hipotético", () => {
+    const r = ask(fixture(), "¿Cuánto me quedaría si el internet cuesta 60?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico", r.verdict);
+  });
+});
+
+describe("rama · LA MONEDA SE OYE (el libro manda la moneda; la invitada convierte; el eco sigue) — puerto de la Rama Agente", () => {
+  function libroNIO(): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    ledger.months[KEY] = {
+      lines: [
+        line({ id: "salario", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 3600000, currency: "NIO", bookedOn: "2026-10-05" }),
+        line({ id: "remesa", kind: "expense-fixed" as LineKind, concept: "Remesa a Mamá", amountMinor: 600000, currency: "NIO", categoryId: "f-remesas", bookedOn: "2026-10-10" }),
+      ],
+    };
+    ledger.settings.display = "NIO";
+    return ledger;
+  }
+  function libroUSD(): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    ledger.months[KEY] = {
+      lines: [
+        line({ id: "salario", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "remesa", kind: "expense-fixed" as LineKind, concept: "Remesa a Mamá", amountMinor: 17000, categoryId: "f-remesas", bookedOn: "2026-10-10" }),
+      ],
+    };
+    ledger.settings.display = "USD";
+    return ledger;
+  }
+  function libroGuest(): LedgerState {
+    const ledger = libroUSD();
+    ledger.settings.guestCur = "EUR";
+    ledger.settings.guestRate = { per: 0.92, asOf: "2026-10-12", source: "BCN" };
+    return ledger;
+  }
+  function askF(ledger: LedgerState, raw: string, frame?: import("./ask2.ts").ConvoFrame | null) {
+    return answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), raw, ctx(ledger), TODAY, undefined, undefined, undefined, frame ?? undefined);
+  }
+  const headMinor = (r: Extract<BankResult, { kind: "answer" }>) => r.pieces.filter((p) => p.minor !== 0).at(-1)?.minor ?? 0;
+
+  it("el monto desnudo se oye en la moneda DEL LIBRO: «¿Cuánto es 100 en dólares?» en un libro en córdobas", () => {
+    const ledger = libroNIO();
+    const r = ask(ledger, "¿Cuánto es 100 en dólares?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "conversor", r.verdict);
+    const expected = formatMoney(convertMinor(10000, "NIO", "USD", ledger.settings.rateE4), "USD", "es");
+    assert.ok(r.verdict.includes(expected), `${r.verdict} — esperaba ${expected}`);
+    assert.ok(r.verdict.includes(formatMoney(10000, "NIO", "es")), r.verdict);
+  });
+
+  it("la capacidad en un libro en córdobas: «¿Puedo gastar quinientos en zapatos?» juzga C$500, no $500", () => {
+    const r = ask(libroNIO(), "¿Puedo gastar quinientos en zapatos?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad", r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(50000, "NIO", "es")), r.verdict);
+    assert.ok(r.verdict.includes(formatMoney(2950000, "NIO", "es")), r.verdict);
+  });
+
+  it("la invitada convierte con la tasa del libro: dólares → euros, euros → dólares, euros → córdobas", () => {
+    const ledger = libroGuest();
+    const rate = ledger.settings.rateE4;
+    const r1 = ask(ledger, "¿Cuánto es 100 dólares en euros?");
+    assert.equal(r1.kind, "answer", JSON.stringify(r1).slice(0, 200));
+    if (r1.kind !== "answer") return;
+    assert.equal(r1.family, "conversor", r1.verdict);
+    assert.ok(r1.verdict.includes(formatGuest(toGuestMinor(10000, "USD", rate, 0.92, "EUR"), "EUR", "es")), r1.verdict);
+    assert.ok(r1.note != null && r1.note.includes("0.92") && r1.note.includes("2026-10-12"), r1.note ?? "");
+    const r2 = ask(ledger, "¿Cuánto es 100 euros en dólares?");
+    assert.equal(r2.kind, "answer", JSON.stringify(r2).slice(0, 200));
+    if (r2.kind !== "answer") return;
+    assert.ok(r2.verdict.includes(formatMoney(fromGuestMinor(10000, 0.92, "EUR"), "USD", "es")), r2.verdict);
+    const r3 = ask(ledger, "¿Cuánto es 100 euros en córdobas?");
+    assert.equal(r3.kind, "answer", JSON.stringify(r3).slice(0, 200));
+    if (r3.kind !== "answer") return;
+    const viaUsd = fromGuestMinor(10000, 0.92, "EUR");
+    assert.ok(r3.verdict.includes(formatMoney(convertMinor(viaUsd, "USD", "NIO", rate), "NIO", "es")), r3.verdict);
+  });
+
+  it("la invitada SIN tasa en el libro no se inventa: se dice y se nombra la salida", () => {
+    const r = ask(libroUSD(), "¿Cuánto es 100 dólares en euros?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "conversor", r.verdict);
+    assert.ok(/invitada/.test(r.verdict), r.verdict);
+    assert.ok(/No invento tasas/.test(r.verdict), r.verdict);
+    assert.ok(!r.verdict.includes("€"), r.verdict);
+  });
+
+  it("EL ECO: «¿Y en córdobas?» convierte la cifra de la respuesta anterior, nombrándola", () => {
+    const ledger = libroUSD();
+    const r1 = askF(ledger, "¿Cuánto me queda?");
+    assert.equal(r1.kind, "answer", JSON.stringify(r1).slice(0, 200));
+    if (r1.kind !== "answer") return;
+    const head = headMinor(r1);
+    assert.ok(head > 0, JSON.stringify(r1.pieces));
+    const r2 = askF(ledger, "¿Y en córdobas?", r1.convo);
+    assert.equal(r2.kind, "answer", JSON.stringify(r2).slice(0, 200));
+    if (r2.kind !== "answer") return;
+    assert.equal(r2.family, "conversor", r2.verdict);
+    const expected = formatMoney(convertMinor(head, "USD", "NIO", ledger.settings.rateE4), "NIO", "es");
+    assert.ok(r2.verdict.includes(expected), `${r2.verdict} — esperaba ${expected}`);
+    // El eco encadenado a la moneda del libro lo dice: ya está en dólares.
+    const r3 = askF(ledger, "¿Y en dólares?", r2.convo);
+    assert.equal(r3.kind, "answer", JSON.stringify(r3).slice(0, 200));
+    if (r3.kind !== "answer") return;
+    assert.ok(/ya está en dólares/.test(r3.verdict), r3.verdict);
+    assert.ok(r3.verdict.includes(formatMoney(head, "USD", "es")), r3.verdict);
+  });
+
+  it("EL ECO a la invitada, y el eco en un libro en córdobas hacia el dólar", () => {
+    const guest = libroGuest();
+    const g1 = askF(guest, "¿Cuánto me queda?");
+    assert.equal(g1.kind, "answer", JSON.stringify(g1).slice(0, 200));
+    if (g1.kind !== "answer") return;
+    const gHead = headMinor(g1);
+    const g2 = askF(guest, "¿Y en euros?", g1.convo);
+    assert.equal(g2.kind, "answer", JSON.stringify(g2).slice(0, 200));
+    if (g2.kind !== "answer") return;
+    assert.equal(g2.family, "conversor", g2.verdict);
+    assert.ok(g2.verdict.includes(formatGuest(toGuestMinor(gHead, "USD", guest.settings.rateE4, 0.92, "EUR"), "EUR", "es")), g2.verdict);
+
+    const nio = libroNIO();
+    const n1 = askF(nio, "¿Cuánto me queda?");
+    assert.equal(n1.kind, "answer", JSON.stringify(n1).slice(0, 200));
+    if (n1.kind !== "answer") return;
+    const nHead = headMinor(n1);
+    assert.ok(nHead > 0, JSON.stringify(n1.pieces));
+    const n2 = askF(nio, "¿Cuánto es en dólares?", n1.convo);
+    assert.equal(n2.kind, "answer", JSON.stringify(n2).slice(0, 200));
+    if (n2.kind !== "answer") return;
+    assert.equal(n2.family, "conversor", n2.verdict);
+    assert.ok(n2.verdict.includes(formatMoney(convertMinor(nHead, "NIO", "USD", nio.settings.rateE4), "USD", "es")), n2.verdict);
   });
 });
 
