@@ -3454,6 +3454,50 @@ describe("banco · ola 48 — la cadencia del ingreso y el gasto por umbral (F2 
 });
 
 
+describe("banco · ola 53 — una sola casa por significado (la Caza III, agenda e)", () => {
+  function libro53(): LedgerState {
+    const l = createInitial("es", "oscuro");
+    l.months[KEY] = { lines: [
+      line({ id: "sal53", kind: "income-fixed", concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05", monthKey: KEY }),
+      line({ id: "casa53", kind: "expense-fixed", concept: "Casa", amountMinor: 20000, categoryId: "f-casa", subId: "f.casa.servicios", bookedOn: "2026-10-03", monthKey: KEY }),
+      line({ id: "net53", kind: "subscription", concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, nextDue: "2026-10-28", bookedOn: "2026-09-28", monthKey: KEY }),
+    ] };
+    l.settings.display = "USD";
+    return l;
+  }
+
+  it("la capacidad desnuda en inglés va a la verificación, como en español", () => {
+    const r = ask(libro53(), "Can I afford to spend $100?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "promedio");
+    assert.ok(r.verdict.includes("$750.01"), r.verdict);
+  });
+
+  it("la misma pregunta en los dos idiomas recibe la misma familia", () => {
+    const es = ask(libro53(), "¿Me alcanza para gastar $100?");
+    const en = ask(libro53(), "Can I afford to spend $100?", "en");
+    assert.equal(es.kind, "answer");
+    assert.equal(en.kind, "answer");
+    if (es.kind !== "answer" || en.kind !== "answer") return;
+    assert.equal(es.family, en.family);
+  });
+
+  it("guardián: la premisa compuesta sigue en la capacidad, en inglés también", () => {
+    const r = ask(libro53(), "If I buy a $500 ticket and rent a house for $1,200, could I afford it?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad");
+  });
+
+  it("guardián: lo que se repite cada mes no se cede — «per month» sigue en la capacidad", () => {
+    const r = ask(libro53(), "Can I afford $100 per month for the gym?", "en");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "factibilidad");
+  });
+});
+
 describe("banco · ola 52 — el extremo por abajo oye «más chico» (la Caza III, agenda d)", () => {
   it("«¿Cuál fue mi gasto más chico este mes?» responde el menor, no el silencio", () => {
     const ledger = fixture();

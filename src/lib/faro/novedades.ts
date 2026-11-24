@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.440",
+    date: "2026-11-24",
+    level: "menor",
+    title: { es: "Una sola casa por significado", en: "One home per meaning" },
+    points: {
+      es: [
+        "«¿Me alcanza para gastar $100?» y “Can I afford to spend $100?” son la misma pregunta, y ahora reciben la misma respuesta: la de la verificación, en los dos idiomas.",
+        "Y lo que se repite no se confunde con un gasto de una vez: “Can I afford $100 per month for the gym?” se juzga como lo que es — un compromiso de cada mes — en la capacidad.",
+      ],
+      en: [
+        "“¿Me alcanza para gastar $100?” and “Can I afford to spend $100?” are the same question, and now they get the same answer: the verification's, in both languages.",
+        "And what repeats is no longer mistaken for a one-time expense: “Can I afford $100 per month for the gym?” is judged as what it is — a monthly commitment — by capacity.",
+      ],
+    },
+  },
+  {
     version: "1.3.439",
     date: "2026-11-24",
     level: "menor",

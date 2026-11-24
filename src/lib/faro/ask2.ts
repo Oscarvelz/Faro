@@ -4931,7 +4931,11 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
     const clAmt = amountsIn(cl).reduce((a, x) => a + convertMinor(x.minor, x.currency, c.display, c.rateE4), 0);
     clauseSum += clAmt;
     if (clAmt <= 0) continue;
-    if (/(rent|alquil|mensual|cada mes|al mes|por mes|suscrip|cuota|membres)/.test(normalizeEs(foldQ(cl)))) recurring += clAmt;
+    // OLA 53: la cláusula que se repite también se lee en inglés —
+    // sin «per month / monthly / each month», «Can I afford $100 per
+    // month…?» se leía como gasto de una vez y la capacidad lo cedía
+    // como forma desnuda, contra su propio guardián.
+    if (/(rent|alquil|mensual|cada mes|al mes|por mes|suscrip|cuota|membres|monthly|per month|each month)/.test(normalizeEs(foldQ(cl)))) recurring += clAmt;
     else oneTime += clAmt;
   }
   const wholeSum = amounts.reduce((a, x) => a + convertMinor(x.minor, x.currency, c.display, c.rateE4), 0);
@@ -4969,6 +4973,15 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // NO entra en la cesión: el delegado de canon no lo oye (su
   // canónica no existe) y la capacidad lo sirve, como manda la Ola
   // 38; los verbos sociales tampoco ceden (el delegado no los oye).
+  // OLA 53 (acta asentada en canon): la forma DESNUDA — un monto,
+  // sin repetición, sin premisa compuesta — tiene UNA sola casa en
+  // los dos idiomas: la verificación. En canon la casa se alcanza
+  // por dos caminos ya vivos: el inglés cede por la cesión de aquí
+  // arriba («can i afford») y el español no enciende esta puerta
+  // (su asumirVerb no oye «me alcanza») y la verificación sí lo
+  // oye; los especímenes «ola 53» del banco cercan las dos formas
+  // y sus guardianes (la premisa compuesta y lo que se repite se
+  // quedan en la capacidad).
   if (hasAmt && amounts.length === 1 && recurring === 0 && !/(podria|podre|could)/.test(folded) && !quedaVoice && !llegaVoice && !totalVoice && !socialVerb && (buyVerb || /can i afford/.test(folded))) return null;
   const fire = llegaVoice || totalVoice || quedaMine || maxVoice || paydayVoice || (hasAmt && (asumirVerb || socialVerb || buyMine || (multiOrRecur && premiseVerb && !plainQuedaAsk))) || (!hasAmt && asumirVerb);
   if (!fire) return null;
