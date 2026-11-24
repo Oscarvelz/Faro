@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { FARO_FUNCTION_MAP } from "./askmap.ts";
-import { answerBankQuestion, answerFollowUp, bankChips, bankSourceIds, classifyBankQuestion, convoAfterFollowUp, driftCandidates, validateGraph, type AskNode } from "./ask2.ts";
+import { answerBankQuestion, answerFollowUp, bankChips, bankSourceIds, classifyBankQuestion, convoAfterFollowUp, driftCandidates, normalizeEs, validateGraph, type AskNode } from "./ask2.ts";
 import { describeLearned, forgetAlias, frequentAliases, learnAlias, maskShape, touchAlias, type LearnedAlias } from "./asklearn.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
 import { addLent } from "./debts.ts";
@@ -3453,6 +3453,31 @@ describe("banco · ola 48 — la cadencia del ingreso y el gasto por umbral (F2 
   });
 });
 
+
+describe("banco · ola 54 — el mutante del voseo muere (la Caza III, agenda f)", () => {
+  it("el mapa de voseo entero está cercado, par por par", () => {
+    assert.equal(normalizeEs("tenes"), "tienes");
+    assert.equal(normalizeEs("queres"), "quieres");
+    assert.equal(normalizeEs("podes"), "puedes");
+    assert.equal(normalizeEs("venis"), "vienes");
+    assert.equal(normalizeEs("decis"), "dices");
+    assert.equal(normalizeEs("deci"), "di");
+  });
+
+  it("la ruta que depende de la normalización: «¿qué podés hacer?» llega a capacidades", () => {
+    const r = ask(fixture(), "¿Qué podés hacer?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "capacidades");
+  });
+
+  it("y su espejo: «¿qué no podés hacer?» llega a límites", () => {
+    const r = ask(fixture(), "¿Qué no podés hacer?");
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "limites");
+  });
+});
 
 describe("banco · ola 53 — una sola casa por significado (la Caza III, agenda e)", () => {
   function libro53(): LedgerState {

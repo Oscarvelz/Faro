@@ -40,6 +40,20 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.441",
+    date: "2026-11-24",
+    level: "menor",
+    title: { es: "El voseo, cercado entero", en: "The voseo, fenced whole" },
+    points: {
+      es: [
+        "El Asesor ya oía el voseo — «¿qué podés hacer?» llega a sus capacidades —; ahora cada par del mapa está cercado por una prueba: tenés, querés, podés, venís, decís. Si una forma se pierde en una versión futura, la cerca lo dice el mismo día.",
+      ],
+      en: [
+        "The Advisor already heard the voseo — “¿qué podés hacer?” reaches its capabilities —; now every pair of the map is fenced by a test: tenés, querés, podés, venís, decís. If a form is ever lost in a future version, the fence says so the same day.",
+      ],
+    },
+  },
+  {
     version: "1.3.440",
     date: "2026-11-24",
     level: "menor",
