@@ -4115,3 +4115,12 @@ El puerto de la Ola 53 del banco (la Caza III) a canon. El acta de la ola: la fo
 **Verificación.** Espécimenes «ola 53» portados (4: la forma desnuda en inglés llega a la verificación con su cifra, los dos idiomas reciben la misma familia, y los dos guardianes — la premisa compuesta y lo que se repite — se quedan en la capacidad). Set focal 423/423; el instrumento sigue completo: interpretación 106/106, vecinos 14/14. Suite completa: 3.523/3.523. Typecheck: solo las 3 erratas de base. Build: entry `index-GL-rIABG.js`, sin `pack.json`.
 
 **Datos de publicación.** Fuente `2937cd72`. Rama principal: 43 archivos, cola `514a2bac`. Barrido en vivo: 28/28; el sw vivo lee `faro-1.3.440` y el índice vivo referencia `index-GL-rIABG.js`; la rama confirma el paquete byte a byte (sha de blob `33b735cb`, 2.981.216 bytes). Snapshot: `~/workspace/faro-440-dist-snapshot`.
+
+---
+## 1.3.441 — «El mutante del voseo muere» (2026-11-24)
+
+El puerto de la Ola 54 del banco a canon — el cierre de la Caza III. La ola no trae motor nuevo: trae la cerca que le faltaba a canon. El mapa de voseo de canon ya era idéntico al de la copia y su normalizador ya se exportaba, pero ningún espécimen lo cercaba par por par, así que el mutante M6 de la caza (borrar «podés → puedes» del mapa) habría sobrevivido también aquí. Entran los tres especímenes de la ola: el mapa entero cercado par por par (tenés, querés, podés, venís, decís) y las dos rutas que solo existen a través de la normalización — «¿qué podés hacer?» llega a capacidades y «¿qué no podés hacer?» a límites. El mutante se probó en canon antes de publicar: sin «podes», caen exactamente los tres especímenes (275/278); revertido, el banco vuelve a 278/278. Con esta ola, la Caza III queda cerrada en canon entera: sus seis mutantes mueren, su interpretación mide 106/106 y sus vecinos 14/14 sobre el motor vivo.
+
+**Verificación.** Set focal 426/426 (banco, generador, vecinos, utilidad, modos-ola28); instrumento completo. Suite completa: 3.526/3.526. Typecheck: solo las 3 erratas de base. Build: entry `index-BHrXLAxL.js`, sin `pack.json`.
+
+**Datos de publicación.** Fuente `ae3e3687`. Rama principal: 43 archivos, cola `0868a698`. Barrido en vivo: 28/28; el sw vivo lee `faro-1.3.441` y el índice vivo referencia `index-BHrXLAxL.js`; la rama confirma el paquete byte a byte (sha de blob `a8271d2f`, 2.981.878 bytes). Snapshot: `~/workspace/faro-441-dist-snapshot`.
