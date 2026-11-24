@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.436",
+    date: "2026-11-23",
+    level: "menor",
+    title: { es: "Los números dejan de gritar", en: "Numbers stop shouting" },
+    points: {
+      es: [
+        "La respuesta de tu Asesor ya no viene en negrita: su texto se lee como prosa normal, y sus cifras llevan solo una énfasis suave.",
+        "Los montos de tu bóveda — bolsillos, palanca, segmentos y el total de Ahorros —, el total grande de tu Central y los de las barras de tus libros bajan el peso de su negrita: se siguen viendo claros, sin sobresalir a la vista.",
+      ],
+      en: [
+        "Your Advisor's answer no longer comes in bold: its text reads as plain prose, and its figures carry only a gentle emphasis.",
+        "The amounts in your vault — pockets, the lever, segments and the Savings total —, Central's big total and those on your books' bars ease their bold weight: still clear, without glaring at the eye.",
+      ],
+    },
+  },
+  {
     version: "1.3.435",
     date: "2026-11-23",
     level: "menor",

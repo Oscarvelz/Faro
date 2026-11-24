@@ -541,6 +541,12 @@ html:is([data-theme="oscuro"], [data-theme="oled"], [data-theme="naturaleza"], [
 .save-band { display: grid; gap: 10px; padding: 14px 12px 12px; border-radius: 18px; border: 1px solid color-mix(in oklab, #cfe3c8 48%, var(--line)); background: var(--surface); overflow: hidden; }
 .save-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; }
 .save-tools { display: flex; align-items: center; gap: 6px; }
+/* 1.3.436 (Oscar, 2026-11-23: «La negrita de estos números sobresale
+   demasiado, está demasiado ofensiva a la vista», sobre los montos de su
+   bóveda): el total de la cabecera de Ahorros — y con él los montos de
+   esta familia en todo el archivo (bolsillos, palanca, segmentos, barras
+   de los libros) — pesa 560: presente sin gritar. */
+.save-tools strong { font-weight: 560; }
 .save-more { position: relative; display: grid; gap: 8px; margin: 8px 2px 2px; padding: 14px 12px 12px; border-radius: 24px; border: 1px solid color-mix(in oklab, white 30%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, white 12%, var(--surface)), var(--surface) 84px); box-shadow: inset 0 1px 0 color-mix(in oklab, white 46%, transparent); overflow: visible; animation: shop-from-gear .42s cubic-bezier(.16, 1, .3, 1); }
 .save-more.is-folded { cursor: pointer; }
 .save-ledger-head.is-tab { cursor: pointer; }
@@ -613,7 +619,7 @@ html[data-theme="cyberpunk"] .bank-sign.is-on:not(.is-save) { background: #3a2c1
 .save-track { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--surface-2); }
 .save-track i { display: block; height: 100%; min-width: 2px; }
 .save-seg strong { font-size: 0.92rem; line-height: 1.15; }
-.save-seg .num { font-family: var(--font-serif); font-size: 1.05rem; }
+.save-seg .num { font-family: var(--font-serif); font-size: 1.05rem; font-weight: 560; }
 .save-seg small { color: var(--muted); font-size: 0.72rem; justify-self: start; }
 .save-segs { display: grid; gap: 8px; }
 .save-seg { display: grid; align-content: start; gap: 5px; min-width: 0; padding: 6px 4px 4px; border: 1.5px solid color-mix(in oklab, var(--seg, var(--accent)) 72%, var(--line)); border-radius: 14px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; user-select: none; transition: background-color .2s var(--ease), box-shadow .2s var(--ease), transform .18s var(--ease); }
@@ -652,7 +658,7 @@ html .save-band.is-records .save-ledger.is-manage .save-ledger-head strong,
 .save-account-name { display: flex; align-items: center; gap: 1px; min-width: 0; }
 .bank-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
 .bank-name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bank-sum { margin-left: auto; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
+.bank-sum { margin-left: auto; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 560; }
 /* 1.3.408 (Oscar, 2026-11-22): el lápiz un 6% más pequeño — 11.3px y su glifo
    a 8px — aquí y donde sea que esté: esta es la única clase del lápiz. */
 .bank-pencil { width: 11.3px; height: 11.3px; margin-left: 0; padding: 0; border: 0; background: transparent; color: color-mix(in oklab, var(--fg) 36%, transparent); display: inline-grid; justify-items: start; align-items: end; flex: none; align-self: flex-end; transform: translateY(2px); }
@@ -674,7 +680,7 @@ html .save-band.is-records .save-ledger.is-manage .save-ledger-head strong,
 .brand-bac .brand-plate { fill: #9b1b2e; }
 .brand-bac .brand-letter { fill: #fff; }
 .save-ledger-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 2px 2px 6px; }
-.save-ledger-head strong { font-family: var(--font-serif); font-size: 1.15rem; }
+.save-ledger-head strong { font-family: var(--font-serif); font-size: 1.15rem; font-weight: 560; }
 .save-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 6px; padding: 8px 0; border-top: 1px solid color-mix(in oklab, var(--line) 75%, transparent); }
 .save-line .line-edit, .save-line .save-move { grid-column: 1 / -1; }
 .save-acts { display: flex; gap: 4px; }
@@ -1470,7 +1476,7 @@ html .save-band.is-records .span-cut { margin-top: 0; }
 .vault-lever-read .lever-amt { display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; }
 .vault-lever-read .lever-amt > * { flex: none; }
 .vault-lever-read p span, .vault-lever-read small { color: var(--muted); font-size: 0.75rem; }
-.vault-lever-read p strong { font-size: min(1.28rem, 7.8cqi); line-height: 1.15; color: var(--seg, #d5e2ea); }
+.vault-lever-read p strong { font-size: min(1.28rem, 7.8cqi); line-height: 1.15; color: var(--seg, #d5e2ea); font-weight: 560; }
 .vault-lever-read p em { color: var(--faint); font-style: normal; font-size: min(0.72rem, 6.2cqi); }
 .vault-lever-read > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .vault-lever-read > div span,
@@ -1699,7 +1705,7 @@ html:is([data-theme="claro"], [data-theme="lino"], [data-theme="costa"], [data-t
 .span-cut .fold-pin svg { width: 9px; height: 9px; }
 .span-fold-main { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--fg); font: inherit; text-align: left; }
 .span-fold-main span { color: var(--accent); font-size: 0.68rem; font-weight: 720; letter-spacing: 0.12em; text-transform: uppercase; }
-.span-fold-main strong { padding: 5px 12px; border-radius: 999px; background: color-mix(in oklab, var(--fg) 7%, var(--surface)); font-size: 1.05rem; letter-spacing: -0.03em; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg) 8%, transparent); }
+.span-fold-main strong { padding: 5px 12px; border-radius: 999px; background: color-mix(in oklab, var(--fg) 7%, var(--surface)); font-size: 1.05rem; font-weight: 560; letter-spacing: -0.03em; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg) 8%, transparent); }
 .span-cut.is-open .fold-chev { transform: rotate(180deg); }
 .span-cut .span-filter button[aria-pressed="true"] { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); color: var(--fg); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 40%, var(--line)), inset 0 1px 0 color-mix(in oklab, white 58%, transparent); }
 .span-study { display: grid; gap: 18px; }
@@ -2932,6 +2938,9 @@ html[data-theme="lino"] .cobros .cobro-group h3 b { border-color: color-mix(in o
    (Tron display face at 360, large text). Label basis 0 keeps wrapping off whenever they fit, so normal layouts are unchanged. */
 .desk-kicker { flex-wrap: wrap; row-gap: 2px; }
 .desk-kicker > span { flex: 1 1 0; }
+/* 1.3.436: el total de la cabecera («Oportunidad de mejora») es la cifra
+   grande de Central: pesa 560 como las demás cifras de la casa. */
+.desk-kicker strong { font-weight: 560; }
 
 /* fix4 (Nov 1 2026): large text (root 20px) on 360-412 phones. Every rule below is either a wrap that never triggers when the
    row already fits on one line (normal text), or sits behind a rem-based container query that only matches narrow containers
