@@ -84,7 +84,7 @@ export type BankFamilyId =
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
   | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
-  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion";
+  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion" | "seguro";
 
 export type BankPiece = { label: string; minor: number };
 /* OLA 27 · EL GRAFO QUE EXPLICA (investigación II, mecanismos #1 y
@@ -271,18 +271,176 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
   // — la cifra vecina de la caza diaria, otra vez. Cada forma se juzga
   // contra SU motor antes de la respuesta del stock.
   const stock0 = savingsStock(c.state, c.key);
+  /* OLA 61 · LOS BLANCOS DEL AHORRO: las clases y bolsillos que el
+   * libro distingue — emergencia (su bolsillo), retiro, meta (su
+   * bolsillo), las cuentas, lo apartado — y cada bolsillo o cuenta
+   * por su nombre. La pregunta que nombra uno recibe SU cifra de
+   * titular, no el total con la clase escondida en una pieza. */
+  const bySub61 = new Map<string, number>();
+  for (const row of stock0.series.values()) bySub61.set(row.subId, (bySub61.get(row.subId) ?? 0) + row.minor);
+  const subsEnding61 = (suf: string) => [...bySub61.keys()].filter((s) => s.endsWith(suf));
+  const metaPocket61 = subsEnding61(".meta").reduce((a, s) => a + (bySub61.get(s) ?? 0), 0);
+  type SavTarget61 = { label: string; minor: number; subs: string[] | null };
+  const classTarget61 = (): SavTarget61 | null => {
+    if (/(retiro|retirement)/.test(folded)) return { label: L(c.lang, "tu retiro", "your retirement"), minor: stock0.retirement, subs: subsEnding61(".retiro") };
+    if (/(emergencia|emergencias|emergency|emergencies)/.test(folded)) return { label: L(c.lang, "tu fondo de emergencia", "your emergency fund"), minor: stock0.emergency, subs: subsEnding61(".emergencia") };
+    if (/(\bmeta\b|goal)/.test(folded)) return { label: L(c.lang, "tu meta", "your goal"), minor: metaPocket61, subs: subsEnding61(".meta") };
+    if (/(todas mis cuentas|en cuentas|in accounts|all my accounts|mis cuentas)/.test(folded)) return { label: L(c.lang, "tus cuentas", "your accounts"), minor: stock0.byClass.cuenta ?? 0, subs: null };
+    if (/(apartad|set aside)/.test(folded)) return { label: L(c.lang, "lo apartado", "what's set aside"), minor: stock0.kept + stock0.pledged, subs: null };
+    return null;
+  };
+  /* OLA 63 · SACAR Y METER CON NOMBRE: el movimiento nombrado se
+   * camina contra la cifra DEL BLANCO (la clase, el bolsillo o la
+   * cuenta que la pregunta nombra) — la rama vieja caminaba todo
+   * contra el total, y «sacar de mi fondo de emergencia» ni eso:
+   * la tragaba la rama del fondo y respondía la cobertura. Sin
+   * blanco nombrado, esta rama no corre: el total sigue en la
+   * rama de siempre (ola 41). */
+  {
+    const moveOut = /(sacar|retirar|saco|retiro de|quitar|take out|withdraw)/.test(folded) || /\btake\b.{0,24}\bout\b/.test(folded);
+    const moveIn = !moveOut && /(apartar|aparto|meter|meto|agregar|anadir|sumar|poner|mover|add|put|set aside|move)/.test(folded);
+    const moveAmts = amountsIn(raw, c.display);
+    if ((moveOut || moveIn) && moveAmts.length) {
+      const amt = convertMinor(moveAmts[0].minor, moveAmts[0].currency, c.display, c.rateE4);
+      let tgt: { phrase: string; minor: number } | null = null;
+      const ct = classTarget61();
+      if (ct) tgt = { phrase: ct.label, minor: ct.minor };
+      if (!tgt) {
+        let bestN: { name: string; minor: number; len: number } | null = null;
+        for (const [subId, minor] of bySub61) {
+          const name = c.names.sub(subId);
+          if (!name) continue;
+          const f = foldQ(name).trim();
+          if (f.length < 3) continue;
+          const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
+          if (whole.test(folded) && (!bestN || f.length > bestN.len)) bestN = { name, minor, len: f.length };
+        }
+        if (bestN) tgt = { phrase: (bestN as { name: string }).name, minor: (bestN as { minor: number }).minor };
+      }
+      if (tgt && amt > 0) {
+        const t = tgt as { phrase: string; minor: number };
+        if (moveOut) {
+          if (amt > t.minor) {
+            return {
+              kind: "answer", family: "ahorros",
+              verdict: L(c.lang, `No, de ${t.phrase}: ahí hay ${c.money(t.minor)} — sacar ${c.money(amt)} es más de lo que ese bolsillo tiene. En ahorros en total tienes ${c.money(stock0.total)}, pero salir de otro lado ya es otra pregunta.`, `No, from ${t.phrase}: there's ${c.money(t.minor)} there — taking out ${c.money(amt)} is more than that pocket holds. In savings in total you have ${c.money(stock0.total)}, but coming out of somewhere else is a different question.`),
+              pieces: [{ label: t.phrase, minor: t.minor }, { label: L(c.lang, "Ahorros en total", "Savings in total"), minor: stock0.total }],
+              note: null, source: ["ahorros.stock"], lines: 0,
+            };
+          }
+          return {
+            kind: "answer", family: "ahorros",
+            verdict: L(c.lang, `Sí: sacar ${c.money(amt)} de ${t.phrase} lo deja en ${c.money(t.minor - amt)} (hoy tiene ${c.money(t.minor)}). Tu guardado total pasaría de ${c.money(stock0.total)} a ${c.money(stock0.total - amt)}. Nada se movió en tu libro: es la cuenta de tu pregunta.`, `Yes: taking ${c.money(amt)} out of ${t.phrase} leaves it at ${c.money(t.minor - amt)} (today it holds ${c.money(t.minor)}). Your total saved would go from ${c.money(stock0.total)} to ${c.money(stock0.total - amt)}. Nothing moved in your book: it's the math of your question.`),
+            pieces: [{ label: t.phrase, minor: t.minor }, { label: L(c.lang, "El retiro", "The withdrawal"), minor: -amt }, { label: L(c.lang, "Quedaría", "Would remain"), minor: t.minor - amt }],
+            note: null, source: ["ahorros.stock"], lines: 0,
+            actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+          };
+        }
+        return {
+          kind: "answer", family: "ahorros",
+          verdict: L(c.lang, `Con ${c.money(amt)} más, ${t.phrase} pasaría de ${c.money(t.minor)} a ${c.money(t.minor + amt)}. Nada se anotó en tu libro: es la cuenta de tu pregunta.`, `With ${c.money(amt)} more, ${t.phrase} would go from ${c.money(t.minor)} to ${c.money(t.minor + amt)}. Nothing was recorded in your book: it's the math of your question.`),
+          pieces: [{ label: t.phrase, minor: t.minor }, { label: L(c.lang, "Lo que se suma", "What's added"), minor: amt }, { label: L(c.lang, "Pasaría a", "Would become"), minor: t.minor + amt }],
+          note: null, source: ["ahorros.stock"], lines: 0,
+          actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+        };
+      }
+    }
+  }
+  /* OLA 62 · LAS COMPARACIONES Y EL MÁS GRANDE: «¿tengo más en
+   * emergencia o en retiro?» y «¿cuál de mis ahorros es el más
+   * grande?» no existían — el motor no comparaba sus propias
+   * clases. Los blancos se resuelven como en el resto de la
+   * familia: las clases por su palabra y cada bolsillo o cuenta
+   * por su nombre, en el orden en que la pregunta los nombra. */
+  {
+    type CmpT = { label: string; minor: number; at: number };
+    const cmpFound: CmpT[] = [];
+    const pushCmp = (re: RegExp, label: string, minor: number) => {
+      const m = folded.match(re);
+      if (m && m.index !== undefined && !cmpFound.some((t) => t.label === label)) cmpFound.push({ label, minor, at: m.index });
+    };
+    pushCmp(/retiro|retirement/, L(c.lang, "tu retiro", "your retirement"), stock0.retirement);
+    pushCmp(/emergencia|emergencias|emergency|emergencies/, L(c.lang, "tu fondo de emergencia", "your emergency fund"), stock0.emergency);
+    pushCmp(/\bmeta\b|goal/, L(c.lang, "tu meta", "your goal"), metaPocket61);
+    pushCmp(/cuentas|accounts/, L(c.lang, "tus cuentas", "your accounts"), stock0.byClass.cuenta ?? 0);
+    pushCmp(/apartado|apartada|set aside/, L(c.lang, "lo apartado", "what's set aside"), stock0.kept + stock0.pledged);
+    for (const [subId, minor] of bySub61) {
+      if (/\.(meta|retiro|emergencia)$/.test(subId)) continue;
+      const name = c.names.sub(subId);
+      if (!name) continue;
+      const f = foldQ(name).trim();
+      if (f.length < 3) continue;
+      const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
+      const m = folded.match(whole);
+      if (m && m.index !== undefined && !cmpFound.some((t) => t.label === name)) cmpFound.push({ label: name, minor, at: m.index });
+    }
+    cmpFound.sort((a, b) => a.at - b.at);
+    const cmpVoice = /(mas en|mas de|more in|more than|mayor)/.test(folded) && /\bo\b|\bor\b/.test(folded);
+    if (cmpVoice && cmpFound.length >= 2) {
+      const [a, b] = [cmpFound[0], cmpFound[1]];
+      const diff = Math.abs(a.minor - b.minor);
+      return {
+        kind: "answer", family: "ahorros",
+        verdict: a.minor === b.minor
+          ? L(c.lang, `Están parejos: ${c.money(a.minor)} en ${a.label} y ${c.money(b.minor)} en ${b.label}.`, `They're tied: ${c.money(a.minor)} in ${a.label} and ${c.money(b.minor)} in ${b.label}.`)
+          : L(c.lang, `Tienes más en ${a.minor > b.minor ? a.label : b.label}: ${c.money(Math.max(a.minor, b.minor))} contra ${c.money(Math.min(a.minor, b.minor))} de ${a.minor > b.minor ? b.label : a.label} — la diferencia es ${c.money(diff)}.`, `You have more in ${a.minor > b.minor ? a.label : b.label}: ${c.money(Math.max(a.minor, b.minor))} against ${c.money(Math.min(a.minor, b.minor))} in ${a.minor > b.minor ? b.label : a.label} — the difference is ${c.money(diff)}.`),
+        pieces: [{ label: a.label, minor: a.minor }, { label: b.label, minor: b.minor }],
+        note: null, source: ["ahorros.stock"], lines: 0,
+        actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+      };
+    }
+    const bigVoice = /(cual|que|which).{0,44}(mas grande|mayor|mas dinero|most|biggest|largest)/.test(folded)
+      || (/(en que cuenta|which account)/.test(folded) && /(mas|most|mayor)/.test(folded));
+    if (bigVoice) {
+      const onlyAccounts = /(cuenta|account)/.test(folded);
+      const clsBySub = new Map<string, string>();
+      for (const row of stock0.series.values()) clsBySub.set(row.subId, row.cls);
+      const rows = [...bySub61.entries()]
+        .filter(([subId, minor]) => minor > 0 && (!onlyAccounts || clsBySub.get(subId) === "cuenta"))
+        .map(([subId, minor]) => ({ name: c.names.sub(subId) || subId, minor, cls: clsBySub.get(subId) ?? "" }))
+        .sort((x, y) => y.minor - x.minor);
+      if (!rows.length) {
+        return {
+          kind: "answer", family: "ahorros",
+          verdict: L(c.lang, "Todavía no hay nada guardado en ningún bolsillo ni cuenta de tu libro: el guardado está en cero, así que no hay un «más grande» que nombrar.", "There's still nothing saved in any pocket or account in your book: savings stand at zero, so there's no \"biggest\" to name."),
+          pieces: [], note: null, source: ["ahorros.stock"], lines: 0,
+        };
+      }
+      const [w, r2] = rows;
+      const kindWord = onlyAccounts || w.cls === "cuenta" ? L(c.lang, "cuenta", "account") : L(c.lang, "bolsillo", "pocket");
+      return {
+        kind: "answer", family: "ahorros",
+        verdict: L(c.lang, `Donde más tienes guardado es en ${w.name}: ${c.money(w.minor)} (es tu ${kindWord} más grande).${r2 ? ` Le sigue ${r2.name} con ${c.money(r2.minor)}.` : ""} En ahorros en total tienes ${c.money(stock0.total)}.`, `Where you have the most saved is ${w.name}: ${c.money(w.minor)} (your biggest ${kindWord}).${r2 ? ` Next is ${r2.name} with ${c.money(r2.minor)}.` : ""} In savings in total you have ${c.money(stock0.total)}.`),
+        pieces: rows.slice(0, 3).map((r) => ({ label: r.name, minor: r.minor })),
+        note: null, source: ["ahorros.stock"], lines: 0,
+        actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+      };
+    }
+  }
   if (/(fondo de emergencia|emergency fund)/.test(folded)) {
     const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
     const target = reading.cushionMinor;
     const have = reading.cushionStock;
     const gap = Math.max(0, target - have);
     const months = c.state.settings.emergencyMonths || 3;
+    // OLA 61: si el libro trae el BOLSILLO de emergencia, su cifra
+    // abre la respuesta — es el dinero que el usuario apartó con
+    // ese nombre — y la lectura de colchón va enseguida: son dos
+    // cifras distintas y la respuesta no esconde ninguna.
+    const pocketLead = stock0.emergency > 0
+      ? L(c.lang, `En el bolsillo de emergencia tienes ${c.money(stock0.emergency)}. Y medido como colchón — tu red para lo esencial — `, `In the emergency pocket you have ${c.money(stock0.emergency)}. And measured as a cushion — your net for essentials — `)
+      : "";
     return {
       kind: "answer", family: "ahorros",
-      verdict: gap > 0
-        ? L(c.lang, `Tu fondo de emergencia debería cubrir ${months} meses de lo esencial: ${c.money(target)}. Hoy tu colchón suma ${c.money(have)} — te faltan ${c.money(gap)}.`, `Your emergency fund should cover ${months} months of essentials: ${c.money(target)}. Today your cushion adds up to ${c.money(have)} — you're ${c.money(gap)} short.`)
-        : L(c.lang, `Tu fondo de emergencia está cubierto: debería ser ${c.money(target)} (${months} meses de lo esencial) y tu colchón suma ${c.money(have)}.`, `Your emergency fund is covered: it should be ${c.money(target)} (${months} months of essentials) and your cushion adds up to ${c.money(have)}.`),
+      verdict: pocketLead
+        ? pocketLead + (gap > 0
+          ? L(c.lang, `tu fondo debería cubrir ${months} meses de lo esencial: ${c.money(target)}. Hoy tu colchón suma ${c.money(have)} — te faltan ${c.money(gap)}.`, `your fund should cover ${months} months of essentials: ${c.money(target)}. Today your cushion adds up to ${c.money(have)} — you're ${c.money(gap)} short.`)
+          : L(c.lang, `tu fondo está cubierto: debería ser ${c.money(target)} (${months} meses de lo esencial) y tu colchón suma ${c.money(have)}.`, `your fund is covered: it should be ${c.money(target)} (${months} months of essentials) and your cushion adds up to ${c.money(have)}.`))
+        : (gap > 0
+          ? L(c.lang, `Tu fondo de emergencia debería cubrir ${months} meses de lo esencial: ${c.money(target)}. Hoy tu colchón suma ${c.money(have)} — te faltan ${c.money(gap)}.`, `Your emergency fund should cover ${months} months of essentials: ${c.money(target)}. Today your cushion adds up to ${c.money(have)} — you're ${c.money(gap)} short.`)
+          : L(c.lang, `Tu fondo de emergencia está cubierto: debería ser ${c.money(target)} (${months} meses de lo esencial) y tu colchón suma ${c.money(have)}.`, `Your emergency fund is covered: it should be ${c.money(target)} (${months} months of essentials) and your cushion adds up to ${c.money(have)}.`)),
       pieces: [
+        ...(stock0.emergency > 0 ? [{ label: L(c.lang, "El bolsillo de emergencia", "The emergency pocket"), minor: stock0.emergency }] : []),
         { label: L(c.lang, "El fondo debería ser", "The fund should be"), minor: target },
         { label: L(c.lang, "Tu colchón hoy", "Your cushion today"), minor: have },
         ...(gap > 0 ? [{ label: L(c.lang, "Te falta", "Still to go"), minor: -gap }] : []),
@@ -313,6 +471,37 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
         pieces: [{ label: b.name, minor: b.minor }],
         note: null, source: ["ahorros.stock"], lines: 0,
       };
+    }
+  }
+  /* OLA 61 · EL BOLSILLO POR SU NOMBRE: la rama de la cuenta
+   * nombrada solo miraba cuentas y saldos; un bolsillo con nombre
+   * propio («¿cuánto tengo guardado para el viaje?») caía al total.
+   * Todo bolsillo con nombre en el libro responde por su nombre —
+   * las clases de fábrica (meta, retiro, emergencia) las contesta
+   * el blanco de clase, que va con el respaldo. */
+  {
+    const pocketVoice = /(cuanto|guardad|hay|queda|tengo|how much|saved|have)/.test(folded);
+    if (pocketVoice) {
+      let bestP: { name: string; minor: number; len: number } | null = null;
+      for (const [subId, minor] of bySub61) {
+        if (/\.(meta|retiro|emergencia)$/.test(subId)) continue;
+        const name = c.names.sub(subId);
+        if (!name) continue;
+        const f = foldQ(name).trim();
+        if (f.length < 3) continue;
+        const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
+        if (whole.test(folded) && (!bestP || f.length > bestP.len)) bestP = { name, minor, len: f.length };
+      }
+      if (bestP) {
+        const b = bestP as { name: string; minor: number };
+        return {
+          kind: "answer", family: "ahorros",
+          verdict: L(c.lang, `Para ${b.name} tienes ${c.money(b.minor)} guardados.`, `For ${b.name} you have ${c.money(b.minor)} saved.`),
+          pieces: [{ label: b.name, minor: b.minor }, { label: L(c.lang, "Ahorros en total", "Savings in total"), minor: stock0.total }],
+          note: null, source: ["ahorros.stock"], lines: 0,
+          actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+        };
+      }
     }
   }
   const savInMonth = (key: string) => (c.state.months[key]?.lines ?? []).filter((l) => l.active && roleOf(c.state, l.categoryId) === "savings").reduce((a, l) => a + view(c, l), 0);
@@ -357,6 +546,35 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
       pieces: [{ label: L(c.lang, "Apartado este mes", "Set aside this month"), minor: saved }, { label: L(c.lang, "Entró este mes", "Came in this month"), minor: sum.income }],
       note: null, source: ["ahorros.mes", "asesor.lectura"], lines: 0,
     };
+  }
+  /* OLA 61 · EL FLUJO POR CLASE: «¿cuánto aparté para emergencias
+   * este mes?» — el ritmo genérico sumaba TODOS los bolsillos; el
+   * flujo de una clase se mide sobre sus propios subs, en el mes o
+   * en el año que la pregunta nombra. */
+  {
+    const tgt = classTarget61();
+    if (tgt && tgt.subs && /(aparte|aparto|guarde|guardado|meti|puse|ingrese|set aside|saved|deposited|put)/.test(folded)) {
+      const inSubs = (key: string) => (c.state.months[key]?.lines ?? []).filter((l) => l.active && roleOf(c.state, l.categoryId) === "savings" && tgt.subs!.includes(l.subId)).reduce((a, l) => a + view(c, l), 0);
+      if (/(este mes|this month)/.test(folded)) {
+        const m = inSubs(c.key);
+        return {
+          kind: "answer", family: "ahorros",
+          verdict: L(c.lang, `Este mes apartaste ${c.money(m)} para ${tgt.label}. En total, ${tgt.label} suma ${c.money(tgt.minor)}.`, `This month you set aside ${c.money(m)} for ${tgt.label}. In total, ${tgt.label} adds up to ${c.money(tgt.minor)}.`),
+          pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: m }, { label: tgt.label, minor: tgt.minor }],
+          note: null, source: ["ahorros.mes", "ahorros.stock"], lines: 0,
+        };
+      }
+      if (/(este ano|this year)/.test(folded)) {
+        const yr = c.key.slice(0, 4);
+        const y = monthKeys.filter((k) => k.startsWith(yr)).reduce((a, k) => a + inSubs(k), 0);
+        return {
+          kind: "answer", family: "ahorros",
+          verdict: L(c.lang, `Este año apartaste ${c.money(y)} para ${tgt.label}. En total, ${tgt.label} suma ${c.money(tgt.minor)}.`, `This year you set aside ${c.money(y)} for ${tgt.label}. In total, ${tgt.label} adds up to ${c.money(tgt.minor)}.`),
+          pieces: [{ label: L(c.lang, "Este año", "This year"), minor: y }, { label: tgt.label, minor: tgt.minor }],
+          note: null, source: ["ahorros.mes", "ahorros.stock"], lines: 0,
+        };
+      }
+    }
   }
   if (/(ahorr\w*|guarde|aparte|saved|set aside).{0,28}(al mes|por mes|mensual|cada mes|each month|per month|monthly)|(cuanto (ahorro|guarde|aparte|ahorr))/.test(folded)) {
     const thisMonth = savInMonth(c.key);
@@ -469,6 +687,23 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
       };
     }
   }
+  /* OLA 61 · LA FALTA PARA LA META: el bolsillo Meta no guarda una
+   * cifra de destino en el libro — la respuesta da lo que el
+   * bolsillo tiene y dice qué metas sí puede medir (la del colchón),
+   * en vez de callar o de inventarle un destino al bolsillo. */
+  if (/(cuanto me falta|que me falta|cuanto falta|cuanto necesito para|how much (more )?(do i need|is left))/.test(folded) && /(\bmeta\b|goal)/.test(folded)) {
+    const readingM = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+    const gapCushion = Math.max(0, readingM.cushionMinor - readingM.cushionStock);
+    return {
+      kind: "answer", family: "ahorros",
+      verdict: metaPocket61 > 0
+        ? L(c.lang, `En tu bolsillo Meta tienes ${c.money(metaPocket61)} apartados. Tu libro no guarda una cifra de destino para ese bolsillo, así que no hay una «falta» exacta que medir contra él: la meta que sí puedo medir es la de tu colchón — ${c.money(readingM.cushionMinor)}, y vas en ${c.money(readingM.cushionStock)}${gapCushion > 0 ? `, te faltan ${c.money(gapCushion)}` : ", ya cubierta"}. Si tu meta es una cifra, pregúntame «¿cuánto me falta para llegar a esa cifra?» y la falta sale exacta.`, `In your Goal pocket you have ${c.money(metaPocket61)} set aside. Your book doesn't keep a target figure for that pocket, so there's no exact "still to go" to measure against it: the target I can measure is your cushion's — ${c.money(readingM.cushionMinor)}, and you're at ${c.money(readingM.cushionStock)}${gapCushion > 0 ? `, ${c.money(gapCushion)} to go` : ", already covered"}. If your goal is a figure, ask me "how much do I need to reach that figure?" and the shortfall comes out exact.`)
+        : L(c.lang, `Tu bolsillo Meta está vacío en tu libro, y el libro no guarda una cifra de destino para él: no hay una «falta» que medir contra el bolsillo. La meta que sí puedo medir es la de tu colchón — ${c.money(readingM.cushionMinor)}, y vas en ${c.money(readingM.cushionStock)}${gapCushion > 0 ? `, te faltan ${c.money(gapCushion)}` : ", ya cubierta"}.`, `Your Goal pocket is empty in your book, and the book keeps no target figure for it: there's no "still to go" to measure against the pocket. The target I can measure is your cushion's — ${c.money(readingM.cushionMinor)}, and you're at ${c.money(readingM.cushionStock)}${gapCushion > 0 ? `, ${c.money(gapCushion)} to go` : ", already covered"}.`),
+      pieces: [{ label: L(c.lang, "El bolsillo Meta", "The Goal pocket"), minor: metaPocket61 }, { label: L(c.lang, "Tu colchón hoy", "Your cushion today"), minor: readingM.cushionStock }, { label: L(c.lang, "La meta del colchón", "The cushion target"), minor: readingM.cushionMinor }],
+      note: null, source: ["ahorros.stock", "ahorros.colchon"], lines: 0,
+      actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+    };
+  }
   const stock = savingsStock(c.state, c.key);
   const cushion = cushionOf(stock);
   const sum = summarize(c.state, c.key, c.lang);
@@ -477,6 +712,8 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
   let headLabel = L(c.lang, "Ahorros en total", "Savings in total");
   if (cls(/retiro|retirement/)) { head = stock.retirement; headLabel = L(c.lang, "Retiro", "Retirement"); }
   else if (cls(/emergencia|emergency/)) { head = stock.emergency; headLabel = L(c.lang, "Emergencia", "Emergency"); }
+  else if (cls(/\bmeta\b|goal/)) { head = metaPocket61; headLabel = L(c.lang, "Meta", "Goal"); }
+  else if (cls(/todas mis cuentas|en cuentas|in accounts|all my accounts|mis cuentas/)) { head = stock.byClass.cuenta ?? 0; headLabel = L(c.lang, "En cuentas", "In accounts"); }
   else if (cls(/apartad|set aside/)) { head = stock.kept + stock.pledged; headLabel = L(c.lang, "Apartado (guardado + del saldo)", "Set aside (kept + from balances)") + pieceFloor(c.lang, c.mode, "nature.class-saldo"); }
   // A23-3 (cura de la ola 23): el total, las cuentas y lo guardado viven
   // en Esencial y se dicen enteros; el apartado del saldo (su rendición
@@ -489,23 +726,155 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
   const flowFloor = askReaches(c.mode, "vault.monthly-setaside")
     ? ""
     : L(c.lang, ` Su lectura vive en ${modeWord(c.lang, "ritmo")}.`, ` Its reading lives in ${modeWord(c.lang, "ritmo")}.`);
+  // OLA 61: si la pregunta nombra una clase o las cuentas, SU cifra
+  // abre el veredicto — antes el titular era siempre el total y la
+  // clase quedaba escondida en la primera pieza, así que «¿cuánto
+  // tengo en mi retiro?» recibía el total como respuesta.
+  const tgt61 = classTarget61();
   const verdict = cls(/mes|month/) && cls(/apart|set aside/)
     ? L(c.lang, `Este mes apartaste ${c.money(sum.savingsFlow)}.`, `This month you set aside ${c.money(sum.savingsFlow)}.`) + flowFloor
-    : L(c.lang, `En ahorros tienes ${c.money(stock.total)}.`, `You have ${c.money(stock.total)} in savings.`);
+    : tgt61
+      ? (tgt61.label.startsWith("lo apartado") || tgt61.label.startsWith("what's set aside")
+        ? L(c.lang, `Apartado tienes ${c.money(tgt61.minor)}. En ahorros en total tienes ${c.money(stock.total)}.`, `Set aside you have ${c.money(tgt61.minor)}. In savings in total you have ${c.money(stock.total)}.`)
+        : L(c.lang, `En ${tgt61.label} tienes ${c.money(tgt61.minor)}. En ahorros en total tienes ${c.money(stock.total)}.`, `In ${tgt61.label} you have ${c.money(tgt61.minor)}. In savings in total you have ${c.money(stock.total)}.`))
+      : L(c.lang, `En ahorros tienes ${c.money(stock.total)}.`, `You have ${c.money(stock.total)} in savings.`);
   return {
     kind: "answer", family: "ahorros", verdict,
-    pieces: [
-      { label: headLabel, minor: head },
-      { label: L(c.lang, "En cuentas", "In accounts"), minor: stock.byClass.cuenta ?? 0 },
-      { label: L(c.lang, "Guardado aparte", "Kept apart"), minor: stock.kept },
-      { label: L(c.lang, "Apartado del saldo", "Set aside from balances") + pieceFloor(c.lang, c.mode, "nature.class-saldo"), minor: stock.pledged },
-      { label: L(c.lang, "Colchón por cubrir", "Cushion still to cover") + pieceFloor(c.lang, c.mode, "nature.cushion"), minor: -cushion.floorShortfall },
-    ],
+    pieces: tgt61
+      ? [
+        { label: headLabel, minor: head },
+        { label: L(c.lang, "Ahorros en total", "Savings in total"), minor: stock.total },
+      ]
+      : [
+        { label: headLabel, minor: head },
+        { label: L(c.lang, "En cuentas", "In accounts"), minor: stock.byClass.cuenta ?? 0 },
+        { label: L(c.lang, "Guardado aparte", "Kept apart"), minor: stock.kept },
+        { label: L(c.lang, "Apartado del saldo", "Set aside from balances") + pieceFloor(c.lang, c.mode, "nature.class-saldo"), minor: stock.pledged },
+        { label: L(c.lang, "Colchón por cubrir", "Cushion still to cover") + pieceFloor(c.lang, c.mode, "nature.cushion"), minor: -cushion.floorShortfall },
+      ],
     note: sum.savingsFlow > 0
       ? L(c.lang, `Este mes el flujo hacia el ahorro fue ${c.money(sum.savingsFlow)}.`, `This month's flow into savings was ${c.money(sum.savingsFlow)}.`) + flowFloor
       : null,
     source: ["ahorros.stock", "ahorros.colchon", "ahorros.mes"],
     lines: stock.series.size,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* OLA 64 · EL SEGURO DE VIDA — ciudadano del libro, NO ahorro: la   */
+/* pieza (kind «ins») trae su plan (la prima, el día o la semana del  */
+/* cobro, la cuenta de la que sale, el inicio) y sus beneficiarios.  */
+/* La ley del propio tipo manda: la prima es un gasto fijo y la      */
+/* póliza NUNCA es un activo — no hay saldo, no hay bolsillo, no     */
+/* entra en ningún total. Antes, «¿cuánto tengo en mi seguro de      */
+/* vida?» recibía el total de ahorros como respuesta: la implicación */
+/* falsa más cara del área.                                          */
+/* ------------------------------------------------------------------ */
+function seguroAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(seguro de vida|life insurance)/.test(folded)) return null;
+  // Lo PAGADO en un período se suma sobre las líneas: es de
+  // historia, no del plan. Esta familia lee el plan y dice la ley;
+  // la suma de un período cede entera.
+  if (/(cuanto (he pagado|pague|llevo pagado)|cuanto pague|how much have i paid|how much did i pay)/.test(folded)) return null;
+  // El libro nace con la pieza de fábrica SIN configurar; si hay
+  // más de una pieza, manda la que trae el plan escrito.
+  const insPieces = c.state.structure.catalog.filter((i) => i.kind === "ins");
+  const piece = insPieces.find((i) => i.ins) ?? insPieces[0];
+  const plan = piece?.ins;
+  const premLines = allLines(c)
+    .filter((l) => l.active && roleOf(c.state, l.categoryId) === "insurance" && (l.subId.endsWith(".vida") || /(seguro de vida|life insurance)/.test(foldQ(`${l.concept} ${c.names.sub(l.subId)}`))))
+    .sort((a, b) => (a.monthKey < b.monthKey ? -1 : a.monthKey > b.monthKey ? 1 : (a.bookedOn ?? "") < (b.bookedOn ?? "") ? -1 : 1));
+  const lastPrem = premLines.length ? premLines[premLines.length - 1] : null;
+  if (!piece && !lastPrem) {
+    return {
+      kind: "answer", family: "seguro",
+      verdict: L(c.lang, "En tu libro no hay un seguro de vida anotado: ni la pieza con su plan ni líneas de prima en Seguros · Vida. Si tienes una póliza fuera de Faro, anótala y estas respuestas salen de tu libro.", "Your book has no life insurance recorded: neither the piece with its plan nor premium lines under Insurance · Life. If you hold a policy outside Faro, record it and these answers will come from your book."),
+      pieces: [], note: null, source: ["libros.lineas"], lines: 0,
+    };
+  }
+  const premAmt = plan ? convertMinor(plan.amt, plan.cur, c.display, c.rateE4) : lastPrem ? view(c, lastPrem) : null;
+  const srcName = plan?.src ? c.names.catalog(plan.src) : "";
+  const cobroTxt = plan
+    ? plan.day
+      ? L(c.lang, `el día ${plan.day} de cada mes`, `on day ${plan.day} of each month`)
+      : plan.week
+        ? L(c.lang, `en la semana ${plan.week} de cada mes`, `in week ${plan.week} of each month`)
+        : null
+    : null;
+  const premTxt = premAmt !== null ? c.money(premAmt) : null;
+  const stock = savingsStock(c.state, c.key);
+  /* LA LEY: no es cuenta ni ahorro, y no guarda saldo. */
+  if (/(cuenta como|cuenta en|es (un )?ahorro|counts? as|is (it |this )?(a )?saving|cuanto tengo en|cuanto hay en|how much do i have in|how much is in|cuanto vale mi seguro|saldo de mi seguro)/.test(folded)) {
+    return {
+      kind: "answer", family: "seguro",
+      verdict: L(c.lang, `Tu seguro de vida no es una cuenta ni un ahorro: la póliza no guarda saldo — es protección, no dinero apartado. Lo que tu libro sí trae es la prima${premTxt ? ` de ${premTxt} al mes` : ""}${cobroTxt ? `, cobrada ${cobroTxt}` : ""}${srcName ? ` de tu cuenta ${srcName}` : ""}. Por eso el seguro no suma en tus ahorros (${c.money(stock.total)}) ni en ningún total: lo que sale es la prima, y lo que la póliza vale es su cobertura, que vive en la nota de la pieza, no en una cifra de tu libro.`, `Your life insurance is not an account or savings: the policy holds no balance — it's protection, not money set aside. What your book does carry is the premium${premTxt ? ` of ${premTxt} a month` : ""}${cobroTxt ? `, charged ${cobroTxt}` : ""}${srcName ? ` from your ${srcName} account` : ""}. That's why the insurance doesn't add into your savings (${c.money(stock.total)}) or into any total: what goes out is the premium, and what the policy is worth is its coverage, which lives in the piece's note, not in a figure in your book.`),
+      pieces: [...(premAmt !== null ? [{ label: L(c.lang, "La prima al mes", "The monthly premium"), minor: premAmt }] : [])],
+      note: L(c.lang, "La ley está escrita en el propio plan de tu libro: la prima es un gasto fijo que se cobra de una cuenta; la póliza nunca es un activo.", "The law is written in your book's own plan: the premium is a fixed expense charged to an account; the policy is never an asset."),
+      source: ["libros.lineas"], lines: premLines.length,
+    };
+  }
+  /* ¿CUÁNDO SE COBRA? */
+  if (/(cuando se cobra|cuando (es el )?cobro|cuando me cobran|cuando cobran|cuando se paga la prima|when is it charged|when does it charge|when do they charge|when is the premium)/.test(folded)) {
+    return {
+      kind: "answer", family: "seguro",
+      verdict: cobroTxt
+        ? L(c.lang, `Tu seguro de vida se cobra ${cobroTxt}${srcName ? `, de tu cuenta ${srcName}` : ""}${premTxt ? ` — la prima es ${premTxt}` : ""}. Es lo que el plan de la pieza trae escrito.`, `Your life insurance is charged ${cobroTxt}${srcName ? `, from your ${srcName} account` : ""}${premTxt ? ` — the premium is ${premTxt}` : ""}. That's what the piece's plan has written.`)
+        : L(c.lang, "El plan de tu seguro de vida no trae escrito el día de cobro: la pieza guarda la prima, pero no cuándo cae. Ese dato se escribe en la pieza y la respuesta sale de ahí.", "Your life insurance plan doesn't have the charge day written: the piece keeps the premium, but not when it lands. That fact is written on the piece, and the answer comes from there."),
+      pieces: [...(premAmt !== null ? [{ label: L(c.lang, "La prima al mes", "The monthly premium"), minor: premAmt }] : [])],
+      note: null, source: ["libros.lineas"], lines: premLines.length,
+    };
+  }
+  /* ¿DE QUÉ CUENTA SALE? */
+  if (/(de que cuenta|de donde (sale|se cobra|sale el cobro)|which account|what account|where does it come from)/.test(folded)) {
+    return {
+      kind: "answer", family: "seguro",
+      verdict: srcName
+        ? L(c.lang, `Tu seguro de vida se cobra de tu cuenta ${srcName}: así lo trae escrito el plan de la pieza${premTxt ? ` — la prima es ${premTxt} al mes` : ""}.`, `Your life insurance is charged to your ${srcName} account: that's what the piece's plan has written${premTxt ? ` — the premium is ${premTxt} a month` : ""}.`)
+        : L(c.lang, "El plan de tu seguro de vida no trae escrita la cuenta de cobro: la pieza guarda la prima, pero no de qué cuenta sale. Ese dato se escribe en la pieza.", "Your life insurance plan doesn't have the charging account written: the piece keeps the premium, but not which account it comes out of. That fact is written on the piece."),
+      pieces: [...(premAmt !== null ? [{ label: L(c.lang, "La prima al mes", "The monthly premium"), minor: premAmt }] : [])],
+      note: null, source: ["libros.lineas"], lines: premLines.length,
+    };
+  }
+  /* LOS BENEFICIARIOS. */
+  if (/(beneficiario|beneficiarios|beneficiary|beneficiaries|quien (es|queda|recibe|se queda)|who (is|gets|receives))/.test(folded)) {
+    const bens = piece?.bens ?? [];
+    return {
+      kind: "answer", family: "seguro",
+      verdict: bens.length
+        ? L(c.lang, `En la pieza de tu seguro de vida ${bens.length === 1 ? "está nombrado" : "están nombrados"}: ${bens.join(", ")}. Son los nombres que tú escribiste en la pieza — viven ahí, con tu libro.`, `On your life insurance piece, ${bens.length === 1 ? "the named beneficiary is" : "the named beneficiaries are"}: ${bens.join(", ")}. They are the names you wrote on the piece — they live there, with your book.`)
+        : L(c.lang, "En la pieza de tu seguro de vida no nombraste a nadie todavía: la lista de beneficiarios está vacía. Los nombres se escriben en la pieza y viajan con tu libro.", "On your life insurance piece you haven't named anyone yet: the beneficiary list is empty. The names are written on the piece and travel with your book."),
+      pieces: [], note: null, source: ["libros.lineas"], lines: 0,
+    };
+  }
+  /* ¿DESDE CUÁNDO? */
+  if (/(desde cuando|desde que|cuando (empece|comence|contrate|lo tengo)|how long have i had|since when|when did i (start|get|take))/.test(folded)) {
+    return {
+      kind: "answer", family: "seguro",
+      verdict: plan?.start
+        ? L(c.lang, `Según la pieza, empezaste con esta aseguradora el ${fmtFecha(c, plan.start)}: esa es la fecha que tú escribiste en el plan — el libro no la adivina.`, `According to the piece, you started with this insurer on ${fmtFecha(c, plan.start)}: that's the date you wrote on the plan — the book doesn't guess it.`)
+        : L(c.lang, "La pieza de tu seguro de vida no trae la fecha de inicio: ese campo nació vacío y solo lo llenas tú. Sin esa fecha, el «desde cuándo» no sale del libro.", "Your life insurance piece doesn't carry the start date: that field is born empty and only you fill it. Without that date, the \"since when\" doesn't come out of the book."),
+      pieces: [], note: null, source: ["libros.lineas"], lines: 0,
+    };
+  }
+  /* LA PRIMA: cuánto pago. */
+  if (/(cuanto pago|cuanto es|cuanto cuesta|cuanto sale|la prima|cuanto cobran|how much do i pay|how much is|the premium|what do i pay|how much does it cost)/.test(folded)) {
+    return {
+      kind: "answer", family: "seguro",
+      verdict: premTxt
+        ? L(c.lang, `De seguro de vida pagas ${premTxt} al mes de prima${cobroTxt ? `, cobrada ${cobroTxt}` : ""}${srcName ? ` de tu cuenta ${srcName}` : ""}. Es un gasto fijo de tu libro — la póliza en sí no guarda saldo ni suma como ahorro.`, `For life insurance you pay ${premTxt} a month in premium${cobroTxt ? `, charged ${cobroTxt}` : ""}${srcName ? ` from your ${srcName} account` : ""}. It's a fixed expense in your book — the policy itself holds no balance and doesn't add up as savings.`)
+        : L(c.lang, "La pieza de tu seguro de vida está en tu catálogo, pero su plan no está configurado: no trae la prima escrita, y sin ese dato el «cuánto pagas» no sale del libro.", "Your life insurance piece is in your catalog, but its plan isn't set up: it carries no written premium, and without that fact the \"how much you pay\" doesn't come out of the book."),
+      pieces: [...(premAmt !== null ? [{ label: L(c.lang, "La prima al mes", "The monthly premium"), minor: premAmt }] : [])],
+      note: null, source: ["libros.lineas"], lines: premLines.length,
+    };
+  }
+  /* LA FORMA DESNUDA: «¿tengo seguro de vida?» — el resumen de la pieza. */
+  return {
+    kind: "answer", family: "seguro",
+    verdict: piece
+      ? L(c.lang, `Sí: tu seguro de vida es la pieza «${c.names.catalog(piece.id)}»${premTxt ? ` — prima de ${premTxt} al mes` : ", sin plan configurado todavía"}${cobroTxt ? `, cobrada ${cobroTxt}` : ""}${srcName ? ` de tu cuenta ${srcName}` : ""}. La póliza es protección: no guarda saldo ni suma en tus ahorros.`, `Yes: your life insurance is the piece "${c.names.catalog(piece.id)}"${premTxt ? ` — a premium of ${premTxt} a month` : ", with no plan set up yet"}${cobroTxt ? `, charged ${cobroTxt}` : ""}${srcName ? ` from your ${srcName} account` : ""}. The policy is protection: it holds no balance and doesn't add into your savings.`)
+      : L(c.lang, `En tu libro no hay pieza de seguro de vida, pero sí consta la prima: la última línea anotada es de ${premTxt ?? ""} en Seguros · Vida. Sin la pieza, el plan (el día de cobro, la cuenta, los beneficiarios) no vive en tu libro.`, `Your book has no life insurance piece, but the premium is on record: the latest line is ${premTxt ?? ""} under Insurance · Life. Without the piece, the plan (the charge day, the account, the beneficiaries) doesn't live in your book.`),
+    pieces: [...(premAmt !== null ? [{ label: L(c.lang, "La prima al mes", "The monthly premium"), minor: premAmt }] : [])],
+    note: null, source: ["libros.lineas"], lines: premLines.length,
   };
 }
 
@@ -3626,6 +3995,15 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       };
     }
   }
+  // OLA 63 · LA DIANA ES UNA CLASE: si la premisa mueve dinero
+  // DE/A una clase nombrada (a mi emergencia, de mi retiro, en mi
+  // meta), ni el camino firmado ni el viejo la juzgan — la diana
+  // no es el guardado entero ni la queda: es esa clase, y su casa
+  // es la rama de movimientos nombrados de ahorrosAnswer. La
+  // proyección (ola 59) ya corrió arriba: con cadencia u horizonte
+  // manda ella; sin ellos, cede entera.
+  if (/(en|a|hacia|de|del|para|in|to|from)\s+(mi\s+|mis\s+|el\s+|la\s+|the\s+|my\s+)?(emergencias?|retiro|meta|emergency|retirement|goal)\b/.test(folded)
+    && /(apart|sacar|retir|meter|agre|sumar|ahorr|sav|add|take|withdraw|set aside|put|move|mover)/.test(folded)) return null;
   // OLA 58 · EL HIPOTÉTICO CON SIGNO: si la premisa trae montos
   // que ENTRAN o se APARTAN, cada monto camina con SU signo — el
   // camino viejo sumaba todo como gasto. Este bloque corre antes
@@ -4256,7 +4634,11 @@ function prioridadesAnswer(c: Ctx, folded: string, raw: string): BankResult | nu
    * mes (nombre entero o su primera palabra: «la tarjeta» nombra a
    * «Tarjeta Visa»); si alguna no se resuelve, no es esta forma. */
   const eitherM = /^(.*?)\s+(?:o|or)\s+(.*)$/.exec(folded);
-  if (eitherM && /(pago|pagar|guardo|guardar|ahorro|ahorrar|pay|save)/.test(folded) && !/(avalancha|bola de nieve|avalanche|snowball)/.test(folded)) {
+  // OLA 62: los verbos cortos en inglés van con frontera de palabra:
+  // «pay» suelto se disparaba dentro de «PayPal» y la comparación
+  // entre dos cuentas del ahorro («¿tengo más en el Banco o en
+  // PayPal?») se leía como dos obligaciones compitiendo por el mes.
+  if (eitherM && /(pago|pagar|guardo|guardar|ahorro|ahorrar|\bpay\b|\bsave\b)/.test(folded) && !/(avalancha|bola de nieve|avalanche|snowball)/.test(folded)) {
     const nameHit = (seg: string, name: string): boolean => {
       const f = foldQ(name).trim();
       if (f.length < 3) return false;
@@ -9679,7 +10061,13 @@ function answerSingle(
   // impacto tendría en mis ahorros?» es cuenta-origen con monto, aunque
   // nombre los ahorros — el impacto se calcula por cuenta, y con varias
   // cuentas que cubren, la pregunta de vuelta manda antes de calcular.
-  if (/(si sacara|si saco|si retiro|que impacto|what if i (take|took|withdraw)|if i (take|took|withdraw))/.test(folded)) {
+  // OLA 63: si la fuente nombrada tras «de» es una CLASE o bolsillo
+  // del ahorro (mi retiro, mi emergencia, mi meta, mis ahorros) y no
+  // una cuenta, el escenario no es cuenta-origen: su casa es la rama
+  // de movimientos nombrados de ahorrosAnswer, que camina contra la
+  // cifra de esa clase. Cede aquí y cae por la cascada hasta ella.
+  if (/(si sacara|si saco|si retiro|que impacto|what if i (take|took|withdraw)|if i (take|took|withdraw))/.test(folded)
+    && !/(de|del|from)\s+(mi\s+|mis\s+|el\s+|la\s+|the\s+|my\s+)?(retiro|emergencia|emergencias|meta|fondo|ahorros|retirement|emergency|goal|savings)\b/.test(folded)) {
     return cuentaOrigenAnswer(c, raw, parseCtx, pin?.accountId);
   }
   // 0r · EL CAMINO (§19.1, 1.3.365 — LA COSTURA OBLIGADA de la
@@ -9801,6 +10189,13 @@ function answerSingle(
     const sim = simuladorAnswer(c, folded, raw);
     if (sim) return sim;
   }
+  // 0d · EL SEGURO DE VIDA (ola 64): la frase es inconfundible y su
+  // casa es la pieza — antes de que historia lo lea como un gasto
+  // más o ahorros lo sume como si la póliza fuera un bolsillo.
+  {
+    const sg = seguroAnswer(c, folded);
+    if (sg) return sg;
+  }
   // 0c- · EL APRENDIZAJE (ola 17): «¿qué has aprendido?» y «olvida…»
   // se juzgan antes que todo lo genérico — hablan de los patrones del
   // usuario, no de sus cifras, y ninguna familia de dinero debe
@@ -9839,7 +10234,63 @@ function answerSingle(
   // «guardó» (dinero) y «¿cómo guardo una pregunta?» (la especie de
   // la Ola 26 de arriba) — la forma exacta separa los dos mundos
   // sin tocar el objeto-guardia que ya manda.
-  if (!isFreeTrap && !esGuardarPregunta && ((/(ahorr|guardad|guarde|apartad|aparte|colchon|fondo|savings|saving|save|set aside|cushion|emergency fund)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta|puedo|podria|deberia|conviene|bien|sacar|retirar|should|can i|am i|incrementando|creciendo|aumentando|demasiados|growing|increasing|too much|overspending)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded))) {
+  // OLA 61: la puerta gana las clases por su nombre (emergencia,
+  // meta) — «¿cuánto aparté para emergencias este mes?» y «¿cuánto
+  // me falta para mi meta?» no traen la palabra «ahorro» y morían
+  // fuera. Y su guarda espejo: el gasto SOBRE una clase («¿cuánto
+  // gasté en emergencias?») es de historia, no del stock — sin voz
+  // de ahorro, esta puerta no se abre.
+  const gastoClassOnly = /(gaste|gasto|gastado|gastando|spent|spending)/.test(folded) && !/(ahorr|apart|guard|set aside|saved|savings)/.test(folded);
+  // OLA 63: «¿puedo sacar $100 de PayPal?» no trae la palabra
+  // «ahorro»: trae el NOMBRE de un bolsillo o cuenta del libro y un
+  // verbo de movimiento. La puerta se abre si el nombre resuelve
+  // contra el libro — un nombre genérico («mi cuenta») no abre
+  // nada, porque no nombra ningún bolsillo de este libro.
+  const namedMove63 = (() => {
+    if (!/(sacar|retirar|saco|aparto|apartar|meter|take out|withdraw|add|put)/.test(folded)) return false;
+    const st = savingsStock(c.state, c.key);
+    for (const row of st.series.values()) {
+      const nm = c.names.sub(row.subId);
+      if (!nm) continue;
+      const f = foldQ(nm).trim();
+      if (f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded)) return true;
+    }
+    return false;
+  })();
+  // OLA 62: la comparación entre dos blancos del ahorro («¿tengo
+  // más en el Banco o en PayPal?») tampoco trae la palabra «ahorro»:
+  // trae la voz de comparación y dos blancos que el libro resuelve
+  // (una clase por su palabra o un bolsillo por su nombre).
+  const cmpGate62 = (() => {
+    if (!/(mas|more|mayor)/.test(folded) || !/\bo\b|\bor\b/.test(folded)) return false;
+    if (/(emergencia|retiro|\bmeta\b|cuentas|apartado|emergency|retirement|goal|accounts)/.test(folded)) return true;
+    const st = savingsStock(c.state, c.key);
+    for (const row of st.series.values()) {
+      const nm = c.names.sub(row.subId);
+      if (!nm) continue;
+      const f = foldQ(nm).trim();
+      if (f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded)) return true;
+    }
+    return false;
+  })();
+  // OLA 67 (traída adelante por la 62, puerto 1.3.453): «¿de qué
+  // cuenta saco…?» / «which account should I take $20 from?» es de
+  // la cuenta-origen (paso 4), no del stock — la alternación «which
+  // account» de esta puerta (ola 62) la robaba y el fallback
+  // contestaba el total de ahorros a una pregunta de origen. La voz
+  // de origen cierra esta puerta. (El resto de la ola 67 llega con
+  // su paquete; esta guarda y su hermana de deuda se adelantan
+  // porque la alternación de la 62 las necesita hoy: la cerca F2 de
+  // modos-ola28 lo probó en canon.)
+  const origenVoice67 = /(de que cuenta|de donde saco|from which account|which account (should|do|can) i|where should i take)/.test(folded);
+  // OLA 67 (traída adelante por la 62, puerto 1.3.453): «¿en cuál
+  // cuenta debo más?» / «which account do I owe the most on?» es el
+  // RANKING de deudas (paso 7), no el stock — esta puerta se abría
+  // por «cuenta» y el fallback contestaba el total de ahorros a una
+  // pregunta de deuda. La voz de deuda con superlativo y blanco de
+  // cuenta/tarjeta cierra esta puerta.
+  const deudaRank67 = /(debo|debe|deben|deuda|deudas|owe|owes|debt)/.test(folded) && /(mas|most|mayor)/.test(folded) && /(cuenta|tarjeta|card|account)/.test(folded);
+  if (!isFreeTrap && !esGuardarPregunta && !gastoClassOnly && !origenVoice67 && !deudaRank67 && (namedMove63 || cmpGate62 || ((/(ahorr|guardad|guarde|apartad|aparte|colchon|fondo|savings|saving|save|set aside|cushion|emergency fund|emergencia|emergency|\bmeta\b|goal|retiro|retirement)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta|puedo|podria|deberia|conviene|bien|sacar|retirar|should|can i|am i|incrementando|creciendo|aumentando|demasiados|growing|increasing|too much|overspending|\bmas\b)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded) || /(en que cuenta|en cual cuenta|cual de mis (ahorros|cuentas|bolsillos)|which account|which of my (savings|accounts))/.test(folded)))) {
     // OLA 49 (F6): el rendimiento se juzga antes que el stock —
     // «¿cuánto interés he ganado en mis ahorros?» no es una
     // pregunta por el stock, y recibirlo era contestar otra cosa.
@@ -9882,7 +10333,15 @@ function answerSingle(
           }
         }
       }
-      if (horizon === null) return { kind: "unknown" };
+      // OLA 63: «¿cuánto tendría EN EMERGENCIAS si aparto $100
+      // más?» trae «tendría» pero su «en» no es un horizonte: es la
+      // clase diana del movimiento. Sin horizonte legible y con un
+      // movimiento nombrado hacia una clase, la guarda no mata en
+      // silencio: ahorrosAnswer juzga el movimiento contra la clase.
+      const classMove63 = /(en|a|hacia|de|del|para|in|to|from)\s+(mi\s+|mis\s+|el\s+|la\s+|the\s+|my\s+)?(emergencias?|retiro|meta|emergency|retirement|goal)\b/.test(folded)
+        && /(apart|sacar|retir|meter|agre|sumar|ahorr|sav|add|take|withdraw|set aside|put|move|mover)/.test(folded);
+      if (horizon === null && !classMove63) return { kind: "unknown" };
+      if (horizon === null) return ahorrosAnswer(c, folded, raw);
       const stockH = savingsStock(c.state, c.key);
       const keysH = Object.keys(c.state.months).filter((k) => k <= c.key);
       const paceH = keysH.length ? Math.round(allLines(c).filter((l) => roleOf(c.state, l.categoryId) === "savings").reduce((a, l) => a + view(c, l), 0) / keysH.length) : 0;
@@ -10317,6 +10776,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
   if (!isQuestion) return { isQuestion: false, family: null };
   const hasDigit = /\d/.test(folded);
   const G: Array<[RegExp, BankFamilyId | "aprendizaje"]> = [
+    [/(seguro de vida|life insurance)/, "seguro"],
     [/(palmado|palmada|pelado|pelada|quebrado|quebrada|sin un real|dineral|millonada|am i broke|do i have a fortune)/, "figurada"],
     [/(por que (dices|dijiste|sale|es)|de donde (sale|viene) (ese|esa|el|la|este|esta)|como calculaste|why do you say|where does (that|the) (number|figure|total) come from)/, "porque"],
     [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month|puedo (ir a|salir)|cuesta.{0,30}cordobas)/, "factibilidad"],

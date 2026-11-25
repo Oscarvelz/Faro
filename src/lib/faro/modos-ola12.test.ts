@@ -415,6 +415,7 @@ const CARAS: Record<string, [Clase, string]> = {
  * no suma partidas: enseña resúmenes de solo lectura y los borradores
  * caen en la bandeja; la suma vive en la mesa (draftTotals, librería). */
 const AGREGADORES: Record<string, [Clase, string]> = {
+  "lib/faro/ask2.ts:inSubs": ["movimiento", "el flujo por clase (Ola 61 del banco, puerto 1.3.453) suma las líneas de ahorro de la clase nombrada dentro del mes en curso para decir cuánto entró a esa clase: lee movimientos de apartado; no gasta, no escribe"],
   "lib/faro/ask2.ts:incomeKit": ["movimiento", "el kit del ingreso volátil (Ola 30 del banco) suma las líneas de ingreso de cada mes anotado para medir mediana, piso y excedente: lee movimientos de ingreso; no gasta, no escribe"],
   "lib/faro/ask2.ts:ausenciaAnswer": ["movimiento", "la ausencia (Ola 35 del banco) recorre las líneas de los meses anotados para medir el ritmo propio de cada categoría (meses con historia y día típico de primera aparición) y nombrar la que este mes no llegó: lee movimientos; no gasta, no escribe"],
   "lib/faro/ask2.ts:monthOut": ["gasto", "el mes de gasto de la vara del ahorro (Ola 41 del banco): suma las salidas activas de UN mes anotado, fuera el apartado, para medir el mes típico contra el que se juzga el ahorro: es gasto medido del libro; no escribe"],

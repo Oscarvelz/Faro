@@ -239,6 +239,21 @@ export const QUESTION_BANK: BankFamily[] = [
     silences: ["Sin horizonte no hay proyección: «si ahorro N» a secas camina por el hipotético con signo.", "La proyección no promete interés ni rendimiento: pedir rendimiento sobre lo anotado es de la familia de rendimiento, no de esta."],
   },
   {
+    id: "seguro",
+    name: { es: "El seguro de vida: la pieza y su plan (la póliza no es ahorro)", en: "Life insurance: the piece and its plan (the policy is not savings)" },
+    cap: { es: "cuánto pagas de seguro de vida, cuándo se cobra, de qué cuenta sale, quién es el beneficiario y desde cuándo lo tienes — y por qué la póliza no es un ahorro", en: "how much you pay for life insurance, when it's charged, which account it comes from, who the beneficiary is and since when you've had it — and why the policy isn't savings" },
+    status: "viva",
+    source: ["libros.lineas"],
+    axes: ["la pieza (configurada × sin configurar × ausente con líneas × ausente del todo) × lo preguntado (la prima × el día del cobro × la cuenta de cobro × los beneficiarios × el inicio × la ley)"],
+    canonical: {
+      es: ["¿Cuánto pago de seguro de vida al mes?", "¿Cuándo se cobra mi seguro de vida?", "¿De qué cuenta sale mi seguro de vida?", "¿Quién es el beneficiario de mi seguro de vida?", "¿Desde cuándo tengo mi seguro de vida?", "¿Mi seguro de vida cuenta como ahorro?"],
+      en: ["How much do I pay for life insurance each month?", "Does my life insurance count as savings?"],
+    },
+    answerShape: "Todo sale de la pieza del catálogo (kind «ins») y su plan: la prima con su moneda, el cobro (el día fijo del mes o la semana del mes), la cuenta de la que se cobra, los beneficiarios nombrados y la fecha de inicio — cada dato que la pieza no trae escrito se dice ausente, jamás se adivina. La forma de la ley («¿cuánto tengo en mi seguro?», «¿cuenta como ahorro?») responde la ley del propio tipo: la prima es un gasto fijo y la póliza nunca es un activo — no hay saldo que tener ni suma que hacer.",
+    contradiction: "La póliza jamás se presenta como saldo, bolsillo o parte del ahorro: cualquier respuesta que la sume contradice el tipo de su propio plan.",
+    silences: ["Sin pieza y sin líneas de prima no se inventa póliza: se dice que el libro no trae ningún seguro de vida anotado.", "Lo pagado en un período («¿cuánto he pagado este año?») es historia sobre las líneas, no esta familia: esta lee el plan."],
+  },
+  {
     id: "calculadora",
     name: { es: "Calculadora en lenguaje llano", en: "Plain-language calculator" },
     cap: { es: "cuentas sueltas con los números que traes: sumas, repartos, porcentajes y fracciones en palabras", en: "loose math with the numbers you bring: sums, splits, percentages and fractions in words" },

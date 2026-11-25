@@ -132,6 +132,13 @@ describe("1.3.271 — el importe de Oscar no existe; el nombre solo donde ya viv
       // restaurar la pieza — que ya la nombraba en screens.tsx — vive ahora en
       // el diccionario, como todo el texto de la casa (save.restore.body).
       "src/lib/faro/i18n.ts",
+      // El puerto 1.3.453 (ola 64 del banco): los especímenes de la
+      // familia «seguro» siembran la pieza con el nombre de fábrica
+      // porque la familia responde CON el nombre de la pieza («tu
+      // seguro de vida es la pieza…») y el espécimen lo verifica. La
+      // prima del espécimen ($85) es dato de banco inventado, no el
+      // importe de Oscar: el nombre solo, donde la respuesta lo exige.
+      "src/lib/faro/banco.test.ts",
     ]);
     for (const f of files) {
       if (!readFileSync(f, "utf8").includes("Primerica")) continue;

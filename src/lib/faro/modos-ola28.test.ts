@@ -143,7 +143,11 @@ describe("ola28 · F2 el barrido: toda canónica llega a su familia", () => {
    * borra. Ninguna es un hueco de fraseo de la Ola 28: son diseños
    * asentados de olas anteriores o huecos de capacidad nombrados. */
   const EXCEPCIONES = new Map<string, { familia: string; razon: string }>([
-    ["ahorros|es|¿Cuánto llevo en mi meta?", { familia: "historia", razon: "el progreso contra la meta del deseo no lo mide ningún motor del banco hoy — hueco de CAPACIDAD, no de fraseo: historia responde con la cifra del mes y la excepción lo nombra en vez de fingir la llegada" }],
+    // La excepción de «¿Cuánto llevo en mi meta?» (→ historia) se
+    // BORRÓ en el puerto 1.3.453: la ola 61 cerró el hueco de
+    // capacidad que la sostenía — la clase nombrada (la meta) ahora
+    // manda su cifra desde ahorrosAnswer, y la canónica llega a su
+    // familia. La cerca misma mandaba borrarla cuando la cura llegara.
     ["ranking|es|¿En qué gasto más?", { familia: "relator", razon: "no nombra ciudadano: el ranking ordena personas, cuentas y tarjetas y no tiene rama de categorías; el relator responde con la misma sustancia (la categoría mayor del período, con sus piezas)" }],
     ["futuro|es|¿Cuánto tendré apartado en diciembre?", { familia: "ahorros", razon: "diseño asentado de la Ola 12 (CAZA-TIEMPO clase 4): la proyección del apartado a un mes nombrado la calcula la guarda de horizonte de ahorros con el supuesto dicho — no es el presente disfrazado de futuro" }],
     ["futuro|es|¿Cuánto me quedará el año que viene?", { familia: "left", razon: "la queda a horizonte la sirve el delegado heredado (left) con su propia lectura; la familia futuro del banco guarda el fin de las deudas, y su canónica de deudas sí llega" }],

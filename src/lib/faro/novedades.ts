@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.453",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "El área de ahorros, mapeada entera", en: "The savings area, fully mapped" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "La clase que nombras manda su cifra: «¿cuánto tengo en mi fondo de emergencia?», «¿cuánto me falta para mi meta?» y «¿cuánto hay en mi retiro?» se responden con la cifra de esa clase — el total llega de escolta, nunca en su lugar.",
+        "Sacar y meter con nombre: «¿puedo sacar $100 de PayPal?», «si aparto $100 más a mi emergencia, ¿cuánto tendría?» — el movimiento se mide contra la cifra del blanco que nombras, no contra todo tu guardado.",
+        "Las comparaciones del ahorro se responden: «¿tengo más en el Banco o en PayPal?» trae las dos cifras y su diferencia, y «¿en qué cuenta tengo más dinero?» compite solo entre cuentas.",
+        "Familia nueva: el seguro de vida. Cuánto pagas de prima, cuándo se cobra, de qué cuenta sale, quién es el beneficiario y desde cuándo lo tienes salen de tu pieza — y la ley queda dicha: la póliza no es un ahorro, no guarda saldo y no suma en ningún total.",
+      ],
+      en: [
+        "The class you name rules its figure: “how much do I have in my emergency fund?”, “how much am I missing for my goal?” and “how much is in my retirement?” are answered with that class's figure — the total comes along as escort, never in its place.",
+        "Taking out and putting in by name: “can I take $100 from PayPal?”, “if I set $100 more aside into my emergency fund, how much would I have?” — the move is measured against the figure of the target you name, not against all your savings.",
+        "Savings comparisons are answered: “do I have more in the Bank or in PayPal?” brings both figures and their difference, and “which account holds the most money?” competes only among accounts.",
+        "A new family: life insurance. How much premium you pay, when it's charged, which account it comes from, who the beneficiary is and since when you've had it come from your piece — and the law is stated: the policy is not savings, holds no balance and adds into no total.",
+      ],
+    },
+  },
+  {
     version: "1.3.452",
     date: "2026-11-25",
     level: "grande",

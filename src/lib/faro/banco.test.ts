@@ -4622,3 +4622,341 @@ describe("ola 59 · LA FIGURA DEL CENSO en canon: el camino de la proyección, e
     assert.equal(r.kind, "ask-back");
   });
 });
+
+
+describe("ola 61 · la clase nombrada manda (el área de ahorros, pedida por Oscar 2026-11-24) — puerto de la línea Q&A", () => {
+  function libroRico61(): LedgerState {
+    const l = createInitial("es", "oscuro");
+    const ahorro = l.structure.categories.find((c) => c.id === "f-ahorro");
+    if (!ahorro) throw new Error("missing savings");
+    ahorro.subs.push({ id: "f.ahorro.banco", nameKey: "", customName: "Banco", icon: "vault", hidden: false, order: 20 });
+    ahorro.subs.push({ id: "f.ahorro.paypal", nameKey: "", customName: "PayPal", icon: "vault:paypal", hidden: false, order: 21 });
+    ahorro.subs.push({ id: "f.ahorro.viaje", nameKey: "", customName: "Viaje", icon: "", hidden: false, order: 22 });
+    l.months[KEY] = {
+      lines: [
+        line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "cta-banco", kind: "expense-fixed" as LineKind, concept: "Banco", amountMinor: 200000, balanceMinor: 200000, categoryId: "f-ahorro", subId: "f.ahorro.banco", bookedOn: "2026-10-01" }),
+        line({ id: "cta-paypal", kind: "expense-fixed" as LineKind, concept: "PayPal", amountMinor: 129900, categoryId: "f-ahorro", subId: "f.ahorro.paypal", bookedOn: "2026-10-03" }),
+        line({ id: "em1", kind: "expense-fixed" as LineKind, concept: "Emergencia", amountMinor: 50000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "ret1", kind: "expense-fixed" as LineKind, concept: "Retiro", amountMinor: 80000, categoryId: "f-ahorro", subId: "f.ahorro.retiro", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "meta1", kind: "expense-fixed" as LineKind, concept: "Meta", amountMinor: 30000, categoryId: "f-ahorro", subId: "f.ahorro.meta", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "viaje1", kind: "expense-fixed" as LineKind, concept: "Viaje", amountMinor: 15000, categoryId: "f-ahorro", subId: "f.ahorro.viaje", bookedOn: "2026-10-09", fund: "aparte" as never }),
+        line({ id: "casa1", kind: "expense-fixed" as LineKind, concept: "Casa", amountMinor: 20000, categoryId: "f-casa", subId: "f.casa.servicios", bookedOn: "2026-10-02" }),
+      ],
+    };
+    l.months[PREV] = {
+      lines: [
+        line({ id: "sal0", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-09-05", monthKey: PREV }),
+        line({ id: "em0", kind: "expense-fixed" as LineKind, concept: "Emergencia", amountMinor: 40000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", bookedOn: "2026-09-08", monthKey: PREV, fund: "aparte" as never }),
+      ],
+    };
+    l.settings.display = "USD";
+    l.settings.emergencyMonths = 3;
+    return l;
+  }
+  const ledger = libroRico61();
+  it("el retiro manda su cifra: «¿cuánto tengo en mi retiro?» ya no recibe el total", () => {
+    const r = ask(ledger, "¿Cuánto tengo en mi retiro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("En tu retiro tienes $800.00"), r.verdict);
+  });
+  it("la meta manda su cifra: el bolsillo Meta existe para el Asesor", () => {
+    const r = ask(ledger, "¿Cuánto tengo en mi meta?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("En tu meta tienes $300.00"), r.verdict);
+  });
+  it("el fondo de emergencia abre con su bolsillo y sigue con el colchón: dos cifras, ninguna escondida", () => {
+    const r = ask(ledger, "¿Cuánto tengo en mi fondo de emergencia?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("bolsillo de emergencia tienes $900.00"), r.verdict);
+    assert.ok(r.verdict.includes("colchón"), r.verdict);
+  });
+  it("el bolsillo por su nombre: «¿cuánto tengo guardado para el viaje?»", () => {
+    const r = ask(ledger, "¿Cuánto tengo guardado para el viaje?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("Viaje") && r.verdict.includes("$150.00"), r.verdict);
+  });
+  it("todas mis cuentas: la cifra es la de las cuentas, no la del ahorro entero", () => {
+    const r = ask(ledger, "¿Cuánto tengo en todas mis cuentas?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("En tus cuentas tienes $3,299.00"), r.verdict);
+  });
+  it("el flujo por clase: «¿cuánto aparté para emergencias este mes?» se mide sobre su bolsillo", () => {
+    const r = ask(ledger, "¿Cuánto aparté para emergencias este mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("apartaste $500.00"), r.verdict);
+    assert.ok(r.verdict.includes("$900.00"), r.verdict);
+  });
+  it("la falta para la meta: el bolsillo responde y la ausencia de destino se dice, no se inventa", () => {
+    const r = ask(ledger, "¿Cuánto me falta para mi meta?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("$300.00"), r.verdict);
+    assert.ok(r.verdict.includes("no guarda una cifra de destino"), r.verdict);
+  });
+  it("la guarda espejo: «¿cuánto gasté en emergencias?» no es del stock", () => {
+    const r = ask(ledger, "¿Cuánto gasté en emergencias?");
+    assert.ok(r.kind !== "answer" || r.family !== "ahorros", JSON.stringify(r).slice(0, 160));
+  });
+  it("espejo EN: retirement, goal y accounts mandan sus cifras", () => {
+    const a = ask(ledger, "How much do I have in my retirement savings?", "en");
+    assert.equal(a.kind, "answer");
+    if (a.kind === "answer") assert.ok(a.verdict.includes("In your retirement you have $800.00"), a.verdict);
+    const b = ask(ledger, "How much do I have in all my accounts?", "en");
+    assert.equal(b.kind, "answer");
+    if (b.kind === "answer") assert.ok(b.verdict.includes("In your accounts you have $3,299.00"), b.verdict);
+  });
+});
+
+describe("ola 63 · sacar y meter con nombre (el área de ahorros, 2026-11-24) — puerto de la línea Q&A", () => {
+  function libroRico63(): LedgerState {
+    const l = createInitial("es", "oscuro");
+    const ahorro = l.structure.categories.find((c) => c.id === "f-ahorro");
+    if (!ahorro) throw new Error("missing savings");
+    ahorro.subs.push({ id: "f.ahorro.banco", nameKey: "", customName: "Banco", icon: "vault", hidden: false, order: 20 });
+    ahorro.subs.push({ id: "f.ahorro.paypal", nameKey: "", customName: "PayPal", icon: "vault:paypal", hidden: false, order: 21 });
+    l.months[KEY] = {
+      lines: [
+        line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "cta-banco", kind: "expense-fixed" as LineKind, concept: "Banco", amountMinor: 200000, balanceMinor: 200000, categoryId: "f-ahorro", subId: "f.ahorro.banco", bookedOn: "2026-10-01" }),
+        line({ id: "cta-paypal", kind: "expense-fixed" as LineKind, concept: "PayPal", amountMinor: 129900, categoryId: "f-ahorro", subId: "f.ahorro.paypal", bookedOn: "2026-10-03" }),
+        line({ id: "em1", kind: "expense-fixed" as LineKind, concept: "Emergencia", amountMinor: 50000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "ret1", kind: "expense-fixed" as LineKind, concept: "Retiro", amountMinor: 80000, categoryId: "f-ahorro", subId: "f.ahorro.retiro", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "meta1", kind: "expense-fixed" as LineKind, concept: "Meta", amountMinor: 30000, categoryId: "f-ahorro", subId: "f.ahorro.meta", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "casa1", kind: "expense-fixed" as LineKind, concept: "Casa", amountMinor: 20000, categoryId: "f-casa", subId: "f.casa.servicios", bookedOn: "2026-10-02" }),
+      ],
+    };
+    l.months[PREV] = {
+      lines: [
+        line({ id: "em0", kind: "expense-fixed" as LineKind, concept: "Emergencia", amountMinor: 40000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", bookedOn: "2026-09-08", monthKey: PREV, fund: "aparte" as never }),
+      ],
+    };
+    l.settings.display = "USD";
+    l.settings.emergencyMonths = 3;
+    return l;
+  }
+  const ledger = libroRico63();
+  it("sacar del fondo de emergencia se camina contra el fondo, no contra la cobertura ni el total", () => {
+    const r = ask(ledger, "¿Puedo sacar $200 de mi fondo de emergencia?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("de tu fondo de emergencia lo deja en $700.00"), r.verdict);
+    assert.ok(r.verdict.includes("$5,099.00"), r.verdict);
+  });
+  it("sacar de una cuenta nombrada: PayPal responde por su saldo", () => {
+    const r = ask(ledger, "¿Puedo sacar $100 de PayPal?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("de PayPal lo deja en $1,199.00"), r.verdict);
+  });
+  it("apartar más a una clase: la emergencia pasaría de $900 a $1,000", () => {
+    const r = ask(ledger, "Si aparto $100 más a mi emergencia, ¿cuánto tendría en emergencias?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("pasaría de $900.00 a $1,000.00"), r.verdict);
+  });
+  it("«si saco de mi retiro» ya no pide la cuenta de vuelta: la clase es la fuente", () => {
+    const r = ask(ledger, "Si saco $300 de mi retiro, ¿cuánto me quedaría en el retiro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("de tu retiro lo deja en $500.00"), r.verdict);
+  });
+  it("el exceso contra la clase se dice contra la clase: sacar $2,000 de un retiro de $800, no", () => {
+    const r = ask(ledger, "¿Puedo sacar $2000 de mi retiro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("No, de tu retiro"), r.verdict);
+    assert.ok(r.verdict.includes("$800.00"), r.verdict);
+  });
+  it("el guardián: «sacar de mis ahorros» sin nombre sigue por la rama del total", () => {
+    const r = ask(ledger, "¿Puedo sacar $200 de mis ahorros?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("te deja $5,099.00 guardados"), r.verdict);
+  });
+  it("espejo EN: take out of the emergency fund y add to it caminan contra el fondo", () => {
+    const a = ask(ledger, "Can I take $200 out of my emergency fund?", "en");
+    assert.equal(a.kind, "answer");
+    if (a.kind === "answer") assert.ok(a.verdict.includes("leaves it at $700.00"), a.verdict);
+    const b = ask(ledger, "If I add $100 more to my emergency fund, how much would I have in emergencies?", "en");
+    assert.equal(b.kind, "answer");
+    if (b.kind === "answer") assert.ok(b.verdict.includes("would go from $900.00 to $1,000.00"), b.verdict);
+  });
+});
+
+describe("ola 62 · las comparaciones y el más grande del ahorro (2026-11-24) — puerto de la línea Q&A", () => {
+  function libroRico62(): LedgerState {
+    const l = createInitial("es", "oscuro");
+    const ahorro = l.structure.categories.find((c) => c.id === "f-ahorro");
+    if (!ahorro) throw new Error("missing savings");
+    ahorro.subs.push({ id: "f.ahorro.banco", nameKey: "", customName: "Banco", icon: "vault", hidden: false, order: 20 });
+    ahorro.subs.push({ id: "f.ahorro.paypal", nameKey: "", customName: "PayPal", icon: "vault:paypal", hidden: false, order: 21 });
+    l.months[KEY] = {
+      lines: [
+        line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "cta-banco", kind: "expense-fixed" as LineKind, concept: "Banco", amountMinor: 200000, balanceMinor: 200000, categoryId: "f-ahorro", subId: "f.ahorro.banco", bookedOn: "2026-10-01" }),
+        line({ id: "cta-paypal", kind: "expense-fixed" as LineKind, concept: "PayPal", amountMinor: 129900, categoryId: "f-ahorro", subId: "f.ahorro.paypal", bookedOn: "2026-10-03" }),
+        line({ id: "em1", kind: "expense-fixed" as LineKind, concept: "Emergencia", amountMinor: 50000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "ret1", kind: "expense-fixed" as LineKind, concept: "Retiro", amountMinor: 80000, categoryId: "f-ahorro", subId: "f.ahorro.retiro", bookedOn: "2026-10-08", fund: "aparte" as never }),
+        line({ id: "casa1", kind: "expense-fixed" as LineKind, concept: "Casa", amountMinor: 20000, categoryId: "f-casa", subId: "f.casa.servicios", bookedOn: "2026-10-02" }),
+      ],
+    };
+    l.months[PREV] = {
+      lines: [
+        line({ id: "em0", kind: "expense-fixed" as LineKind, concept: "Emergencia", amountMinor: 40000, categoryId: "f-ahorro", subId: "f.ahorro.emergencia", bookedOn: "2026-09-08", monthKey: PREV, fund: "aparte" as never }),
+      ],
+    };
+    l.settings.display = "USD";
+    return l;
+  }
+  const ledger = libroRico62();
+  it("la comparación entre clases: más en emergencia que en retiro, con la diferencia", () => {
+    const r = ask(ledger, "¿Tengo más en emergencia o en retiro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("Tienes más en tu fondo de emergencia"), r.verdict);
+    assert.ok(r.verdict.includes("$900.00") && r.verdict.includes("$800.00") && r.verdict.includes("$100.00"), r.verdict);
+  });
+  it("la comparación entre cuentas por nombre: Banco contra PayPal", () => {
+    const r = ask(ledger, "¿Tengo más en el Banco o en PayPal?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("Tienes más en Banco"), r.verdict);
+    assert.ok(r.verdict.includes("$2,000.00") && r.verdict.includes("$1,299.00"), r.verdict);
+  });
+  it("el más grande entre todo el guardado, con su escolta", () => {
+    const r = ask(ledger, "¿Cuál de mis ahorros es el más grande?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("Banco") && r.verdict.includes("$2,000.00"), r.verdict);
+    assert.ok(r.verdict.includes("PayPal"), r.verdict);
+  });
+  it("la cuenta con más dinero: solo compiten las cuentas", () => {
+    const r = ask(ledger, "¿En qué cuenta tengo más dinero?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("Banco") && r.verdict.includes("$2,000.00"), r.verdict);
+  });
+  it("espejo EN: which account holds the most money", () => {
+    const r = ask(ledger, "Which account holds the most money?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("Banco") && r.verdict.includes("$2,000.00"), r.verdict);
+  });
+  it("el guardián: «ahorros o deudas» sigue en su rama de siempre, no en la comparación", () => {
+    const r = ask(ledger, "¿Me conviene ahorrar o pagar deudas?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(!r.verdict.includes("Tienes más en"), r.verdict);
+  });
+});
+
+describe("ola 64 · el seguro de vida es ciudadano, no ahorro (2026-11-24) — puerto de la línea Q&A", () => {
+  function libroSeguro64(): LedgerState {
+    const l = createInitial("es", "oscuro");
+    const ahorro = l.structure.categories.find((c) => c.id === "f-ahorro");
+    if (!ahorro) throw new Error("missing savings");
+    ahorro.subs.push({ id: "f.ahorro.paypal", nameKey: "", customName: "PayPal", icon: "vault:paypal", hidden: false, order: 21 });
+    l.structure.catalog.push({ id: "acct-banco", kind: "acct", nameKey: "", customName: "Banco", icon: "", hidden: false, order: 30, urlTemplate: "" });
+    l.structure.catalog.push({ id: "ins-vida", kind: "ins", nameKey: "", customName: "Primerica", icon: "", hidden: false, order: 31, urlTemplate: "", ins: { amt: 8500, cur: "USD", day: 15, src: "acct-banco", start: "2024-03-01", note: "Cobertura de $250,000" }, bens: ["Mamá"] });
+    l.months[KEY] = {
+      lines: [
+        line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "cta-paypal", kind: "expense-fixed" as LineKind, concept: "PayPal", amountMinor: 129900, categoryId: "f-ahorro", subId: "f.ahorro.paypal", bookedOn: "2026-10-03" }),
+        line({ id: "seg1", kind: "expense-fixed" as LineKind, concept: "Seguro de vida", amountMinor: 8500, categoryId: "f-seguros", subId: "f.seguros.vida", bookedOn: "2026-10-15" }),
+      ],
+    };
+    l.settings.display = "USD";
+    return l;
+  }
+  const ledger = libroSeguro64();
+  it("la prima sale del plan: cuánto pago, con su cobro y su cuenta", () => {
+    const r = ask(ledger, "¿Cuánto pago de seguro de vida al mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "seguro");
+    assert.ok(r.verdict.includes("$85.00"), r.verdict);
+    assert.ok(r.verdict.includes("día 15"), r.verdict);
+    assert.ok(r.verdict.includes("Banco"), r.verdict);
+  });
+  it("¿cuándo se cobra? — el día escrito en la pieza", () => {
+    const r = ask(ledger, "¿Cuándo se cobra mi seguro de vida?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "seguro");
+    assert.ok(r.verdict.includes("el día 15 de cada mes"), r.verdict);
+  });
+  it("¿de qué cuenta sale? — la cuenta escrita en el plan", () => {
+    const r = ask(ledger, "¿De qué cuenta sale mi seguro de vida?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("cuenta Banco"), r.verdict);
+  });
+  it("los beneficiarios viven en la pieza y se nombran", () => {
+    const r = ask(ledger, "¿Quién es el beneficiario de mi seguro de vida?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("Mamá"), r.verdict);
+  });
+  it("el desde cuándo sale de la fecha de inicio de la pieza", () => {
+    const r = ask(ledger, "¿Desde cuándo tengo mi seguro de vida?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("1 de marzo de 2024"), r.verdict);
+  });
+  it("LA LEY: «¿cuánto tengo en mi seguro de vida?» jamás recibe el total de ahorros", () => {
+    const r = ask(ledger, "¿Cuánto tengo en mi seguro de vida?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "seguro");
+    assert.ok(r.verdict.includes("no es una cuenta ni un ahorro"), r.verdict);
+    assert.ok(!r.verdict.includes("En ahorros tienes"), r.verdict);
+  });
+  it("LA LEY en espejo: «¿cuenta como ahorro?» se responde con la ley, no con el stock", () => {
+    const r = ask(ledger, "¿Mi seguro de vida cuenta como ahorro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("no es una cuenta ni un ahorro"), r.verdict);
+    const en = ask(ledger, "Does my life insurance count as savings?", "en");
+    assert.equal(en.kind, "answer");
+    if (en.kind === "answer") assert.ok(en.verdict.includes("is not an account or savings"), en.verdict);
+  });
+  it("el guardián: lo pagado en un período es de historia, no del plan", () => {
+    const r = ask(ledger, "¿Cuánto he pagado de seguro de vida este año?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "historia");
+    assert.ok(r.verdict.includes("$85.00"), r.verdict);
+  });
+  it("sin plan configurado, la respuesta dice qué dato falta en vez de inventarlo", () => {
+    const bare = createInitial("es", "oscuro");
+    bare.settings.display = "USD";
+    const r = ask(bare, "¿Cuándo se cobra mi seguro de vida?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "seguro");
+    assert.ok(r.verdict.includes("no trae escrito el día de cobro"), r.verdict);
+  });
+  it("espejo EN: la prima con su cobro y su cuenta", () => {
+    const r = ask(ledger, "How much do I pay for life insurance each month?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "seguro");
+    assert.ok(r.verdict.includes("$85.00") && r.verdict.includes("day 15"), r.verdict);
+  });
+});
