@@ -1037,6 +1037,15 @@ function remitPersonAimOf(folded: string): RemitAim {
       // ambigua queda como está, declarada en la cura.
       if (seg[j] === "hace" && haceNum(seg[j + 1]) && (seg[j + 2] === "mes" || seg[j + 2] === "meses")) { j += 3; continue; }
       if (/^\d+$/.test(seg[j]) && (seg[j + 1] === "month" || seg[j + 1] === "months") && seg[j + 2] === "ago") { j += 3; continue; }
+      // OLA 35 (Q35-4/Q35-8): la frase con ARTÍCULO se consume
+      // entera, como su hermana de número — «hace un mes» y
+      // «a month ago» son vocabulario de período de la casa
+      // (periodOf ya los sirve tras esta misma cura), y la
+      // caminata no los conocía: «hace un mes» dejaba la puntería
+      // ambigua y «a month ago» acusaba a «ago» de persona — una
+      // palabra de puro tiempo en el banquillo de los nombres.
+      if (seg[j] === "hace" && (seg[j + 1] === "un" || seg[j + 1] === "una") && /^(mes|meses|semana|semanas|ano|anos)$/.test(seg[j + 2] ?? "")) { j += 3; continue; }
+      if ((seg[j] === "a" || seg[j] === "one") && /^(month|months|week|weeks|year|years)$/.test(seg[j + 1] ?? "") && seg[j + 2] === "ago") { j += 3; continue; }
       const w = seg[j];
       // Tratamiento o parentesco: se consume solo en posición de
       // título — si es la última pieza, ES la candidata.
@@ -1061,6 +1070,11 @@ function remitPersonAimOf(folded: string): RemitAim {
       // dos meses» nombra a «rosa»: el período que sigue al nombre
       // no es parte de la candidata, como manda la ley del recorte).
       if (end - j >= 3 && seg[end - 3] === "hace" && haceNum(seg[end - 2]) && (seg[end - 1] === "mes" || seg[end - 1] === "meses")) { end -= 3; continue; }
+      // OLA 35: el recorte de cola oye las mismas formas con
+      // artículo («a Rosa hace un mes» nombra a «rosa»; «sent to
+      // Rosa a month ago» también).
+      if (end - j >= 3 && seg[end - 3] === "hace" && (seg[end - 2] === "un" || seg[end - 2] === "una") && /^(mes|meses|semana|semanas|ano|anos)$/.test(seg[end - 1])) { end -= 3; continue; }
+      if (end - j >= 3 && (seg[end - 3] === "a" || seg[end - 3] === "one") && /^(month|months|week|weeks|year|years)$/.test(seg[end - 2]) && seg[end - 1] === "ago") { end -= 3; continue; }
       const w = seg[end - 1];
       if (REMIT_PERSON_STOP.has(w) || REMIT_PERIOD_WORDS.has(w) || REMIT_PERIOD_NOUNS.has(w) || REMIT_PERIOD_ORDINALS.has(w) || /^\d{4}$/.test(w) || w === "en" || w === "in") {
         if (REMIT_HALF_HEAD_LAST.has(w)) tailHead = true;
@@ -1506,6 +1520,40 @@ function periodOf(c: Ctx, folded: string): Period {
       return { kind: "month", key, label: L(c.lang, `hace ${n} meses (${key})`, `${n} months ago (${key})`) };
     }
   }
+  // OLA 35 (Q35-4): LAS FORMAS CON ARTÍCULO DE «HACE» — «hace un
+  // mes / una semana / un año» y su espejo inglés («a month ago») —
+  // no las oía ninguna rama: «hace un mes» caía al mes en curso,
+  // «hace una semana» a esta semana y «hace un año» a este año (la
+  // rama /\bano\b/ oía «ano» dentro de la frase), todo EN SILENCIO —
+  // peor que un recorte, porque la etiqueta servía el período en
+  // curso como si fuera el pedido. La puerta las sirve ahora con su
+  // desplazamiento verdadero, antes de las ramas del período en
+  // curso. Y el inglés con número en letras («two months ago») se
+  // suma a la rama de cifra: en historia servía «this month».
+  const haceArt = folded.match(/hace (?:un|una) (mes|semana|ano)\b/) ?? folded.match(/\b(?:a|one) (month|week|year) ago\b/);
+  if (haceArt) {
+    const unit = haceArt[1];
+    if (unit === "mes" || unit === "month") {
+      const key = prevKey(c.key);
+      return { kind: "month", key, label: L(c.lang, `hace un mes (${key})`, `a month ago (${key})`) };
+    }
+    if (unit === "semana" || unit === "week") {
+      const anchor = new Date(`${c.today}T12:00:00`);
+      anchor.setDate(anchor.getDate() - 7);
+      const r = periodRange("week", anchor.toISOString().slice(0, 10), 1);
+      return { kind: "range", ...r, label: L(c.lang, "hace una semana", "a week ago") };
+    }
+    const y = String(Number(c.key.slice(0, 4)) - 1);
+    return { kind: "year", year: y, label: L(c.lang, "hace un año", "a year ago") };
+  }
+  const agoWords = folded.match(/\b(two|three|four|five|six|seven|eight|nine|ten|twelve) months? ago\b/);
+  if (agoWords) {
+    const n = WORD_NUM[agoWords[1]] || 0;
+    if (n >= 1) {
+      const key = shiftKey(c.key, -n);
+      return { kind: "month", key, label: L(c.lang, `hace ${n} meses (${key})`, `${n} months ago (${key})`) };
+    }
+  }
   if (/mes pasado|el ultimo mes|last month/.test(folded)) {
     const k = prevKey(c.key);
     return { kind: "month", key: k, label: L(c.lang, "el mes pasado", "last month") };
@@ -1815,7 +1863,7 @@ function filterOf(c: Ctx, folded: string): ((l: Line) => boolean) | null {
  * rótulo: «la casa» hablada es primero la línea Casa que la partida
  * entera — y el veredicto nombra lo excluido con su cifra, así que
  * la lectura queda a la vista. */
-function citizenByName(state: LedgerState, names: Namer, word: string): { display: string; folded: string; fn: (l: Line) => boolean } | null {
+function citizenByName(state: LedgerState, names: Namer, word: string, pool?: Line[]): { display: string; folded: string; fn: (l: Line) => boolean } | null {
   const seg = foldQ(word).trim();
   if (seg.length < 3) return null;
   const cands: Array<{ display: string; folded: string; fn: (l: Line) => boolean }> = [];
@@ -1833,15 +1881,51 @@ function citizenByName(state: LedgerState, names: Namer, word: string): { displa
     if (!cand.folded || cand.folded.length < 3) continue;
     if ((seg === cand.folded || seg.startsWith(`${cand.folded} `)) && (!best || cand.folded.length > best.folded.length)) best = cand;
   }
+  // OLA 35 (C35-1 de Cambios): EL DESEMPATE CONTRA EL PERÍODO —
+  // la precedencia de arriba (el concepto manda sobre la categoría
+  // a igual rótulo) ata el ciudadano SIN mirar el período, y en
+  // vivo ataba al concepto «Casa» que vive en OTROS meses: en el
+  // mes preguntado su predicado no excluía ni un centavo (ahí la
+  // casa vive como categoría, con sus $45 dentro), y la respuesta
+  // servía el bruto nombrando «Sin contar «Casa» ($0.00)». Cuando
+  // el llamante trae la alberca del período y el ganador no
+  // excluye NADA en ella, un homónimo empatado que SÍ excluye en
+  // el período gana el desempate: la precedencia sigue mandando
+  // entre los ciudadanos que en el período existen; el que en el
+  // período no es nadie no sombrea al que concentra su gasto. Sin
+  // alberca, la vara es la de siempre, candidato por candidato.
+  if (best && pool && pool.length && !pool.some((l) => best.fn(l))) {
+    const tied = cands.filter((cand) => cand.folded === best.folded && cand !== best);
+    const live = tied.find((cand) => pool.some((l) => cand.fn(l)));
+    if (live) return live;
+  }
   return best;
 }
 /** La exclusión hablada: «sin la casa», «sin el carro» — el segmento
  * tras «sin» resuelto a un ciudadano del libro. Sin ciudadano, no hay
  * exclusión (un «sin» suelto no excluye nada). */
-function exclusionIn(state: LedgerState, names: Namer, folded: string): { display: string; folded: string; fn: (l: Line) => boolean; strip: string } | null {
+function exclusionIn(state: LedgerState, names: Namer, folded: string, pool?: Line[]): { display: string; folded: string; fn: (l: Line) => boolean; strip: string } | null {
   const m = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
   if (!m) return null;
-  const hit = citizenByName(state, names, m[1]);
+  const hit = citizenByName(state, names, m[1], pool);
+  if (!hit) return null;
+  const at = m[0].indexOf(hit.folded);
+  return { ...hit, strip: at >= 0 ? m[0].slice(0, at + hit.folded.length) : m[0] };
+}
+
+/** OLA 35 (Q35-1-Cara): EL OÍDO INGLÉS DE LA EXCLUSIÓN, SOLO EN LA
+ * PUERTA FRESCA — «without the house» no lo oía ningún oído de la
+ * casa (exclusionIn solo casa con «sin») y la pregunta fresca en
+ * inglés servía el total ENTERO en silencio, con la cláusula sin
+ * nombrar en ninguna parte: la especie de Q34-2 viviendo en inglés.
+ * Este oído es el espejo de exclusionIn para la forma inglesa y lo
+ * consume SOLO historiaAnswer (la puerta fresca): el seguimiento
+ * en inglés queda como está (OBS-35-C1-Cara, no tocada) — el §20
+ * sigue oyendo solo «sin». */
+function exclusionWithoutIn(state: LedgerState, names: Namer, folded: string, pool?: Line[]): { display: string; folded: string; fn: (l: Line) => boolean; strip: string } | null {
+  const m = /\bwithout (?:the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
+  if (!m) return null;
+  const hit = citizenByName(state, names, m[1], pool);
   if (!hit) return null;
   const at = m[0].indexOf(hit.folded);
   return { ...hit, strip: at >= 0 ? m[0].slice(0, at + hit.folded.length) : m[0] };
@@ -1880,7 +1964,7 @@ function strayFilterWord(c: Ctx, folded: string, skip?: ReadonlySet<string>): st
  * pasado no hay nada anotado en el tramo), la ausencia se
  * nombra y la cifra de este año se da igual. */
 function anoContraAnoAnswer(c: Ctx, folded: string): BankResult | null {
-  if (!/(comparad|contra el ano|versus|vs\.|que el ano pasado|than last year|compared (to|with)|ano contra ano)/.test(folded)) return null;
+  if (!/(comparad|contra el ano|versus|vs\.|que el ano pasado|than last year|compared (to|with)|ano contra ano|o el ano (pasado|anterior))/.test(folded)) return null;
   if (!/(este ano|ano pasado|this year|last year)/.test(folded)) return null;
   const income = /gane|gano|ganad|ingres|entro|entraron|earned|earn|came in/.test(folded);
   const spend = /gaste|gasto|gastad|gastar|gastando|spent|spend|salio|salieron/.test(folded);
@@ -1935,7 +2019,19 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   // texto que el filtro escanea — «sin la casa» no es un filtro de
   // casa: es su contrario. El total sale sin ese ciudadano, y el
   // veredicto lo nombra con su cifra (la resta a la vista, A23-3).
-  const excl = exclusionIn(c.state, c.names, folded);
+  // OLA 12: la dirección INGRESO habla el idioma del mundo — «gané»,
+  // «gano», «cobré», «mi salario» — no solo «entró/ingresó». Sin estas
+  // palabras, «¿cuánto gano por día?» recibía el GASTO: la dirección
+  // cruzada, peor que el silencio. (Se lee aquí, antes que la
+  // exclusión, porque la alberca del desempate la necesita.)
+  const income = /entr|ingres|recibi|gana|gano|gane|cobr|salario|sueldo|earned|came in|salary|wage/.test(folded);
+  // OLA 35 (C35-1): la alberca del período y la dirección, sin
+  // filtro — el desempate del ciudadano (citizenByName) la consulta
+  // para no atar a un homónimo que en este período no excluye nada.
+  const tiePool = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings"));
+  const excl = exclusionIn(c.state, c.names, folded, tiePool)
+    // OLA 35 (Q35-1-Cara): el oído inglés de la puerta fresca.
+    ?? exclusionWithoutIn(c.state, c.names, folded, tiePool);
   // OLA 34 (Familia 2, Q34-2): LA EXCLUSIÓN FRESCA QUE NO RESUELVE
   // TAMBIÉN MUERE NOMBRADA — el seguimiento con «sin Juan»
   // irresoluble moría en la reparación honesta, pero la pregunta
@@ -1945,33 +2041,65 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   // ciudadano lo reclama, la puerta nombra su cabeza (hasta dos
   // piezas, cortadas por el vocabulario de período) y rehúsa el
   // total disfrazado — la misma honestidad del filtro perdido.
+  // OLA 35: la muerte nombrada oye también la cláusula inglesa
+  // («without X») — su silencio era la otra mitad de Q35-1-Cara.
+  const exclDeath = (segment: string): BankResult | null => {
+    const named: string[] = [];
+    for (const t of segment.split(/\s+/).filter(Boolean)) {
+      if (named.length && (REMIT_CLOSING_WORDS.has(t) || t === "y" || t === "and" || t === "o")) break;
+      named.push(t);
+      if (named.length === 2) break;
+    }
+    if (!named.length) return null;
+    const word = named.join(" ");
+    return {
+      kind: "answer", family: "historia",
+      verdict: L(c.lang, `Me pides el total sin «${word}», pero no tengo nada anotado con ese nombre: ninguna categoría, concepto ni tienda de tu libro se llama así, así que no te doy el total entero como si la exclusión no estuviera. Si lo anotas con otro nombre, pregúntame por ese.`, `You're asking for the total without "${word}", but I have nothing recorded under that name: no category, concept or store in your book is called that, so I won't hand you the whole total as if the exclusion weren't there. If you record it under another name, ask me by that one.`),
+      pieces: [], note: null, source: ["libros.lineas"], lines: 0,
+    };
+  };
   if (!excl) {
-    const exclM = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
+    const exclM = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded)
+      ?? /\bwithout (?:the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
     if (exclM) {
-      const named: string[] = [];
-      for (const t of exclM[1].split(/\s+/).filter(Boolean)) {
-        if (named.length && (REMIT_CLOSING_WORDS.has(t) || t === "y" || t === "and" || t === "o")) break;
-        named.push(t);
-        if (named.length === 2) break;
-      }
-      if (named.length) {
-        const word = named.join(" ");
-        return {
-          kind: "answer", family: "historia",
-          verdict: L(c.lang, `Me pides el total sin «${word}», pero no tengo nada anotado con ese nombre: ninguna categoría, concepto ni tienda de tu libro se llama así, así que no te doy el total entero como si la exclusión no estuviera. Si lo anotas con otro nombre, pregúntame por ese.`, `You're asking for the total without "${word}", but I have nothing recorded under that name: no category, concept or store in your book is called that, so I won't hand you the whole total as if the exclusion weren't there. If you record it under another name, ask me by that one.`),
-          pieces: [], note: null, source: ["libros.lineas"], lines: 0,
-        };
+      const death = exclDeath(exclM[1]);
+      if (death) return death;
+    }
+  }
+  // OLA 35 (Q35-1): LA SEGUNDA EXCLUSIÓN TAMBIÉN SE LEE — la
+  // pregunta fresca con DOS cláusulas («sin el carro y sin la
+  // renta») resolvía solo la primera y dejaba el resto en el texto
+  // que el filtro escanea: filterHitOf oía al segundo ciudadano
+  // como FILTRO y servía SOLO lo que se pidió excluir (la Renta
+  // sola, «en eso»), con la resta de la primera calculada dentro
+  // del charco invertido ($0.00 falso). Ahora TODAS las cláusulas
+  // «sin X» se retiran antes del escaneo de filtro y se aplican:
+  // cada una con su resta nombrada. Una segunda cláusula que no
+  // resuelve muere nombrada, como la primera (Familia 2). La
+  // ranura del marco guarda la primera — la vara del §20, que en
+  // su propio camino aplica la primera y la nombra.
+  const exclList: Array<{ display: string; folded: string; fn: (l: Line) => boolean }> = [];
+  let foldedClean = folded;
+  if (excl) {
+    exclList.push(excl);
+    foldedClean = folded.replace(excl.strip, " ");
+    const second = exclusionIn(c.state, c.names, foldedClean, tiePool) ?? exclusionWithoutIn(c.state, c.names, foldedClean, tiePool);
+    if (second) {
+      // La cláusula se retira siempre del texto del filtro; el
+      // ciudadano repetido no se aplica dos veces.
+      foldedClean = foldedClean.replace(second.strip, " ");
+      if (second.folded !== excl.folded) exclList.push(second);
+    } else {
+      const m2 = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(foldedClean)
+        ?? /\bwithout (?:the )?([a-z0-9][a-z0-9 ]{2,})/.exec(foldedClean);
+      if (m2) {
+        const death = exclDeath(m2[1]);
+        if (death) return death;
       }
     }
   }
-  const foldedClean = excl ? folded.replace(excl.strip, " ") : folded;
   const hit = filterHitOf(c, foldedClean);
   const filter = hit?.fn ?? null;
-  // OLA 12: la dirección INGRESO habla el idioma del mundo — «gané»,
-  // «gano», «cobré», «mi salario» — no solo «entró/ingresó». Sin estas
-  // palabras, «¿cuánto gano por día?» recibía el GASTO: la dirección
-  // cruzada, peor que el silencio.
-  const income = /entr|ingres|recibi|gana|gano|gane|cobr|salario|sueldo|earned|came in|salary|wage/.test(folded);
   if (!filter && !income) {
     const stray = strayFilterWord(c, foldedClean);
     if (stray) {
@@ -1983,18 +2111,17 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
     }
   }
   const poolAll = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
-  const exclLines = excl ? poolAll.filter((l) => excl.fn(l)) : [];
-  const exclSum = exclLines.reduce((a, l) => a + view(c, l), 0);
-  const pool = excl ? poolAll.filter((l) => !excl.fn(l)) : poolAll;
+  const exclSums = exclList.map((e) => poolAll.filter((l) => e.fn(l)).reduce((a, l) => a + view(c, l), 0));
+  const pool = exclList.length ? poolAll.filter((l) => !exclList.some((e) => e.fn(l))) : poolAll;
   const total = pool.reduce((a, l) => a + view(c, l), 0);
-  const exclText = excl ? L(c.lang, ` Sin contar «${excl.display}» (${c.money(exclSum)}).`, ` Not counting "${excl.display}" (${c.money(exclSum)}).`) : "";
+  const exclText = exclList.map((e, i) => L(c.lang, ` Sin contar «${e.display}» (${c.money(exclSums[i])}).`, ` Not counting "${e.display}" (${c.money(exclSums[i])}).`)).join("");
   return {
     kind: "answer", family: "historia",
     verdict: income
       // OLA 26 (U4): la frase concuerda — «de 1 línea», no «de 1 líneas».
       ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filter ? " por ese filtro" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `${c.money(total)} came in ${p.label}${filter ? " under that filter" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`)
       : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`),
-    pieces: [{ label: p.label, minor: total }, ...(excl ? [{ label: L(c.lang, `Fuera de la cuenta: ${excl.display}`, `Left out: ${excl.display}`), minor: -exclSum }] : [])],
+    pieces: [{ label: p.label, minor: total }, ...exclList.map((e, i) => ({ label: L(c.lang, `Fuera de la cuenta: ${e.display}`, `Left out: ${e.display}`), minor: -exclSums[i] }))],
     note: pool.length === 0
       ? L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.")
       : null,
@@ -2012,7 +2139,7 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
     // respuesta fresca la aplicó y la nombró; si el marco no la
     // guarda, el seguimiento la pierde en silencio (el total bruto
     // del desplazamiento) o la lee al revés (el estrechamiento).
-    ...(!hit || hit.desc ? { frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total, exclusion: excl ? { folded: excl.folded, display: excl.display } : null } as AskFrame } : {}),
+    ...(!hit || hit.desc ? { frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total, exclusion: exclList[0] ? { folded: exclList[0].folded, display: exclList[0].display } : null } as AskFrame } : {}),
   };
 }
 
@@ -2044,6 +2171,14 @@ function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
   // función y la descompuesta se juzga primero; en canon la suma
   // por persona es servidora aparte y se la tragaba.
   if (/(cuesta|cuestan|costo|margen|comision|fee|cost|margin|what arrives|cuanto llega|cuanto le llega)/.test(folded)) return null;
+  // OLA 35 (Q35-5): LA COMPARACIÓN DE AÑOS NO ES UNA PERSONA — con
+  // «comparado» en la frase, la caminata no consume el vocabulario
+  // comparativo y declaraba la puntería ambigua: la pregunta moría
+  // con la razón equivocada («entre el verbo y el nombre hay
+  // palabras que no reconozco») donde había una comparación de
+  // períodos. Esta familia cede el turno: la suma del período
+  // (7c) sirve el lado pedido con su nombre verdadero.
+  if (/(comparad|compared|contra|versus|vs\.)/.test(folded) && /(este ano|this year)/.test(folded) && /(ano pasado|ano anterior|last year)/.test(folded)) return null;
   const person = remitPersonOf(c, folded);
   if (!person) {
     const aim = remitPersonAimOf(folded);
@@ -2125,7 +2260,7 @@ function remesaPersonaAnswer(c: Ctx, folded: string): BankResult | null {
 /* por persona, que tampoco conocen piso. El período vacío se         */
 /* responde como ausencia — jamás rellenado con el total de siempre.  */
 /* ------------------------------------------------------------------ */
-const REMIT_PERIOD_MARKER = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december|hace (\d+|dos|tres|cuatro|cinco|seis|ocho|doce)|months? ago|mes pasado|el ultimo mes|last month|semana pasada|last week|semana|week|este mes|this month|este ano|this year|last year|\bano\b|quincena|pay period|half month)/;
+const REMIT_PERIOD_MARKER = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december|hace (\d+|dos|tres|cuatro|cinco|seis|ocho|doce)|months? ago|mes pasado|el ultimo mes|last month|semana pasada|last week|semana|week|este mes|this month|este ano|this year|last year|\bano\b|quincena|pay period|half month|hace (?:un|una) (?:mes|semana|ano)|(?:a|one) (?:month|week|year)s? ago)/;
 function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(cuanto|how much)/.test(folded)) return null;
   if (!/(mande|envie|enviado|enviando|sent|send)/.test(folded)) return null;
@@ -2149,7 +2284,11 @@ function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
   // ropa de la familia nueva. La persona manda; el período espera.
   if (remitPersonOf(c, folded)) return null;
   const aim = remitPersonAimOf(folded);
-  if (aim.word || aim.ambiguous) return null;
+  // OLA 35 (Q35-5): con la comparación de años en la frase, la
+  // puntería «ambigua» de la caminata es el vocabulario
+  // comparativo, no un nombre — el veto no corre y la familia
+  // sirve el lado que periodOf nombra (el año pasado).
+  if ((aim.word || aim.ambiguous) && !/(comparad|compared|contra|versus|vs\.)/.test(folded)) return null;
   if (remitConsumedName(folded)) return remitUnclearPerson(c, "remesas");
   // OLA 33 (Familia 3, Q33-3): EL MODIFICADOR SIN PUERTA MANDA
   // SOBRE LA QUINCENA NOMBRADA — «la próxima quincena», «la 1ra
@@ -7215,9 +7354,16 @@ function historiaPool(c: Ctx, p: Period, income: boolean, filter: ((l: Line) => 
  * del ciudadano por su nombre — la misma vara con que el filtro se
  * reconstruye de su descriptor. Si el ciudadano ya no vive en el
  * libro, no hay predicado: la exclusión murió con él. */
-function frameExclusionFn(c: Ctx, ex: AskFrameExclusion | null | undefined): ((l: Line) => boolean) | null {
+function frameExclusionFn(c: Ctx, ex: AskFrameExclusion | null | undefined, pool?: Line[]): ((l: Line) => boolean) | null {
   if (!ex) return null;
-  return citizenByName(c.state, c.names, ex.folded)?.fn ?? null;
+  return citizenByName(c.state, c.names, ex.folded, pool)?.fn ?? null;
+}
+
+/** La alberca del desempate para la ranura del marco: el período
+ * del marco con su dirección, sin filtro — la misma que la puerta
+ * fresca le pasa a citizenByName (C35-1). */
+function frameTiePool(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>): Line[] {
+  return allLines(c).filter((l) => inPeriod(c, l, f.period) && (f.income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings"));
 }
 
 /** La frase de la resta, en la forma de historiaAnswer: la
@@ -7320,7 +7466,7 @@ function descomponerPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>, ex
   // — la del marco, o la nueva que el seguimiento trae — o la
   // descomposición contaría al ciudadano que la pregunta dejó
   // fuera y la partición no cerraría contra el total del marco.
-  const { byCat, lines } = historiaPool(c, f.period, f.income, fn, exclF ? exclF.fn : frameExclusionFn(c, f.exclusion));
+  const { byCat, lines } = historiaPool(c, f.period, f.income, fn, exclF ? exclF.fn : frameExclusionFn(c, f.exclusion, frameTiePool(c, f)));
   const rows = [...byCat.entries()].map(([id, minor]) => ({ id, minor })).filter((x) => x.minor !== 0).sort((a, b) => b.minor - a.minor);
   const head = L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}${f.filter ? `, en ${f.filter.label}` : ""}`, `Following your question — in ${f.period.label}${f.filter ? `, on ${f.filter.label}` : ""}`);
   if (!rows.length) {
@@ -7368,7 +7514,7 @@ function desplazarPeriod(c: Ctx, f: Extract<AskFrame, { kind: "period1" }>, excl
   // neto y la resta se nombra: el marco, su horquilla y la cifra
   // cuentan la misma historia.
   const ex: AskFrameExclusion | null = exclF ? { folded: exclF.folded, display: exclF.display } : f.exclusion ?? null;
-  const { total, lines, exclTotal } = historiaPool(c, period, f.income, fn, exclF ? exclF.fn : frameExclusionFn(c, f.exclusion));
+  const { total, lines, exclTotal } = historiaPool(c, period, f.income, fn, exclF ? exclF.fn : frameExclusionFn(c, f.exclusion, frameTiePool(c, { ...f, period })));
   const nf: AskFrame = { kind: "period1", period, income: f.income, filter: f.filter, total, exclusion: ex };
   return {
     kind: "answer", family: "historia",
@@ -7413,7 +7559,7 @@ function estrecharAprendido(c: Ctx, f: AskFrame, learned: LearnedAlias): BankRes
     };
   }
   // OLA 34 (Familia 1): también neto de la exclusión del marco.
-  const { total, lines } = historiaPool(c, f.period, f.income, fn, frameExclusionFn(c, f.exclusion));
+  const { total, lines } = historiaPool(c, f.period, f.income, fn, frameExclusionFn(c, f.exclusion, frameTiePool(c, f)));
   return {
     kind: "answer", family: "historia",
     verdict: L(c.lang, `Siguiendo tu pregunta — en ${f.period.label}, solo en «${learned.word}»: ${c.money(total)}.`, `Following your question — in ${f.period.label}, only on "${learned.word}": ${c.money(total)}.`),
@@ -7439,7 +7585,7 @@ function estrechar(c: Ctx, f: AskFrame, hit: FilterHit): BankResult {
   // exclusión del marco — su total es el del ámbito nuevo SIN el
   // ciudadano excluido, y la resta se nombra como en las demás
   // caras del marco.
-  const { total, lines, exclTotal } = historiaPool(c, f.period, f.income, hit.fn, frameExclusionFn(c, f.exclusion));
+  const { total, lines, exclTotal } = historiaPool(c, f.period, f.income, hit.fn, frameExclusionFn(c, f.exclusion, frameTiePool(c, f)));
   const nf: AskFrame = { ...f, filter: hit.desc, total };
   return {
     kind: "answer", family: "historia",
@@ -7505,7 +7651,7 @@ function ensanchar(c: Ctx, f: AskFrame): BankResult {
   // OLA 34 (Familia 1): ensanchar quita el FILTRO, no la exclusión
   // — el total ensanchado sigue neto del ciudadano excluido y la
   // resta se nombra; el marco conserva su exclusión.
-  const { total, lines, exclTotal } = historiaPool(c, f.period, f.income, null, frameExclusionFn(c, f.exclusion));
+  const { total, lines, exclTotal } = historiaPool(c, f.period, f.income, null, frameExclusionFn(c, f.exclusion, frameTiePool(c, f)));
   const nf: AskFrame = { ...f, filter: null, total };
   return {
     kind: "answer", family: "historia",
@@ -7578,6 +7724,37 @@ export function answerFollowUp(
     learned: learned ?? [],
   };
   if (frame) {
+    // OLA 35 (G35-2): LA EXCLUSIÓN MUERTA CALLA — la ranura del
+    // marco se re-resuelve por nombre en cada turno, y si el
+    // ciudadano desapareció del libro entre turnos (un renombre
+    // «Casa»→«Hogar»), el predicado muere por diseño pero el texto
+    // no: el desplazamiento servía el bruto con la cola «Sin contar
+    // «Casa» ($0.00)» y una pieza fantasma en −0, la descomposición
+    // no cerraba y la ranura muerta se heredaba y se nombraba hasta
+    // sobre un mes vacío. La muerte del predicado puede ser diseño;
+    // el silencio de su texto no: aquí el marco se SANA al entrar —
+    // sin ciudadano, sin ranura — y cada verbo sirve el total llano
+    // sin cola ni pieza ni herencia, como el marco sin exclusión.
+    if (frame.kind === "period1" && frame.exclusion) {
+      // La muerte se juzga por las LÍNEAS, no por la cáscara del
+      // nombre: tras el renombre el nombre puede sobrevivir en la
+      // estructura (la categoría «Casa» sin una sola línea suya en
+      // todo el libro) y citizenByName lo resuelve a un predicado
+      // que no excluye nada en ninguna parte — la misma muerte con
+      // mejor disfraz. Vivo es el ciudadano cuyo predicado toca al
+      // menos una línea del libro; el resto es cáscara.
+      const cz = citizenByName(state, names, frame.exclusion.folded);
+      const alive = !!cz && Object.values(state.months).some((m) => m.lines.some((l) => cz.fn(l)));
+      if (!alive) {
+        // El total del marco también se sana: era neto de un
+        // ciudadano que ya no existe; sin la recomposición, la
+        // descomposición del período sumaría el bruto vivo contra
+        // un total neto muerto y la partición no cerraría. El
+        // marco sano cuenta la historia del libro de hoy.
+        const pool = historiaPool(c, frame.period, frame.income, frame.filter ? filterFromDesc(c, frame.filter) : null, null);
+        frame = { ...frame, exclusion: null, total: pool.total };
+      }
+    }
     // OLA 34 (Familia 1, Q34-1): LA EXCLUSIÓN QUE EL SEGUIMIENTO
     // TRAE se lee ANTES que cualquier verbo — §20 no consultaba la
     // palabra «sin» en ninguna parte: el desplazamiento servía el
@@ -7589,6 +7766,14 @@ export function answerFollowUp(
     // Proyectar y desplazar traen su propio ancla: van primero.
     if (RE_PROJECT_F.test(folded) && !(frame.kind === "period1" && frame.income)) return proyectarSeguimiento(c, frame);
     if (RE_SHIFT_F.test(folded)) {
+      // OLA 35 (Q35-3): «EL AÑO PASADO» NO ES UN DESPLAZAMIENTO DE
+      // MES — RE_SHIFT_F oye «y el ano pasado» y desplazarPeriod
+      // desplaza UN MES para todo marco de mes: sobre un marco de
+      // octubre servía «el mes pasado» ($80) mientras la puerta
+      // fresca sirve 2025 ($500) para las mismas palabras. El §20
+      // cede el turno y la reescritura lo cruza por la puerta F5:
+      // la respuesta es el año pedido, con su etiqueta verdadera.
+      if (frame.kind === "period1" && /(y el ano pasado|el ano anterior)/.test(folded)) return null;
       const r = frame.kind === "compare2" ? desplazarCompare(c, frame) : desplazarPeriod(c, frame, exclF);
       if (r) return r;
     }
@@ -7775,6 +7960,31 @@ const replaceWholeWord = (text: string, needle: string, replacement: string): st
   const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return text.replace(new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`), (_m, a: string, b: string) => `${a}${replacement}${b}`);
 };
+/** OLA 35 (Q35-2): LA COSTURA DE PERSONA NO CORTA DENTRO DEL
+ * NOMBRE DE LA CUENTA — cuando la persona del marco también vive
+ * FUERA del nombre de su cuenta («el Fondo Rosa DE ROSA»), la
+ * guarda de nacimiento deja pasar el eje y replaceWholeWord cosía
+ * la PRIMERA ocurrencia — la de dentro: «el fondo ana de rosa»,
+ * con su eco falso y su stock entero. Esta costura reemplaza la
+ * primera ocurrencia que vive FUERA del tramo del nombre de la
+ * cuenta; si la única vive dentro, devuelve el texto intacto y la
+ * rama muere honesta, como su forma de cura falló. */
+const replaceOutsideAccount = (text: string, needle: string, replacement: string, account: string | undefined): string => {
+  if (!account) return replaceWholeWord(text, needle, replacement);
+  const escA = account.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const am = new RegExp(`(^|[^a-z0-9])${escA}([^a-z0-9]|$)`).exec(text);
+  if (!am) return replaceWholeWord(text, needle, replacement);
+  const aStart = am.index + am[1].length;
+  const aEnd = aStart + account.length;
+  const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const start = m.index + m[1].length;
+    if (start < aStart || start >= aEnd) return text.slice(0, start) + replacement + text.slice(start + needle.length);
+  }
+  return text;
+};
 /** OLA 33 (Familia 1, Q33-1): EL DETECTOR PREFIERE LA COINCIDENCIA
  * MÁS LARGA — los detectores del marco devolvían el PRIMER acierto
  * por palabra entera en el orden de las listas del libro, mientras
@@ -7926,6 +8136,27 @@ export function convoAfterFollowUp(state: LedgerState, key: string, names: Namer
   // exclusión guardada en el AskFrame, la costura la lee del turno
   // (la nueva) o la conserva (la de siempre), como el motor hizo.
   const exclNow = exclusionIn(state, names, folded);
+  // OLA 35 (Q35-7): LA PREGUNTA CITADA SIGUE A LA EXCLUSIÓN QUE
+  // MANDÓ — cuando el turno REEMPLAZÓ la exclusión del marco, la
+  // costura de arriba dejaba la cláusula vieja en pie dentro de la
+  // pregunta guardada («¿cuanto gaste sin la casa? (el mes
+  // pasado)») desplegando piezas que excluían al Carro e incluían
+  // a la Casa: el porqué citaba términos que la cuenta no aplicó.
+  // La cláusula reemplazada se retira de la cita (su período
+  // cosido se conserva) y la vigente se cose, como la reescritura
+  // cose la pregunta que sirve.
+  if (exclNow && prev.exclusionName && exclNow.folded !== prev.exclusionName) {
+    const idx = question.lastIndexOf(" sin ");
+    if (idx >= 0) {
+      const tail = question.slice(idx + 5);
+      const art = /^(?:el |la |los |las )/.exec(tail);
+      const nameStart = idx + 5 + (art ? art[0].length : 0);
+      if (question.slice(nameStart).startsWith(prev.exclusionName)) {
+        question = (question.slice(0, idx) + question.slice(nameStart + prev.exclusionName.length)).replace(/\s+/g, " ").trim();
+      }
+    }
+    if (!question.includes(` sin ${exclNow.folded}`)) question = `${question} sin ${exclNow.folded}`;
+  }
   const exclName = exclNow ? exclNow.folded : prev.exclusionName;
   // OLA 34 (Familia 10): la misma guarda de nacimiento — la persona
   // que el turno nombra solo dentro del nombre de una cuenta no
@@ -8008,6 +8239,15 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
   }
   if (person2 && frame.personName && frame.accountName && personInsideAccountOnly(frame.question, frame.personName, frame.accountName)) return null;
   if (!p2 && !excl && !person2 && !acct2) return null;
+  // OLA 35 (Q35-9): EL TOTAL ES STOCK DE HOY Y NO TIENE EJE DE
+  // PERÍODO — la rama de período AÑADÍA la frase a su pregunta
+  // («¿cuánto dinero tengo en total? el mes pasado») y la familia
+  // la ignoraba, re-sirviendo los mismos $2.800 de hoy con el eco
+  // «cambié solo el período»: un cambio que no ocurrió, anunciado.
+  // Sin otro eje en el turno, la reescritura cede: el seguimiento
+  // muere en la reparación honesta, que nombra los ejes que sí
+  // puede cambiar — jamás un eco falso sobre la cifra de hoy.
+  if (p2 && !excl && !person2 && !acct2 && frame.family === "total") return null;
   if (person2 && !frame.personName) return null;
   if (acct2 && !frame.accountName) return null;
   // La forma debe ser SOLO ejes: quitados los ejes y las muletillas,
@@ -8035,6 +8275,35 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
   // también: nombrar el mismo período con su otra forma no es un
   // cambio y no nace nota (samePeriodPhrase incluye la igualdad de
   // cadenas de la Cura 32 como piso).
+  // OLA 35 (Q35-6): EL MARCO DE LA COMPARATIVA ANUAL SE ESTRECHA
+  // A UN LADO — la respuesta de DOS años dejaba un marco de UN
+  // período cuya frase guardada era un lado (por orden de lista):
+  // «¿Y el año pasado?» se leía «sin cambio» y re-servía la
+  // comparación entera; «¿Y este año?» la re-servía con eco de
+  // cambio falso y la pregunta fabricada «…este ano comparado con
+  // este ano». Pedir un lado de una comparación ES estrecharla:
+  // la pregunta que se sirve es la del lado pedido, sola — la
+  // base de la comparación (su verbo y su dirección) con la frase
+  // del turno en el lugar del año que la base trae.
+  const yearCompareFrame = p2 && !excl
+    && /(este ano|this year)/.test(frame.question) && /(ano pasado|ano anterior|last year)/.test(frame.question)
+    && /(comparad|compared|versus|vs\.|contra|than last year|que el ano pasado)/.test(frame.question);
+  if (yearCompareFrame) {
+    // El corte va en el marcador comparativo — incluida la forma
+    // «…que el año pasado», donde el segundo año ES el marcador:
+    // la cabeza conserva el verbo y la dirección de la pregunta.
+    const cut = frame.question.search(/\s(comparad|compared|versus|vs\.|contra)\b|\sque el ano (pasado|anterior)|\so el ano (pasado|anterior)|\sthan last year/);
+    const base = (cut > 0 ? frame.question.slice(0, cut) : frame.question).trim().replace(/^[¿¡]+/, "");
+    const yearInBase = /(este ano|el ano pasado|ano anterior|this year|last year)/.exec(base);
+    let qSide = yearInBase ? replaceWholeWord(base, yearInBase[1], p2 as string) : `${base} ${p2}`;
+    // La cabeza sin «cuánto» («gaste mas este ano») no abre la
+    // puerta de historia: la costura le devuelve su forma de
+    // pregunta, como la rama de período añade la frase que falta.
+    if (!/(cuanto|how much)/.test(qSide)) qSide = `${L(lang, "cuanto", "how much")} ${qSide}`;
+    if (qSide !== frame.question) {
+      return { question: qSide, echo: L(lang, `cambié solo el período, a «${p2}»`, `I changed only the period, to "${p2}"`), fork: p2 as string };
+    }
+  }
   if (p2 && !(frame.periodPhrase && samePeriodPhrase(frame.periodPhrase, p2))) {
     const qBefore = q;
     // OLA 34 (Familia 6, Q34-6): LA FRASE DE PERÍODO ENTERA SE
@@ -8088,7 +8357,7 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
   const frameFull34 = person2 && frame.personName ? framePersonFull(state, frame.personName, today) : null;
   const hitIsFramePerson = !!(personHit && frameFull34 && personHit.form === frameFull34.split(/\s+/)[0] && personHit.full !== personHit.form);
   if (person2 && frame.personName !== person2 && !hitIsFramePerson && !(personHit && framePersonFull(state, frame.personName as string, today) === personHit.full)) {
-    const q2 = replaceWholeWord(q, frame.personName as string, person2);
+    const q2 = replaceOutsideAccount(q, frame.personName as string, person2, frame.accountName);
     if (q2 === q) return null;
     q = q2;
     parts.push({ solo: L(lang, `cambié solo la persona, a «${person2}»`, `I changed only the person, to "${person2}"`), plain: L(lang, `la persona a «${person2}»`, `the person to "${person2}"`) });
@@ -9244,6 +9513,21 @@ function answerSingle(
   {
     const r = sintesisAnswer(c, folded);
     if (r) return r;
+  }
+  // OLA 35 (Q35-5): LA COMPARATIVA ANUAL, DESDE SU PROPIO GATILLO —
+  // anoContraAnoAnswer vivía solo tras la compuerta del paso 5, que
+  // exige «cuánto/how much»: sus siete formas comparativas de sí/no
+  // («¿gasté más este año que el año pasado?», «did I spend more
+  // this year than last year?», «¿cuánto MÁS gasté…?») jamás la
+  // alcanzaban — la puerta de la familia era más estrecha que su
+  // propio vocabulario («que el año pasado», «than last year» son
+  // SUS gatillos) y la mitad comparativa de la comparación moría
+  // en unknown. La familia se juzga aquí, ante su gatillo natural:
+  // es conservadora (marcador comparativo + los dos años + una
+  // sola dirección) y devuelve null ante lo que no es suyo.
+  {
+    const aa = anoContraAnoAnswer(c, folded);
+    if (aa) return aa;
   }
   // 9 · COMPARAR (antes que historia: trae dos patas). OLA 12: la
   // puerta se ensancha a las formas de la familia — la batería del

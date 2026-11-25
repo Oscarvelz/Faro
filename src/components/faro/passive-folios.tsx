@@ -23,6 +23,14 @@ const folioDay = (at: string): string => {
   // todayIso; el día escrito se pinta como se escribió, en toda
   // zona, como dayLabel trata toda cadena-día de la casa.
   if (ISO_DAY.test(at)) return at;
+  // OLA 35 (G35-1): LA FORMA DE DÍA CON SUFIJO DE ZONA («2026-11-22Z»)
+  // TAMBIÉN SE DEVUELVE TAL CUAL — el juez la admite (prefijo real e
+  // ida y vuelta sanas) y el lector la entrega, pero ISO_DAY no casa
+  // con la Z final y la cadena caía a la rama de instantes: la
+  // medianoche UTC pintaba el día ANTERIOR en todo meridiano al oeste
+  // de UTC, la firma de G34-1 un anillo más afuera. La cadena no trae
+  // hora: trae un día y un sufijo — el día que nombra se pinta.
+  if (/^\d{4}-\d{2}-\d{2}[zZ]$/.test(at)) return at.slice(0, 10);
   const d = new Date(at);
   return Number.isNaN(d.getTime()) ? at.slice(0, 10) : todayIso(d);
 };

@@ -40,6 +40,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.451",
+    date: "2026-11-25",
+    level: "menor",
+    title: { es: "Seguir preguntando, con mejor memoria", en: "Asking on, with a better memory" },
+    points: {
+      es: [
+        "Puedes excluir dos cosas en una misma pregunta de historia: «sin el carro y sin la renta» resta las dos y nombra cada una con su cifra. En inglés, el «without» de la pregunta fresca también se oye.",
+        "Las comparaciones con el año pasado llegan a su puerta: «¿y el año pasado?» sirve solo ese lado, con su cifra verdadera, y el porqué que sigue cita la exclusión que sigue viva, no la que ya cambiaste.",
+        "El tiempo también se oye en palabras: «hace un mes», «hace una semana» y «a month ago» sirven su período. Y si lo que excluiste ya no está en tu libro, el seguimiento calla esa parte en vez de arrastrar una cifra fantasma.",
+      ],
+      en: [
+        "You can leave two things out of one history question: “without the car and without the rent” takes both out and names each one with its figure. A fresh question's “without” is heard in English too.",
+        "Comparisons with last year reach their door: “and last year?” serves only that side, with its true figure, and the why that follows quotes the exclusion that's still alive, not the one you already changed.",
+        "Time is heard in words too: “a month ago”, “a week ago” and “hace un mes” serve their period. And if what you left out is no longer in your book, the follow-up goes quiet on that part instead of dragging a phantom figure along.",
+      ],
+    },
+  },
+  {
     version: "1.3.450",
     date: "2026-11-24",
     level: "grande",
