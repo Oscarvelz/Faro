@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.454",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "Tu ortografía ya no mata la pregunta", en: "Your spelling no longer kills the question" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Escribe como escribes: «¿cuánto ahoro tengo?», «¿cuánto me quda este mes?» o «¿estoy palado?» se entienden igual — el Asesor repara la letra caída o cambiada en la palabra que abre la puerta, en español y en inglés, antes de juzgar tu pregunta.",
+        "La reparación es cuidadosa: si una palabra podría ser dos, no se toca; los nombres de tu libro (tus cuentas, tus bolsillos, tus personas) están protegidos y jamás se “corrigen”; y las palabras que ya son palabras de verdad nunca se tratan como erratas.",
+        "La forma tampoco mata: «dime cuánto gasto», «quiero saber cuánto me queda» o la misma pregunta sin signos y sin «por favor» llegan a la misma respuesta — la envoltura de la pregunta no es la pregunta.",
+        "Y el dinero se oye con su nombre de todos los días: «¿tengo billete?» te responde que sí o que no, con tu cifra total delante.",
+      ],
+      en: [
+        "Write the way you write: “how much do I have lfet this month?”, “Am I brke?” — the Advisor repairs the dropped or swapped letter in the word that opens the door, in English and Spanish, before judging your question.",
+        "The repair is careful: if a word could be two words, it's left untouched; your book's names (your accounts, pockets and people) are protected and never “corrected”; and words that are already real words are never treated as typos.",
+        "The wrapping doesn't kill it either: “tell me how much I spend”, the same question with no question marks and no “please” — all reach the same answer. The wrapping of the question is not the question.",
+        "And money is heard by its everyday name: “do I have any cash?” gets a yes or a no, with your total figure in front.",
+      ],
+    },
+  },
+  {
     version: "1.3.453",
     date: "2026-11-25",
     level: "grande",

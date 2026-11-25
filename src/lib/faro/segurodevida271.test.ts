@@ -139,6 +139,12 @@ describe("1.3.271 — el importe de Oscar no existe; el nombre solo donde ya viv
       // prima del espécimen ($85) es dato de banco inventado, no el
       // importe de Oscar: el nombre solo, donde la respuesta lo exige.
       "src/lib/faro/banco.test.ts",
+      // El puerto 1.3.454 (campaña de mutaciones): la batería hostil
+      // siembra su libro con la MISMA pieza de fábrica que el banco
+      // (la familia «seguro» es una de las promesas bajo mutación) y
+      // la nombra por la misma razón — la respuesta la exige. Sin
+      // importe de Oscar: la prima del espécimen es dato inventado.
+      "src/lib/faro/mutaciones.test.ts",
     ]);
     for (const f of files) {
       if (!readFileSync(f, "utf8").includes("Primerica")) continue;

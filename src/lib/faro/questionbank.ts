@@ -651,7 +651,7 @@ export const QUESTION_BANK: BankFamily[] = [
     source: ["remesas.personas", "asesor.lectura"],
     axes: ["quién (persona × todas) × cuándo (este mes × año × siempre)"],
     canonical: {
-      es: ["¿Cuándo envías remesas y a quién?", "¿Cuánto he enviado a mamá este año?", "¿Cuánto envío en remesas al mes?"],
+      es: ["¿Cuándo envías remesas y a quién?", "¿Cuánto he enviado a mamá este año?", "¿Cuánto envío en remesas al mes?", "¿Cuál es mi patrón de remesas?"],
       en: ["When do I send remittances, and to whom?", "How much have I sent to Mom this year?"],
     },
     answerShape: "Destinatarios con sus totales (line.to), la frecuencia real (envíos por mes con datos) y el último envío. El promedio solo se calcula sobre meses CON envíos y se dice así.",

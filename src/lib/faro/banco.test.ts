@@ -4960,3 +4960,87 @@ describe("ola 64 · el seguro de vida es ciudadano, no ahorro (2026-11-24) — p
     assert.ok(r.verdict.includes("$85.00") && r.verdict.includes("day 15"), r.verdict);
   });
 });
+
+describe("olas 65-67 · la campaña de mutaciones (la onda hostil y la onda amiga, 2026-11-24) — puerto de la línea Q&A", () => {
+  const ledger = fixture();
+  it("OLA 65 · una letra caída en la palabra de la puerta no mata la pregunta: «ahoros»", () => {
+    const r = ask(ledger, "¿Cuánto tengo en ahoros?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("$1,299.00"), r.verdict);
+  });
+  it("OLA 65 · «¿Qué saes hacer?» llega a capacidades: la errata se repara a la palabra entera", () => {
+    const r = ask(ledger, "¿Qué saes hacer?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "capacidades");
+  });
+  it("OLA 65 · el empate dentro de la misma familia de palabra lo gana la entera: «gastmos» → gastamos", () => {
+    const r = ask(ledger, "¿Cuánto gastmos en la casa al mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "promedio");
+  });
+  it("OLA 65 · la ambigüedad honesta no se adivina: «vece» no se vuelve ni «veces» ni «vence»", () => {
+    const r = ask(ledger, "¿Qué vece esta semana?");
+    assert.ok(!(r.kind === "answer" && r.family === "frecuencia"), JSON.stringify(r.kind));
+  });
+  it("OLA 65 · la reparación no toca los nombres del libro: Carlos y Ana se quedan Carlos y Ana", () => {
+    const r = ask(ledger, "¿Cuánto me debe Carlos?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "deudas");
+    assert.ok(r.verdict.includes("$300.00"), r.verdict);
+    const a = ask(ledger, "¿Cuánto me debe Ana?");
+    assert.equal(a.kind, "answer");
+    if (a.kind === "answer") assert.ok(a.verdict.includes("$100.00"), a.verdict);
+  });
+  it("OLA 65 · «set aside» jamás se repara a «sent aside»: la frase inglesa queda intacta", () => {
+    const r = ask(ledger, "How much do I have set aside?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+  });
+  it("OLA 66 · el dinero con su nombre de todos los días: «¿Tengo billete?»", () => {
+    const r = ask(ledger, "¿Tengo billete?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "total");
+    assert.ok(r.verdict.includes("En total tienes"), r.verdict);
+  });
+  it("OLA 66 · la guarda de clase: «billete» con clase nombrada es de ahorros, no del total", () => {
+    const r = ask(ledger, "¿Cuánto billete tengo en ahorros?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+  });
+  it("OLA 67 · el reparto en inglés entra por su verbo: «Split the $120…»", () => {
+    const r = ask(ledger, "Split the $120: 40 for mom, 30 for Carlos and 50 for me", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "reparto");
+    assert.ok(r.verdict.includes("Mamá") && r.verdict.includes("Carlos"), r.verdict);
+  });
+  it("OLA 67 · la cuenta atrás del calendario: «¿Cuántos días faltan para el día 15?»", () => {
+    const r = ask(ledger, "¿Cuántos días faltan para el día 15?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calendario");
+    assert.ok(r.verdict.includes("faltan 24 días"), r.verdict);
+  });
+  it("OLA 67 · la comparación de la confirmación oye el nombre deformado: «Caros» encuentra a Carlos", () => {
+    const r = ask(ledger, "¿Ana me debe más que Caros?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "confirmacion");
+    assert.ok(r.verdict.includes("Ana") && r.verdict.includes("Carlos"), r.verdict);
+  });
+  it("OLA 67 · el conversor en imperativo: «Convierte 100 dólares a córdobas»", () => {
+    const r = ask(ledger, "Convierte 100 dólares a córdobas");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "conversor");
+  });
+});
+

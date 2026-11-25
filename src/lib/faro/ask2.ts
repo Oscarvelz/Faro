@@ -2797,6 +2797,47 @@ function remesaPeriodoAnswer(c: Ctx, folded: string): BankResult | null {
 /* ------------------------------------------------------------------ */
 /* REMESAS — el patrón: a quién, cuánto y con qué frecuencia.         */
 /* ------------------------------------------------------------------ */
+/* OLA 67 · EL PUENTE DE PARENTESCO: la persona del libro se llama
+ * «Mamá» y la pregunta en inglés dice «Mom» — el nombre no calza y
+ * la persona se perdía entera (la remesa y la recencia en inglés
+ * callaban con el libro lleno). El parentesco cercano tiene su
+ * puente fijo en los dos idiomas; no es una traducción libre: es
+ * la lista corta de la familia, y solo resuelve cuando el nombre
+ * del libro ES la palabra del puente. */
+const KIN_BRIDGE: Record<string, string[]> = {
+  mama: ["mom", "mother"], madre: ["mom", "mother"],
+  papa: ["dad", "father"], padre: ["dad", "father"],
+  abuela: ["grandma", "grandmother"], abuelo: ["grandpa", "grandfather"],
+  tia: ["aunt"], tio: ["uncle"],
+  hermana: ["sister"], hermano: ["brother"],
+  hija: ["daughter"], hijo: ["son"],
+  esposa: ["wife"], esposo: ["husband"],
+};
+function personNamedIn(folded: string, name: string): boolean {
+  const f = foldQ(name).trim();
+  if (f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded)) return true;
+  const alts = KIN_BRIDGE[f];
+  if (alts && alts.some((a) => new RegExp(`(^|[^a-z0-9])${a}([^a-z0-9]|$)`).test(folded))) return true;
+  /* OLA 67 · EL NOMBRE TAMBIÉN AGUANTA SU ERRATA: la reparación
+   * global no puede tocar «Caros» (es una palabra de puerta: el
+   * plural de «caro»), pero el nombre del libro sí puede casar a
+   * una deformación honesta de distancia — aquí, en el punto de
+   * uso, donde el universo de nombres es chico y cerrado. Solo
+   * nombres de 4+ letras y palabras de 4+: «Caros» encuentra a
+   * Carlos; «Ana» jamás se deforma. */
+  if (f.length >= 4) {
+    const targets = [f, ...(alts ?? [])];
+    for (const tok of folded.split(/[^a-z0-9]+/)) {
+      if (tok.length < 4) continue;
+      for (const t of targets) {
+        if (t.length >= 4 && (phonFold(tok) === phonFold(t) || oneDropAway(tok, t) || oneSwapAway(tok, t) || oneDropAway(phonFold(tok), phonFold(t)) || oneSwapAway(phonFold(tok), phonFold(t)))) return true;
+      }
+    }
+  }
+  return false;
+}
+
+
 function remesasAnswer(c: Ctx, folded = ""): BankResult {
   const { rows, all } = remitByPerson(c.state, c.key);
   const withMoney = rows.filter((r) => r.all.usd + r.all.nio > 0 || r.count > 0);
@@ -3168,7 +3209,7 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
 /* FUTURO — proyección con el supuesto dicho.                         */
 /* ------------------------------------------------------------------ */
 function futuroAnswer(c: Ctx, folded: string): BankResult | null {
-  if (/termino de pagar|libre de deudas|debt[- ]free|cuando.*pagar.*deuda/.test(folded)) {
+  if (/termino de pagar|libre de deudas|debt[- ]?free|cuando.*pagar.*deuda/.test(folded)) {
     const plan = payoffPlan(c.state, c.today);
     if (!plan.chosen || !plan.debts.length) {
       return {
@@ -4950,7 +4991,10 @@ function repartoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
     // parte del propio usuario en el reparto inglés no tenía nombre
     // y el reparto entero caía por una parte muda.
     if (/^(mi|yo|mí|me)$/.test(f)) return L(c.lang, "Tú", "You");
-    const p = people.find((x) => foldQ(x.name) === f || f.startsWith(foldQ(x.name)));
+    /* OLA 67: el rótulo en inglés nombra por parentesco («40 for
+     * mom») — el puente de parentesco resuelve contra las
+     * personas del libro, como en remesas y recencia. */
+    const p = people.find((x) => foldQ(x.name) === f || f.startsWith(foldQ(x.name)) || personNamedIn(f, x.name));
     return p ? p.name : null;
   };
   // Forma 1: los repartos nombrados («40 para mamá, 30 para Carlos»).
@@ -4984,9 +5028,9 @@ function repartoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   // Forma 2: el reparto igual entre una lista nombrada («entre mamá,
   // Carlos y yo», «éramos mamá, Carlos y yo») — el total traído se
   // divide entre los nombrados.
-  const rosterM = folded.match(/(?:entre|con|eramos|somos|fuimos)\s+([a-záéíóúñ ,y]+?)(?:\?|$|\.|,?\s*(?:cuanto|como|que))/);
+  const rosterM = folded.match(/(?:entre|con|eramos|somos|fuimos|between|among)\s+([a-záéíóúñ ,y]+?)(?:\?|$|\.|,?\s*(?:cuanto|como|que))/);
   if (rosterM && total !== null) {
-    const names = rosterM[1].split(/\s*,\s*|\s+y\s+/).map((t) => personName(t)).filter((x): x is string => !!x);
+    const names = rosterM[1].split(/\s*,\s*|\s+y\s+|\s+and\s+/).map((t) => personName(t)).filter((x): x is string => !!x);
     if (names.length >= 2) {
       const each = Math.floor(total / names.length);
       const rem = total - each * names.length;
@@ -5305,7 +5349,7 @@ function contrafactualAnswer(c: Ctx, folded: string, raw: string): BankResult | 
 }
 
 function respaldoAnswer(c: Ctx, folded: string): BankResult | null {
-  if (!/(cuantos meses (me dura|me dura|aguanta|de respaldo|de colchon|me alcanza)|meses de (respaldo|colchon|emergencia)|para cuantos meses me (alcanza|dura)|cuanto tiempo (me dura|aguanta) (lo|mi)|how many months (would|of|can)|runway|emergency fund lasts|sin trabajo|sin ingresos|me despiden|quedo sin|puedo vivir|vivir sin|no tuviera ingresos|pierdo mi trabajo|without (a job|income|work)|lost my job|lose my job|losing my job|how long (could|can|would) i (go|last|survive)|cuanto tiempo aguanto|cuanto aguanto sin|aguanto sin|sin (ningun )?ingreso|no income at all)/.test(folded)) return null;
+  if (!/(cuantos meses (me dura|me dura|aguanta|aguanto|de respaldo|de colchon|me alcanza)|meses de (respaldo|colchon|emergencia)|para cuantos meses me (alcanza|dura)|cuanto tiempo (me dura|aguanta) (lo|mi)|how many months (would|of|can)|runway|emergency fund lasts|sin trabajo|sin ingresos|me despiden|quedo sin|puedo vivir|vivir sin|no tuviera ingresos|pierdo mi trabajo|without (a job|income|work)|lost my job|lose my job|losing my job|how long (could|can|would) i (go|last|survive)|cuanto tiempo aguanto|cuanto aguanto sin|aguanto sin|sin (ningun )?ingreso|no income at all)/.test(folded)) return null;
   const stock = savingsStock(c.state, c.key);
   const m = monthlyAvgSpend(c, null);
   if (m.avg <= 0) {
@@ -5502,7 +5546,7 @@ function ingresoVolatilAnswer(c: Ctx, folded: string): BankResult | null {
 
 function metaAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   const tardaria = /(tardaria|tardare|cuanto tiempo|how long)/.test(folded) && /(juntar|ahorrar|reunir|save up|reach|get to)/.test(folded);
-  if (!tardaria && !/(cuanto (tengo|debo|necesito|hay) que (ahorrar|guardar)|cuanto (debo|necesito) ahorrar|cuanto ahorrar|how much (do i|should i|would i) (need to )?save|how much to save)/.test(folded)) return null;
+  if (!tardaria && !/(cuanto (tengo|debo|necesito|hay) que (ahorrar|guardar)|cuanto (debo|deberia|necesito) ahorrar|cuanto ahorrar|how much (do i|should i|would i) (need to )?save|how much to save)/.test(folded)) return null;
   const amounts = amountsIn(raw, c.display);
   // OLA 28 (Familia 2, E28-2): el plazo oye «in» además de «en» —
   // la regex traía «(meses|months)» bilingüe tras un «en» solo
@@ -6431,7 +6475,7 @@ function figuradaAnswer(c: Ctx, folded: string): BankResult | null {
   const highFig = /\b(dineral|millonada|fortuna|fortune|flush|loaded)\b/.test(folded);
   if (!lowFig && !highFig) return null;
   const q = folded.includes("?");
-  const isLow = lowFig && (q || /\b(dime si|estoy|ando)\b/.test(folded));
+  const isLow = lowFig && (q || /\b(dime si|estoy|ando|am i)\b/.test(folded));
   const isHigh = !isLow && highFig && (/\b(dime si|tengo|do i have)\b/.test(folded) || (/\bdineral\b/.test(folded) && q));
   if (!isLow && !isHigh) return null;
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
@@ -7218,7 +7262,22 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
  * libro ni bienes, y NO resta lo que debes (eso es el patrimonio,
  * la pregunta de la familia falta). */
 function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
-  if (!/(cuanto (dinero )?tengo en total|todo mi dinero|how much money do i have in total|how much do i have in total)/.test(folded)) return null;
+  // OLA 66 · EL DINERO CON SU NOMBRE DE TODOS LOS DÍAS (palabra
+  // traída por Oscar, 2026-11-24: «preguntarle tengo billete — para
+  // que me dé así: tienes tanto»): «¿cuánto dinero tengo?» sin el
+  // «en total» callaba entera, y «billete» — el nombre que el dinero
+  // tiene en la calle — no existía para el Asesor. Las dos formas
+  // son esta familia: el dinero nombrado (dinero, billete, efectivo,
+  // cash) pregunta por todo el del libro, y la forma desnuda
+  // «¿tengo billete?» pide la cifra con su sí o su no por delante.
+  // La clase nombrada sigue mandando sobre el nombre del dinero:
+  // «¿cuánto billete tengo en ahorros?» es de ahorros, no de aquí.
+  const bare = folded.replace(/[¿?¡!.,;]/g, "").replace(/\s+/g, " ").trim();
+  const classNamed = /(en (mis? |el |la )?(ahorr|retiro|emergencia|meta|cuentas?|banco)|de (mis? )?ahorros|in (my )?(savings|retirement|accounts?))/.test(folded);
+  const moneyHow = /(cuanto (dinero|billete|efectivo) tengo|cuanto tengo en total|todo mi dinero|how much (money|cash) do i have|how much do i have in total)/.test(folded);
+  const bareMoney = /^(y )?(no )?(tengo|tenes|me queda|hay) (dinero|billete|efectivo)( para (gastar|comprar|pagar|salir|comer|eso|esto))?$/.test(bare)
+    || /^(do i have|have i got) (any )?(money|cash)$/.test(bare);
+  if (classNamed || (!moneyHow && !bareMoney)) return null;
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
   const stock = savingsStock(c.state, c.key);
   const nb = netBalance(c.state, c.today);
@@ -7233,7 +7292,7 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
   }
   return {
     kind: "answer", family: "total",
-    verdict: L(c.lang, `En total tienes ${c.money(total)}: ${c.money(left)} de queda de hoy, ${c.money(stock.total)} en ahorros y ${c.money(nb.owed)} que te deben. Es todo el dinero que tu libro conoce — no cuenta efectivo fuera del libro ni el valor de tus bienes, y no resta lo que debes: eso ya es tu patrimonio, otra pregunta.`, `In total you have ${c.money(total)}: ${c.money(left)} of today's left, ${c.money(stock.total)} in savings and ${c.money(nb.owed)} owed to you. It's all the money your book knows — it doesn't count cash outside the book or the value of your things, and it doesn't subtract what you owe: that's your net worth, a different question.`),
+    verdict: (bareMoney ? (total > 0 ? L(c.lang, "Sí. ", "Yes. ") : L(c.lang, "No. ", "No. ")) : "") + L(c.lang, `En total tienes ${c.money(total)}: ${c.money(left)} de queda de hoy, ${c.money(stock.total)} en ahorros y ${c.money(nb.owed)} que te deben. Es todo el dinero que tu libro conoce — no cuenta efectivo fuera del libro ni el valor de tus bienes, y no resta lo que debes: eso ya es tu patrimonio, otra pregunta.`, `In total you have ${c.money(total)}: ${c.money(left)} of today's left, ${c.money(stock.total)} in savings and ${c.money(nb.owed)} owed to you. It's all the money your book knows — it doesn't count cash outside the book or the value of your things, and it doesn't subtract what you owe: that's your net worth, a different question.`),
     pieces,
     note: null, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0,
     actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
@@ -7971,8 +8030,15 @@ function confirmacionAnswer(c: Ctx, folded: string, raw: string): BankResult | n
     // El orden de la afirmación es el orden de MENCIÓN en la pregunta
     // («¿Ana me debe más que Carlos?» afirma Ana > Carlos), no el
     // orden por saldo de peopleOf.
-    const named = owed.filter((p) => folded.includes(foldQ(p.name)))
-      .sort((a, b) => folded.indexOf(foldQ(a.name)) - folded.indexOf(foldQ(b.name)));
+    /* OLA 67: el nombre también se oye deformado («Caros» por
+     * Carlos) — la pasada difusa de personNamedIn resuelve en el
+     * punto de uso, como en deudas y remesas; el nombre exacto
+     * ordena por su mención y el difuso queda detrás. */
+    const named = owed.filter((p) => folded.includes(foldQ(p.name)) || personNamedIn(folded, p.name))
+      .sort((a, b) => {
+        const ia = folded.indexOf(foldQ(a.name)); const ib = folded.indexOf(foldQ(b.name));
+        return (ia < 0 ? 9999 : ia) - (ib < 0 ? 9999 : ib);
+      });
     if (named.length >= 2) {
       const [a, b] = [named[0], named[1]];
       const yes = a.left > b.left;
@@ -7992,7 +8058,7 @@ function confirmacionAnswer(c: Ctx, folded: string, raw: string): BankResult | n
   // afirmación para esta puerta) y las formas inglesas de preguntar
   // lo hecho («Did I spend…?», «Have I paid…?»), que son la misma
   // afirmación con su signo de pregunta.
-  const cue = /(verdad|es cierto|es verdad|no es asi|cierto|is it true|is that right|right\?)/.test(folded)
+  const cue = /(verdad|es cierto|es verdad|no es asi|cierto|is it true|is that right|right(\?|\.)?\s*$)/.test(folded)
     || /^¿?(gaste|pague|compre|ahorre|guarde|spent|paid|bought|saved)\b/.test(folded.trim())
     || /\b(did i (spend|pay|buy|save)|have i (spent|paid|bought|saved))\b/.test(folded);
   if (!cue || !amounts.length) return null;
@@ -9516,6 +9582,340 @@ function convoFrameFloor(frame: ConvoFrame): { reached: (m: BookMode) => boolean
  * carga el hilo no lo corta», Cura 31 Familia 5). La caja enhebra
  * su marco §20 vivo y esta familia lo devuelve intacto en sus tres
  * salidas: el hilo no muere por preguntar por qué. */
+/* OLA 65 · LA ORTOGRAFÍA QUE NO MATA (la onda hostil de las
+ * mutaciones, 2026-11-24: de 1.152 roturas, la clase mayor — más
+ * de 500 — era una letra caída o cambiada en la palabra que abre la
+ * puerta: «ahoros», «retrio», «segro», «beces». La escritura
+ * imperfecta es la ley de Alvin llevada a las puertas: ninguna
+ * puerta puede depender de que la palabra clave venga perfecta).
+ *
+ * La cura es UNA y es de forma, no de espécimen: antes de la
+ * cascada, cada palabra que NO es una palabra conocida del
+ * vocabulario de las puertas se repara a la única palabra de ese
+ * vocabulario que esté a una deformación honesta de distancia. Las
+ * deformaciones honestas son las que la gente y el dictado hacen:
+ * una letra caída o de más, dos letras vecinas cambiadas, y los
+ * trueques fonéticos (b/v, c/s, z/s, g/j, qu/k). Una palabra con
+ * DOS candidatas no se toca (la ambigüedad no se adivina), una
+ * palabra que ya es del vocabulario no se toca, y los nombres y
+ * conceptos del libro no viven en este diccionario: «casa» jamás se
+ * vuelve «cara» porque el trueque s→r no es fonético. */
+const GATE_WORDS: string[] = [
+  "cuanto", "cuanta", "cuantos", "cuantas", "cuando", "donde", "quien", "quienes",
+  "gasto", "gastos", "gaste", "gastado", "gastando", "gasolina", "ingreso", "ingresos", "ingrese", "ingreso",
+  "entro", "entran", "entraron", "gane", "ganar", "ganas", "salario", "sueldo",
+  "ahorro", "ahorros", "ahorrado", "ahorrar", "aparte", "apartado", "apartados", "aparte", "aparto", "aparte",
+  "retiro", "retiros", "retirar", "emergencia", "emergencias", "meta", "metas", "fondo", "fondos",
+  "bolsillo", "bolsillos", "cuenta", "cuentas", "cuentas", "banco", "debo", "debe", "deben", "deuda", "deudas",
+  "tarjeta", "tarjetas", "credito", "prestamo", "prestamos", "intereses", "interes",
+  "seguro", "seguros", "vida", "poliza", "prima", "beneficiario", "beneficiarios", "cobra", "cobro", "cobran",
+  "remesa", "remesas", "envie", "enviado", "enviados", "envio", "enviar", "mande", "mandado",
+  "suscripcion", "suscripciones", "vence", "vencen", "vencimiento", "queda", "quedan", "quedara", "quedaria",
+  "pagan", "pago", "pague", "pagado", "pagando", "pagar", "veces", "grande", "grandes", "chico", "chica", "pequeno", "pequena",
+  "ultimo", "ultima", "ultimos", "primero", "primera", "mayor", "menor", "caro", "cara", "caros", "barato",
+  "tienda", "tiendas", "compra", "compras", "compre", "compro", "comprado", "semana", "semanas", "quincena",
+  "mes", "meses", "ano", "anos", "hoy", "ayer", "trabajo", "dias", "cuesta", "cuestan", "alcanza", "alcanzan",
+  "puedo", "podria", "quiero", "falta", "faltan", "sobra", "sobran", "libre", "libres", "total", "totales",
+  "junto", "juntos", "gano", "gana", "ahorra", "ahorras", "gastas", "gastar", "debes", "tenes", "podes",
+  "savings", "saving", "saved", "save", "spend", "spent", "spending", "spends", "owe", "owes", "owed", "owing",
+  "debt", "debts", "card", "cards", "account", "accounts", "insurance", "premium", "due", "dues",
+  "paid", "pay", "pays", "payment", "payments", "income", "earn", "earned", "earns", "sent", "send", "sends",
+  "remittance", "remittances", "emergency", "retirement", "goal", "goals", "month", "months", "week", "weeks",
+  "year", "years", "today", "total", "left", "free", "biggest", "largest", "smallest", "expensive", "cheap",
+  "last", "first", "times", "often", "much", "many", "afford", "reach", "cover", "balance", "balances",
+  "interest", "loan", "loans", "lent", "borrow", "borrowed", "salary", "wages", "store", "stores", "bought", "buy",
+  "ciento", "porcentaje", "porciento", "dinero", "billete", "billetes", "efectivo", "cash", "money",
+  /* OLA 67 · LAS FLEXIONES Y LAS PALABRAS QUE LA ONDA HOSTIL
+   * CULPÓ POR AUSENTES: una palabra correcta que no está en el
+   * diccionario se «repara» a su singular («primeras»→«primera»)
+   * y las puertas de frase exacta se rompen; y las palabras de
+   * puerta que faltaban (guardado, colchón, córdobas, percent,
+   * negocio…) dejaban sus erratas sin cura posible. */
+  "guardado", "guardada", "guardados", "guardadas", "colchon", "colchones",
+  "cordoba", "cordobas", "percent", "more", "aside", "cushion", "negocio", "negocios",
+  "vendo", "vender", "vendes", "vende", "business", "touching", "primera", "primeras", "primeros",
+  "cuota", "cuotas", "ultimas", "mayores", "menores", "proximo", "proxima", "proximos", "proximas",
+  "treat", "treats", "enviando", "enviar",
+  "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos",
+  "hundred", "thousand", "siguiente", "siguientes",
+  /* OLA 67 · SEGUNDA TANDA (la onda amiga sobre las 206 roturas
+   * que quedaron): las palabras de puerta interna que faltaban —
+   * cada una dejó su familia en silencio bajo una sola letra. */
+  "ahorrando", "guardando", "apartando", "respaldo", "promedio", "promedios",
+  "necesito", "necesitas", "necesita", "gastamos", "gastan", "percentage",
+  "where", "when", "which", "what", "who", "why", "how", "subscription", "subscriptions",
+  "necesidades", "necesidad", "aprendido", "aprendiendo", "olvida", "olvido",
+  "learned", "punto", "puntos", "prestarle", "lowest", "highest", "payday",
+  "negative", "negativo", "finish", "llegaria", "cambio", "cambia", "deberia",
+  "anything", "something", "should", "happens", "costs", "cost", "aparece", "aparecen",
+  "missing", "dolares", "dolar", "convierte", "convertir", "puedes", "puede", "pueden",
+  "enviarle", "mandarle", "terminare", "acabare", "aguanto", "aguantas",
+  /* OLA 67 · TERCERA TANDA (la onda amiga sobre las 72 roturas que
+   * quedaron): «dia» no estaba y la reparación lo volvía «dias»,
+   * rompiendo la cuenta atrás del calendario; los meses por su
+   * nombre no estaban y diciembre deformado dejaba el futuro en
+   * silencio; y las palabras de puerta de las familias que la onda
+   * midió últimas (capacidades, límites, faro-mismo, porque, falta)
+   * dejaban sus erratas sin cura posible. */
+  "dia", "sabes", "sabe", "sirves", "sirve", "sending", "limites", "limitaciones", "limitations",
+  "can", "hormiga", "pasado", "recompensas", "recompensa", "importo", "importar",
+  "rewards", "reward", "import", "dices", "calculaste", "number", "patrimonio", "puntaje", "worth",
+  "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+  "octubre", "noviembre", "diciembre", "january", "february", "march", "april", "june", "july",
+  "august", "september", "october", "november", "december",
+  /* TANDA 3b: los verbos de las propias puertas — cae, vence, toca,
+   * falta — son vocabulario de las puertas y jamás erratas; sin
+   * esta línea, «cae» era candidata a volverse cualquier palabra
+   * del libro a una letra de distancia. Y los verbos sociales de
+   * la capacidad (cambiar, invitar, prestar, ayudar, regalar),
+   * cuya flexión la reparación acortaba («cambiar» → «cambia») y
+   * la puerta dejaba de oír. */
+  "cae", "caen", "caer", "vence", "vencen", "toca", "tocan", "falta", "faltan", "llega", "llegan",
+  "cambiar", "invitar", "prestar", "ayudar", "regalar", "celular",
+  /* TANDA 3c: las palabras reales que la campaña cazó a una
+   * deformación de una palabra de puerta — «comparado» se volvía
+   * «comprado», «tocar» se acortaba a «toca» (y la trampa de
+   * «sin tocar mis ahorros» dejaba de oírse), «carro» se volvía
+   * «caro». Son vocabulario de las puertas y de los conceptos:
+   * entran al diccionario y dejan de ser candidatas. */
+  "comparado", "comparada", "comparacion", "tocar", "carro", "carros",
+  /* OLA 68 · EL CARGO SUELTO: «cargo» no estaba y la reparación
+   * lo volvía «caro» (la misma trampa que cazó a «carro» en la
+   * tanda 3c) — la familia entera nacía sorda y solo la tapaba
+   * que el libro de especímenes traía un concepto «Cargo XYZ»
+   * que lo protegía. Entran las palabras de su puerta: cargo,
+   * charge y sus flexiones, el «cobraron» del dos veces, el
+   * «reconozco» del no reconocido y el «duplicado». */
+  "cargo", "cargos", "charge", "charges", "charged", "charging",
+  "cobraron", "cobrado", "cobrados", "reconozco", "reconoce", "reconocido",
+  "recognize", "recognized",
+  "duplicado", "duplicados", "duplicada",
+  /* OLA 69 · LA TASA: «tasa» no estaba en el diccionario y la
+   * reparación la dejaba a una letra de «casa» y de «pasa»; la
+   * familia de la tasa nace con su palabra dentro, y «rate» con
+   * ella. */
+  "tasa", "tasas", "rate", "rates",
+  /* La misma ola, su segunda palabra: «suficiente» sostiene la
+   * voz de suficiencia de la tasa («¿estoy ahorrando lo
+   * suficiente?») y tampoco estaba — «suficente» y «sufisiente»
+   * caían en silencio. La onda hostil la cazó el día del estreno. */
+  "suficiente", "suficientes",
+  /* OLA 72: las palabras de las tareas de la casa sostienen las
+   * puertas del «cómo se hace» y tampoco estaban: sin ellas, una
+   * errata en «idioma» o «sincronizo» caía en silencio, y una
+   * palabra vecina podía robarlas. */
+  "idioma", "idiomas", "lengua", "sincronizar", "sincronizo", "sincronia",
+  "agrego", "agregar", "marco", "marcar",
+  "compartido", "compartida", "compartidos",
+  /* LA LECCIÓN DE LA MISMA OLA, cazada por la batería del mundo:
+   * «anado» (el añado plegado) NO puede vivir en este diccionario:
+   * está a una letra caída de «ganado», y la reparación convertía
+   * la palabra correcta «¿cuánto he ganado?» en «anado», matando
+   * la dirección de ingreso. Las formas de añadir se leen del
+   * texto plegado en su puerta, sin diccionario. Y la raíz: las
+   * palabras de dinero del mundo (ganado y su familia) SÍ viven
+   * aquí, para que ninguna reparación las toque jamás. */
+  "ganado", "ganada", "ganados", "ganar", "gano", "gane", "ganancia", "ganancias",
+  /* TANDA DE CANON (puerto 1.3.454): las voces de la familia
+   * figurada (que canon ganó en la 1.3.445 y la copia no conoce)
+   * son palabras de su puerta y entran al diccionario con la
+   * misma ley — «palado» y «dinral» caían en silencio porque su
+   * palabra no vivía aquí. Y «advisor», la palabra de la puerta
+   * de capacidades en inglés («What can the advisor do?»), cuya
+   * errata («Advsor») dejaba la familia muda. Y las del Camino
+   * (§19.1, costura de canon): «llego» y «tightest» — «¿Llgo a
+   * fin de mes?» y «What's my tighest day?» morían con la
+   * intención reach sin reparar. */
+  "palmado", "palmada", "pelado", "pelada", "quebrado", "quebrada",
+  "dineral", "millonada", "broke", "fortune", "advisor",
+  "llego", "tightest", "credit",
+];
+const GATE_SET = new Set(GATE_WORDS);
+/* El pliegue fonético: dos palabras que suenan igual comparten
+ * forma canónica (b/v, z/s, c ante e/i → s, qu → k, g ante e/i →
+ * j). La reparación compara formas canónicas, no letras crudas. */
+function phonFold(w: string): string {
+  return w.replace(/qu/g, "k").replace(/b/g, "v").replace(/z/g, "s").replace(/c(?=[ei])/g, "s").replace(/g(?=[ei])/g, "j");
+}
+function oneDropAway(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) !== 1) return false;
+  const [s, l] = a.length < b.length ? [a, b] : [b, a];
+  let i = 0;
+  while (i < s.length && s[i] === l[i]) i++;
+  return s.slice(i) === l.slice(i + 1);
+}
+function oneSwapAway(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const d: number[] = [];
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d.push(i);
+  return d.length === 2 && d[1] === d[0] + 1 && a[d[0]] === b[d[1]] && a[d[1]] === b[d[0]];
+}
+/* OLA 67 · LAS PALABRAS QUE NUNCA SON ERRATA: la reparación es
+ * ciega al contexto, y hay palabras reales a una deformación de
+ * una palabra de puerta que NO son erratas — «saber» se volvía
+ * «save» y media cascada se desviaba a ahorros; «parte» se volvía
+ * «aparte»; «live» se volvía «libre»; «learned», «earned». Son la
+ * clase cerrada de las palabras comunes y gramaticales de los dos
+ * idiomas: nunca se reparan, vengan como vengan. */
+const NEVER_REPAIR = new Set([
+  /* PUERTO A CANON (1.3.454): «persona» y «person» son palabras
+   * de función de la caminata de remesas («esa persona» se nombra
+   * como frase) — la reparación las volvía «personal» (un
+   * concepto del libro a una letra de distancia) y la negativa
+   * nombraba «personal» en vez de la frase. Una palabra real con
+   * papel en la casa jamás es una errata. */
+  "persona", "person",
+  /* PUERTO A CANON (1.3.454, segunda vuelta): «medio» es la
+   * palabra de las frases de canal («por medio de») y la
+   * reparación la volvía «medico» (una subcategoría del libro a
+   * una letra) — la caminata perdía la frase y la remesa se
+   * respondía sin persona. Y «ago» es la palabra de tiempo del
+   * inglés («two months ago»): su pliegue fonético choca con
+   * «pago» y la historia perdía el «hace». Misma clase: palabra
+   * real con papel en la casa, jamás errata. */
+  "medio", "ago",
+  /* Y «via» es la preposición de canal del inglés («via Rosa»):
+   * el diccionario la «corregía» a «vida» (la palabra-puerta del
+   * seguro) y la frase de canal moría igual. */
+  "via",
+  "saber", "sabe", "sabes", "saben", "sabemos", "parte", "partes", "una", "uno", "unas", "unos",
+  "del", "sin", "con", "por", "las", "los", "eso", "esa", "ese", "esto", "esta",
+  "live", "learned", "learning", "set", "get", "got", "put", "ten", "day", "may", "yet", "per",
+  "end", "ending", "ended", "sending", "costo", "costos",
+  /* OLA 67 · LAS PALABRAS-NÚMERO TAMPOCO SON ERRATAS: al entrar
+   * «dices» al diccionario, «diez» quedó a una letra caída en
+   * fonética (dies/dises) y el diez por ciento se volvió «dices
+   * por ciento». Un número dicho en palabras es un DATO, como el
+   * dígito: jamás se repara. */
+  "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "doce",
+  "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa",
+  "cien", "ciento", "mil", "millon", "millones",
+  "two", "three", "four", "five", "six", "seven", "eight", "nine", "eleven", "twelve",
+  "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+  /* «ano» es lo que el pliegue hace de «año»: repararlo a «gano»
+   * (una letra de más) mataba la comparación año contra año y de
+   * paso inventaba un ingreso. Y «mucho» se acortaba al «much»
+   * inglés: una palabra entera del español no es la errata de
+   * nadie. */
+  "ano", "anos", "mucho", "mucha", "muchos", "muchas",
+]);
+
+export function repairGateTypos(folded: string, protect?: Set<string>, lang?: Lang): string {
+  /* El universo de candidatas: el vocabulario de las puertas MÁS
+   * las palabras del propio libro (protect) — un nombre mal
+   * escrito («Payal») se repara contra el nombre verdadero del
+   * libro, no solo contra el diccionario. */
+  const candSet = protect && protect.size ? new Set([...GATE_SET, ...protect]) : GATE_SET;
+  return folded.replace(/[a-zñ]+/g, (tok) => {
+    /* OLA 67 · LA REPARACIÓN NO TOCA NOMBRES: la primera corrida
+     * reparaba también lo que no era errata — «Ana» se volvía
+     * «gana», «Carlos» se volvía «caros» y «set aside» se volvía
+     * «sent aside». El libro protege sus propios nombres: las
+     * personas, los bolsillos, las cuentas y los conceptos que el
+     * usuario sí tiene anotados jamás son erratas. */
+    if (tok.length < 3 || GATE_SET.has(tok) || NEVER_REPAIR.has(tok) || (protect && protect.has(tok))) return tok;
+    const ct = phonFold(tok);
+    /* LA DEFORMACIÓN TIENE FUERZAS, y la más fuerte manda: sonar
+     * igual (0) pesa más que dos letras cambiadas de sitio (1), y
+     * eso más que una letra caída o de más (2). La primera versión
+     * trataba toda cercanía igual y la ambigüedad la paralizaba:
+     * «enbiado» no se reparaba porque «enviados» también estaba
+     * cerca — pero «enviado» SUENA igual y «enviados» solo está a
+     * una letra: gana el sonido. Empate en la fuerza mayor entre
+     * dos palabras distintas = ambigüedad honesta, no se toca —
+     * con UNA excepción declarada: la familia «cuanto» (cuanto/
+     * cuanta/cuantos/cuantas) empata siempre consigo misma, y sus
+     * cuatro flexiones abren las mismas puertas; se prefiere la
+     * forma base «cuanto», que es la que más puertas oyen. */
+    let best: string | null = null;
+    let bestStr = 99;
+    let tie = false;
+    for (const w of candSet) {
+      if (w === tok) return tok;
+      /* OLA 67 · LAS PALABRAS DEL LIBRO NO ATRAEN PALABRAS CORTAS:
+       * «cae» — el verbo de las cuotas — se volvía «cafe» (un
+       * bolsillo del libro) por una letra caída, y «¿qué día cae
+       * el 28?» moría entera. Una palabra de tres letras es
+       * demasiado ambigua para que un nombre del libro la reclame:
+       * los nombres se cazan en su punto de uso con la pasada
+       * difusa, no aquí. */
+      if (!GATE_SET.has(w) && tok.length < 4) continue;
+      const cw = phonFold(w);
+      let str = -1;
+      if (ct === cw) str = 0;
+      else if (oneSwapAway(ct, cw) || oneSwapAway(tok, w)) str = 1;
+      else if (oneDropAway(ct, cw) || oneDropAway(tok, w)) str = 2;
+      if (str < 0) continue;
+      if (str < bestStr) { best = w; bestStr = str; tie = false; }
+      else if (str === bestStr && best !== w) tie = true;
+    }
+    if (best === null) return tok;
+    /* LA FLEXIÓN CORTA NO GANA A LA PALABRA ENTERA: «ahorar»
+     * está a un cambio de sitio de «ahorra» (fuerza 1) y a una
+     * letra caída de «ahorrar» (fuerza 2) — pero «ahorra» es el
+     * tallo de «ahorrar»: el cambio de sitio fabricó una flexión
+     * del mismo verbo, y la palabra entera es la que las puertas
+     * oyen («debería ahorrar»). Si la ganadora por fuerza es el
+     * tallo (prefijo, ≥4 letras) de una candidata a una letra, se
+     * prefiere la entera. «sepnd» no se toca: «send» no es tallo
+     * de «spend» ni al revés — ahí la fuerza manda como siempre. */
+    if (!tie && bestStr === 1) {
+      let fuller: string | null = null;
+      for (const w of candSet) {
+        if (w.length > best.length && w.startsWith(best) && best.length >= 4) {
+          const cw = phonFold(w);
+          if (oneDropAway(ct, cw) || oneDropAway(tok, w)) { if (!fuller || w.length < fuller.length) fuller = w; }
+        }
+      }
+      if (fuller) return fuller;
+    }
+    /* OLA 67 · EL IMÁN DEL PLURAL: las palabras del libro (protect)
+     * son candidatas para cazar NOMBRES mal escritos («Payal»), pero
+     * una palabra común que es el singular de una palabra del libro
+     * no es su errata: «comida» se volvía «comidas» (un bolsillo de
+     * Viajes) y el filtro cazaba ese bolsillo vacío en vez de oír
+     * la categoría. Si la ganadora es una palabra del libro que solo
+     * le añade (o le quita) la ese del plural al token, no se toca:
+     * el token es una palabra entera, no una deformación. */
+    const pluralMagnet = (w: string) => !GATE_SET.has(w) && (protect?.has(w) ?? false)
+      && (w === `${tok}s` || w === `${tok}es` || tok === `${w}s` || tok === `${w}es`);
+    if (!tie && best !== null && pluralMagnet(best)) return tok;
+    if (tie) {
+      const tied = [...candSet].filter((w) => {
+        const cw = phonFold(w);
+        return (bestStr === 0 && ct === cw) || (bestStr === 1 && (oneSwapAway(ct, cw) || oneSwapAway(tok, w))) || (bestStr === 2 && (oneDropAway(ct, cw) || oneDropAway(tok, w)));
+      });
+      const tiedReal = tied.filter((w) => !pluralMagnet(w));
+      if (!tiedReal.length) return tok;
+      if (tiedReal.includes("cuanto") && tiedReal.every((w) => w.startsWith("cuant"))) return "cuanto";
+      /* OLA 67 · EL PAR HOMÓFONO save/sabe: el pliegue b→v hace
+       * que el «sabe» español y el «save» inglés SUENEN igual, y
+       * sus erratas («sae», «svae») empatan entre las dos a la
+       * misma fuerza. Es el único par de la tabla donde el empate
+       * es entre idiomas, y ahí el idioma de la conversación SÍ
+       * desempata: en una frase en inglés la errata es de «save»;
+       * en una en español, de «sabe». Sin idioma declarado, el
+       * empate se queda sin tocar, como todos. */
+      if (lang && tiedReal.includes("save") && tiedReal.includes("sabe")) return lang === "en" ? "save" : "sabe";
+      /* OLA 67 · EL EMPATE DENTRO DE LA MISMA FAMILIA DE PALABRA:
+       * «gastmos» empata entre «gastamos» y «gastos» — mismo tallo,
+       * distinta flexión. Cuando TODAS las empatadas comparten el
+       * tallo (4 letras) y hay una forma más larga que las demás,
+       * la entera manda: es la que más puertas oyen, y la corta
+       * sigue viva como tallo de ella. El empate entre familias
+       * distintas («vece»: veces/vence; «cueta»: cuenta/cuesta)
+       * no comparte tallo y sigue sin tocarse. */
+      const stem4 = tiedReal[0].slice(0, 4);
+      if (tiedReal.length >= 2 && tiedReal.every((w) => w.startsWith(stem4))) {
+        const longest = tiedReal.reduce((a, b) => (b.length > a.length ? b : a));
+        if (tiedReal.filter((w) => w.length === longest.length).length === 1) return longest;
+      }
+      return tok;
+    }
+    return best;
+  });
+}
+
 /* OLA 27 · EL GRAFO — las cercas del tipo y los paseos. El rango de
  * un tiempo: medido es lo más firme; una proyección en cualquier
  * insumo ablanda todo lo que cuelga de ella. */
@@ -9911,13 +10311,22 @@ export function answerBankQuestion(
   // interroga la cuenta anterior. La puerta es estrecha a propósito:
   // exige la anáfora (eso/ese número/dices/sale) o la pregunta desnuda
   // — «¿por qué medio pagué?» no es esto y sigue su camino.
+  /* OLA 67 · ESTA PUERTA TAMBIÉN OYE LA ORTOGRAFÍA REPARADA: la
+   * puerta del ¿por qué? leía el texto CRUDO y era la única de la
+   * casa sorda a la reparación — «dies» por «dices» y «numer»
+   * por «number» morían aquí aunque la reparación las curaba.
+   * La puerta juzga sobre el texto reparado; la respuesta sigue
+   * recibiendo el texto del usuario tal cual. (Puerto 1.3.454:
+   * la guarda chargeShape68 de la copia NO viaja — es de la
+   * Ola 68 y entra con su paquete.) */
+  const rawGate = repairGateTypos(foldQ(raw), undefined, lang);
   if (!pin) {
     const bare = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
     if (/^(y )?(por que|porque)$/.test(bare)
-      || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(foldQ(raw))
+      || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(rawGate)
       // OLA 27: con grafo vivo, un «¿por qué…?» corto y con blanco
       // («¿por qué el ritmo?», «¿por qué $75?») interroga al grafo.
-      || (convo?.graph?.length && /(por que|porque|why)/.test(foldQ(raw)) && bare.split(/\s+/).length <= 7)) {
+      || (convo?.graph?.length && /(por que|porque|why)/.test(rawGate) && bare.split(/\s+/).length <= 7)) {
       return porqueResult(state, convo ?? null, lang, mode, askFrame ?? null, raw);
     }
   }
@@ -9925,9 +10334,8 @@ export function answerBankQuestion(
   // («¿y sin ese supuesto?») interrogan el grafo del marco, como el
   // porqué — van con él, antes del seguimiento.
   if (!pin && convo) {
-    const fs = foldQ(raw);
-    if (/(que asum|que supuest|con que supuest|sin (ese|el) supuesto|sin asumir|what did you assume|what assumption|without that assumption)/.test(fs)) {
-      return supuestosResult(state, convo, lang, /(sin (ese|el) supuesto|sin asumir|without that assumption)/.test(fs), askFrame ?? null);
+    if (/(que asum|que supuest|con que supuest|sin (ese|el) supuesto|sin asumir|what did you assume|what assumption|without that assumption)/.test(rawGate)) {
+      return supuestosResult(state, convo, lang, /(sin (ese|el) supuesto|sin asumir|without that assumption)/.test(rawGate), askFrame ?? null);
     }
   }
   // LA MONEDA SE OYE · EL ECO CONVERSOR (puerto de la Rama Agente,
@@ -10043,7 +10451,51 @@ function answerSingle(
   mode?: BookMode,
   learned?: LearnedAlias[],
 ): BankResult {
-  const folded = normalizeEs(foldQ(raw));
+  /* OLA 67: el libro protege sus nombres de la reparación de
+   * erratas — personas (me deben / les debo / remesas), bolsillos
+   * y cuentas por su nombre, y los conceptos anotados. */
+  const protect67 = new Set<string>();
+  const addWords67 = (s: string) => { for (const w of foldQ(s).split(/[^a-z0-9]+/)) if (w.length >= 3) protect67.add(w); };
+  for (const p of peopleOf(state, "owed", today)) addWords67(p.name);
+  for (const p of peopleOf(state, "owe", today)) addWords67(p.name);
+  for (const p of state.remitPeople ?? []) addWords67(p.name);
+  for (const cat of state.structure.categories) for (const sub of cat.subs) { addWords67(names.sub(sub.id)); if (sub.customName) addWords67(sub.customName); }
+  for (const item of state.structure.catalog) { addWords67(names.catalog(item.id)); if (item.customName) addWords67(item.customName); }
+  for (const m of Object.values(state.months)) for (const l of m.lines) if (l.concept) addWords67(l.concept);
+  let folded = normalizeEs(repairGateTypos(foldQ(raw), protect67, lang));
+  /* OLA 67 · LA FORMA DE LA PREGUNTA NO ES LA PREGUNTA: el
+   * «quiero saber» / «dime» / «decime» que abre la forma
+   * indirecta y el «por favor» / «please» que la cierra son
+   * envoltura, no contenido — y rompían las puertas ancladas al
+   * inicio («¿tengo billete?» desnuda) y las de frase exacta. Se
+   * retiran aquí, una sola vez, antes de la cascada. Y el texto
+   * reparado (rawR) es el que leen los lectores de premisas y el
+   * delegado heredado: sus montos en palabras y sus verbos
+   * también merecen la ortografía reparada («doscintos»,
+   * «ahoro») — el delegado recibía el texto crudo y sus familias
+   * (spend/free/left/how) eran las únicas sin reparación. */
+  folded = folded
+    .replace(/^([¿¡]\s*)?(dime|decime|quiero saber|quisiera saber|me gustaria saber)\s+/, "$1")
+    .replace(/\s*\b(por favor|please)\b\s*/g, " ")
+    .replace(/\s+\?$/, "?")
+    .trim();
+  /* OLA 67 · EL TEXTO REPARADO CONSERVA LA VOZ DEL USUARIO: los
+   * lectores de premisas leen rawR, y su primera versión era el
+   * texto PLEGADO — los rótulos salían sin acentos ni mayúsculas
+   * («mama» por «mamá», «cumpleanos» por «cumpleaños») porque el
+   * lector de montos nombra las piezas con las palabras del
+   * usuario. La reparación se aplica palabra por palabra SOBRE el
+   * texto original: la palabra que no se repara queda tal cual la
+   * escribió el usuario, con su acento y su mayúscula; solo la
+   * palabra reparada — que era una errata — sale en su forma de
+   * diccionario. */
+  const repairRawText = (text: string): string => text.replace(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/g, (tok) => {
+    const f = foldQ(tok);
+    if (!/^[a-zñ]+$/.test(f)) return tok;
+    const r = repairGateTypos(f, protect67, lang);
+    return r === f ? tok : r;
+  });
+  const rawR = repairRawText(raw);
   const { display, rateE4 } = state.settings;
   const reading = readAdvisor(state, key, lang, names, { today: new Date(`${today}T12:00:00`) });
   const c: Ctx = {
@@ -10080,8 +10532,12 @@ function answerSingle(
   // piso declarado. Sin esta costura, dos motores responderían la
   // misma pregunta con dos métodos — la mezcla que la doctrina de
   // los tres tiempos prohíbe: el futuro con fecha tiene UN proyector.
-  if (parseQuestion(raw, parseCtx)?.intent === "reach") {
-    const base: AskResult = answerQuestion(state, key, lang, names, raw, parseCtx, today, c.mode);
+  // OLA 67 (puerto 1.3.454): la costura lee el texto REPARADO
+  // (rawR) — «¿Llgo a fin de mes?» no trae la intención reach en
+  // crudo y caía a otra familia; el Camino merece la misma
+  // ortografía reparada que el resto de la casa.
+  if (parseQuestion(rawR, parseCtx)?.intent === "reach") {
+    const base: AskResult = answerQuestion(state, key, lang, names, rawR, parseCtx, today, c.mode);
     if (base.kind === "answer") {
       return {
         kind: "answer", family: "reach", verdict: base.verdict,
@@ -10109,7 +10565,7 @@ function answerSingle(
   // de canon y su territorio no se toca — las voces de la capacidad
   // no pisan las del alcance (sin montos no hay capacidad que juzgar
   // contra una fecha, y con montos la pregunta ya no es del Camino).
-  const cap = capacidadAnswer(c, folded, raw);
+  const cap = capacidadAnswer(c, folded, rawR);
   if (cap) return cap;
 
   // 0a2 · OLA 42 · EL COSTO DE VIDA Y LAS PROPORCIONES: voces
@@ -10142,7 +10598,7 @@ function answerSingle(
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
   if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b/.test(folded)) {
-    const h = hipoteticoAnswer(c, folded, raw, pin?.accountId);
+    const h = hipoteticoAnswer(c, folded, rawR, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo
     // sustituía gastos; la baja del sueldo es su espejo.
@@ -10178,7 +10634,7 @@ function answerSingle(
     // negocio» es el espejo de «si dejo de gastar en…».
     const ic43 = ingresoContrafactualAnswer(c, folded);
     if (ic43) return ic43;
-    const calc = calculadoraAnswer(c, folded, raw);
+    const calc = calculadoraAnswer(c, folded, rawR);
     if (calc) return calc;
     // OLA 8: el contrafactual MIDE el monto en el historial en vez de
     // traerlo; el colchón y la meta inversa despejan sobre el stock.
@@ -10186,7 +10642,7 @@ function answerSingle(
     if (rb) return rb;
     // OLA 15: el simulador ensaya el pago traído contra el motor del
     // propio Plan — y su segunda forma camina hasta el día D.
-    const sim = simuladorAnswer(c, folded, raw);
+    const sim = simuladorAnswer(c, folded, rawR);
     if (sim) return sim;
   }
   // 0d · EL SEGURO DE VIDA (ola 64): la frase es inconfundible y su
@@ -10209,7 +10665,7 @@ function answerSingle(
   // 500, ¿verdad?» no es una pregunta de ahorros, es una premisa que se
   // confirma o se corrige con la cifra real.
   {
-    const r = confirmacionAnswer(c, folded, raw);
+    const r = confirmacionAnswer(c, folded, rawR);
     if (r) return r;
   }
   // 1 · AHORROS antes que todo lo genérico (la cura del desvío) — pero
@@ -10719,7 +11175,10 @@ function answerSingle(
   // 13 · Lo heredado de la Ola 5a, intacto: spend / free / left / how.
   // El modo viaja también al delegado: su familia free trae las mismas
   // piezas de la resta (apartado, colchón) y nombran el mismo piso.
-  const base: AskResult = answerQuestion(state, key, lang, names, raw, parseCtx, today, c.mode);
+  // OLA 67: el delegado lee el texto REPARADO (rawR) — sus familias
+  // (spend/free/left/how) eran las únicas de la casa sin reparación:
+  // «quda» y «lfet» morían aquí con la puerta reparada encima.
+  const base: AskResult = answerQuestion(state, key, lang, names, rawR, parseCtx, today, c.mode);
   if (base.kind === "answer") {
     /* LAS BARRAS QUE SUMAN del delegado (censo de figuras; puerto
      * de la Rama Agente, 1.3.449): cuando las piezas del delegado
@@ -10769,7 +11228,7 @@ function answerSingle(
 // el motor la cerca el banco: donde el motor responde con familia, el
 // oído no puede nombrar otra.
 export function classifyBankQuestion(raw: string): { isQuestion: boolean; family: BankFamilyId | "aprendizaje" | null } {
-  const folded = normalizeEs(foldQ(raw));
+  const folded = normalizeEs(repairGateTypos(foldQ(raw)));
   const isQuestion = /[¿?]/.test(raw)
     || /\b(cuanto|cuanta|cuantos|cuantas|cuando|donde|cual|cuales|quien|quienes|como|por que|para que|puedo|puedes|puede|debo|hay|tengo|quiero|necesito|sabes|dime|muestrame|ensename)\b/.test(folded)
     || /^(si |if )/.test(folded);
