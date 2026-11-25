@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.457",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "El Asesor oye tus erratas", en: "The Advisor hears your typos" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Cuando le cuentas al Asesor lo que ya hiciste — un gasto, un ingreso, un movimiento — una letra caída o cambiada en el verbo ya no tumba el relato: «paué la luz 45» se entiende y se asienta como la luz.",
+        "Lo mismo al programar, al dar una orden y al crear algo nuevo: «apga los avisos» apaga los avisos, y las respuestas del diálogo de creación se oyen aunque vengan con errata.",
+        "Un «por favor» al final ya no se vuelve una cosa más que asentar, y si olvidas las comas de una lista, cada monto se queda con su cosa: «luz 45 agua 30 internet 50» asienta las tres, cada una con lo suyo.",
+        "Los nombres de tu libro nunca se «corrigen»: la palabra del idioma manda primero y tus cuentas y categorías se leen tal como las llamas.",
+      ],
+      en: [
+        "When you tell the Advisor what you already did — an expense, an income, a move — a dropped or swapped letter in the verb no longer kills the story: “paué la luz 45” is understood and posts as the power bill.",
+        "The same when scheduling, giving an order and creating something new: “apga los avisos” turns the alerts off, and the creation dialogue hears your answers even with a typo in them.",
+        "A “please” at the end no longer becomes one more thing to post, and if you skip the commas in a list, each amount keeps its own thing: “luz 45 agua 30 internet 50” posts all three, each with its own.",
+        "Your book's names are never “corrected”: the language's word rules first, and your accounts and categories are read exactly as you call them.",
+      ],
+    },
+  },
+  {
     version: "1.3.456",
     date: "2026-11-25",
     level: "grande",

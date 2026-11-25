@@ -19,7 +19,7 @@
 /* usuario confirma ESA, no otra.                                      */
 /* ================================================================== */
 
-import { amountsIn, normalizeEs } from "./ask2.ts";
+import { amountsIn, normalizeEs, repairAgentText } from "./ask2.ts";
 import type { makeNamer } from "./defaults.ts";
 import { foldQ } from "./lexicon.ts";
 import { formatMoney, formatRate } from "./money.ts";
@@ -93,8 +93,25 @@ function stripWords(text: string, words: string[]): string {
 export function parseOrden(
   state: LedgerState, key: string, lang: Lang, names: Namer, raw: string, today: string,
 ): OrdenResult {
-  const folded0 = foldQ(raw);
-  const folded = (lang === "es" ? normalizeEs(folded0) : folded0).replace(/[¿?¡!]/g, " ").trim();
+  /* LA CAMPAÑA DE MUTACIONES DE LA RAMA (puerto 1.3.457): la
+   * orden también oye la escritura imperfecta — la reparación de
+   * dos pasadas corre antes de juzgar los verbos («arciva»,
+   * «acrhiva», «archiba» volvían la orden en silencio) y la
+   * cortesía se retira («¿dónde están los zapatos?, por favor»
+   * dejaba el blanco con la cortesía pegada y no encontraba
+   * nada). Los nombres del libro se protegen. */
+  const protect = new Set<string>();
+  const addW = (s: string) => { for (const w of foldQ(s).split(/[^a-zñ]+/)) if (w.length >= 3) protect.add(w); };
+  for (const m of Object.values(state.months)) for (const l of m.lines) addW(l.concept);
+  for (const d of state.drafts ?? []) addW(d.concept || d.raw);
+  for (const cat of state.structure.categories) {
+    addW(names.cat(cat.id));
+    for (const s of cat.subs) { addW(names.sub(s.id)); if (s.customName) addW(s.customName); }
+  }
+  const folded0 = repairAgentText(foldQ(raw), protect, lang);
+  const folded = (lang === "es" ? normalizeEs(folded0) : folded0)
+    .replace(/\b(por favor|please)\b/g, " ")
+    .replace(/[¿?¡!]/g, " ").trim();
   if (!folded) return { kind: "unknown" };
   const money = (n: number, cur: Currency) => formatMoney(n, cur, lang);
   const askTarget = (): OrdenResult => ({
@@ -105,7 +122,7 @@ export function parseOrden(
   /* ---- BUSCAR: «¿dónde está…?» no toca nada, solo dice dónde vive. */
   const buscarM = folded.match(/^(?:donde (?:esta(?: anotado)?|estan|anote|puse|quedo)|donde lo (?:anote|puse)|where (?:is|are|did i (?:put|note|record)))\s+(.*)$/);
   if (buscarM) {
-    const target = stripWords(buscarM[1] ?? "", ["dato", "eso", "item", "data", "that", "la", "el", "los", "las", "the"]).trim();
+    const target = stripWords(buscarM[1] ?? "", ["dato", "eso", "item", "data", "that", "la", "el", "los", "las", "the"]).trim().replace(/[.,;\s]+$/, "");
     if (!target) return askTarget();
     const hits: DondeHit[] = [];
     const found = findLine(state, names, target);

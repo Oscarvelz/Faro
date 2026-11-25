@@ -409,3 +409,43 @@ describe("relato E1 · el espejo en inglés", () => {
     assert.equal(r.drafts[0].to?.label, "Colchón");
   });
 });
+
+describe("relato · la campaña de mutaciones de la rama (2026-11-25)", () => {
+  it("el verbo con una letra caída se oye: «paué la luz 45» asienta la luz", () => {
+    const r = relato(fixture(), "paué la luz 45");
+    assert.equal(r.kind, "drafts", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "drafts") return;
+    assert.equal(r.drafts[0].amountMinor, 4500);
+    assert.equal(r.drafts[0].concept, "Luz");
+  });
+
+  it("la cortesía no es una cláusula: «pagué la luz 45, por favor» asienta la luz y nada más", () => {
+    const r = relato(fixture(), "pagué la luz 45, por favor");
+    assert.equal(r.kind, "drafts", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "drafts") return;
+    assert.equal(r.drafts.length, 1);
+    assert.equal(r.drafts[0].concept, "Luz");
+  });
+
+  it("la lista sin comas no corre los conceptos: «luz 45 agua 30 internet 50» tras «hoy pagué:»", () => {
+    const r = relato(fixture(), "hoy pagué: luz 45 agua 30 internet 50");
+    assert.equal(r.kind, "drafts", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "drafts") return;
+    assert.deepEqual(r.drafts.map((d) => `${d.concept}:${d.amountMinor}`), ["Luz:4500", "Agua:3000", "Internet:5000"]);
+  });
+
+  it("dos cláusulas pegadas sin coma se cortan en el verbo: «moví 200… pagué la luz 45 y me entró el salario 1200»", () => {
+    const r = relato(fixture(), "moví 200 del banco al colchón pagué la luz 45 y me entró el salario 1200");
+    assert.equal(r.kind, "drafts", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "drafts") return;
+    assert.deepEqual(r.drafts.map((d) => d.op), ["mover", "gasto", "ingreso"]);
+  });
+
+  it("el número en palabras con errata se oye: «gasté cincenta reales en tajadas» son 50", () => {
+    const r = relato(fixture(), "gasté cincenta reales en tajadas");
+    assert.equal(r.kind, "drafts", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "drafts") return;
+    assert.equal(r.drafts[0].amountMinor, 5000);
+    assert.equal(r.drafts[0].concept, "Tajadas");
+  });
+});

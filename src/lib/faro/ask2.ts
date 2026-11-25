@@ -9730,21 +9730,38 @@ const GATE_WORDS: string[] = [
   "dineral", "millonada", "broke", "fortune", "advisor",
   "llego", "tightest", "credit",
 ];
-const GATE_SET = new Set(GATE_WORDS);
+/* LA TANDA DEL AGENTE (puerto de la Rama, 1.3.457): los verbos y
+ * las palabras de los cinco escalones, el modismo semilla y las
+ * palabras-número como BLANCO de reparación — «cincenta» dejaba el
+ * relato sin monto; como ENTRADA las palabras-número siguen en
+ * NEVER_REPAIR, jamás se reparan. La tanda del temporizador y la
+ * del imperativo llegan con sus propios paquetes de la Rama, en
+ * su turno: aquí entra solo la tanda original de la campaña. */
+const AGENT_WORDS: string[] = [
+  "movi", "mover", "mueve", "muevo", "mueven", "movido", "archiva", "archivar", "archivado", "archivo", "archivos",
+  "corrige", "corregir", "corregido", "programa", "programar", "programado", "programalo", "recuerdame", "recordame",
+  "avisos", "aviso", "apaga", "apagar", "apagado", "enciende", "encende", "encender", "pone", "ponelo",
+  "modo", "tasa", "tema", "oscuro", "moneda", "estan", "anote", "puse", "quedo", "quede",
+  "moved", "received", "receive", "schedule", "scheduled", "change", "currency", "rent", "every",
+  "palmado", "tajadas", "reales", "fortuna", "dineral", "vale", "comi", "recibi", "favor",
+  "nueva", "nuevo", "misma", "mismo", "bajo", "categoria", "crear",
+  "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa", "cien", "ciento", "mil",
+];
+const GATE_SET = new Set([...GATE_WORDS, ...AGENT_WORDS]);
 /* El pliegue fonético: dos palabras que suenan igual comparten
  * forma canónica (b/v, z/s, c ante e/i → s, qu → k, g ante e/i →
  * j). La reparación compara formas canónicas, no letras crudas. */
-function phonFold(w: string): string {
+export function phonFold(w: string): string {
   return w.replace(/qu/g, "k").replace(/b/g, "v").replace(/z/g, "s").replace(/c(?=[ei])/g, "s").replace(/g(?=[ei])/g, "j");
 }
-function oneDropAway(a: string, b: string): boolean {
+export function oneDropAway(a: string, b: string): boolean {
   if (Math.abs(a.length - b.length) !== 1) return false;
   const [s, l] = a.length < b.length ? [a, b] : [b, a];
   let i = 0;
   while (i < s.length && s[i] === l[i]) i++;
   return s.slice(i) === l.slice(i + 1);
 }
-function oneSwapAway(a: string, b: string): boolean {
+export function oneSwapAway(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   const d: number[] = [];
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d.push(i);
@@ -9799,6 +9816,22 @@ const NEVER_REPAIR = new Set([
    * nadie. */
   "ano", "anos", "mucho", "mucha", "muchos", "muchas",
 ]);
+
+/* LA RAMA · LA REPARACIÓN EN DOS PASADAS (puerto 1.3.457): el
+ * diccionario manda primero y el libro caza lo que el diccionario
+ * no conoce. En una sola pasada, «apga» (por «apaga») se reparaba
+ * a «paga» — un bolsillo del libro («Súper Paga») a un cambio de
+ * sitio — y la orden de apagar los avisos moría: el nombre del
+ * libro ganaba por fuerza a la palabra del idioma. Con dos
+ * pasadas, la palabra del idioma se cura en la primera y ya no es
+ * candidata en la segunda; el nombre mal escrito («Payal») lo
+ * sigue cazando la segunda, contra el libro. LA ENTRADA DE LOS
+ * ESCALONES DEL AGENTE ES ESTA, la de dos pasadas — la colisión
+ * vive también en la estructura por defecto de canon. */
+export function repairAgentText(folded: string, protect?: Set<string>, lang?: Lang): string {
+  const first = repairGateTypos(folded, undefined, lang);
+  return protect && protect.size ? repairGateTypos(first, protect, lang) : first;
+}
 
 export function repairGateTypos(folded: string, protect?: Set<string>, lang?: Lang): string {
   /* El universo de candidatas: el vocabulario de las puertas MÁS

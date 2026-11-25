@@ -237,3 +237,29 @@ describe("orden E4 · la pureza", () => {
     assert.equal(JSON.stringify(ledger.months), before);
   });
 });
+
+describe("orden · la campaña de mutaciones de la rama (2026-11-25)", () => {
+  it("el verbo de archivar con errata se oye: «arciva la luz», «archiba la luz»", () => {
+    for (const raw of ["arciva la luz", "archiba la luz"]) {
+      const r = orden(fixture(), raw);
+      assert.equal(r.kind, "order", raw);
+      if (r.kind !== "order" || r.order.op !== "archivar") continue;
+      assert.equal(r.order.lineId, "luz");
+    }
+  });
+
+  it("«apga los avisos»: el diccionario manda sobre el bolsillo «Súper Paga» — la orden es apagar los avisos", () => {
+    const r = orden(fixture(), "apga los avisos");
+    assert.equal(r.kind, "order", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "order" || r.order.op !== "ajuste") return;
+    assert.equal(r.order.setting, "dueAlerts");
+    assert.equal(r.order.value, false);
+  });
+
+  it("la cortesía no tapa el blanco: «¿dónde están los zapatos?, por favor» encuentra el borrador", () => {
+    const r = orden(fixture(), "¿dónde están los zapatos?, por favor");
+    assert.equal(r.kind, "found", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "found") return;
+    assert.ok(r.hits.some((h) => h.where === "borrador"), r.text);
+  });
+});

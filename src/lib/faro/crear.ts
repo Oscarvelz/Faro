@@ -21,7 +21,7 @@
 /* ================================================================== */
 
 import { foldQ } from "./lexicon.ts";
-import { normalizeEs } from "./ask2.ts";
+import { normalizeEs, oneDropAway, oneSwapAway, phonFold, repairAgentText } from "./ask2.ts";
 import type { makeNamer } from "./defaults.ts";
 import type { Lang, LedgerState } from "./types.ts";
 import type { RelatoDraft } from "./relato.ts";
@@ -138,7 +138,23 @@ export function crearInicio(
 export function crearRespuesta(
   state: LedgerState, lang: Lang, names: Namer, propuesta: CrearPropuesta, respuestaCruda: string,
 ): CrearStep {
-  const r = (lang === "es" ? normalizeEs(foldQ(respuestaCruda)) : foldQ(respuestaCruda)).trim();
+  /* LA CAMPAÑA DE MUTACIONES DE LA RAMA (puerto 1.3.457): la
+   * respuesta del diálogo también se oye con su escritura
+   * imperfecta — «es de gato» no contestaba el tipo y «una nuva»
+   * no contestaba el conflicto. La reparación de dos pasadas
+   * corre contra el vocabulario de las puertas más los nombres
+   * de la estructura, que se protegen. */
+  const protect = new Set<string>();
+  for (const cat of state.structure.categories) {
+    for (const w of foldQ(names.cat(cat.id)).split(/[^a-zñ]+/)) if (w.length >= 3) protect.add(w);
+    for (const s of cat.subs) {
+      for (const w of foldQ(names.sub(s.id)).split(/[^a-zñ]+/)) if (w.length >= 3) protect.add(w);
+      if (s.customName) for (const w of foldQ(s.customName).split(/[^a-zñ]+/)) if (w.length >= 3) protect.add(w);
+    }
+  }
+  const repaired = repairAgentText(foldQ(respuestaCruda), protect, lang);
+  const r = (lang === "es" ? normalizeEs(repaired) : repaired).trim();
+  const rRaw = foldQ(respuestaCruda).trim();
   const p: CrearPropuesta = { ...propuesta };
   if (p.pendiente === "conflicto") {
     if (/\b(esa|ese|la misma|el mismo|misma|same|that one)\b/.test(r)) {
@@ -177,6 +193,35 @@ export function crearRespuesta(
         if (r.includes(foldQ(names.sub(s.id)))) { p.padreId = cat.id; p.pendiente = null; return aDraft(lang, names, p); }
       }
     }
+    /* LA PASADA DIFUSA DEL DÓNDE (campaña de la Rama, puerto
+     * 1.3.457): «bajo Caa» no incluía «casa» y la pregunta se
+     * repetía como si no hubiera respuesta. Si el nombre exacto
+     * no casó, una palabra de la respuesta a una deformación
+     * honesta de una palabra del nombre (4+ letras) basta — la
+     * misma disciplina de la pasada difusa de nombres del banco.
+     * Empate entre dos casas: no se adivina. */
+    /* Las palabras se leen de la respuesta reparada Y de la cruda:
+     * la reparación misma puede mover una palabra corta («caa» se
+     * vuelve «cara») y la pasada difusa merece ver la original. */
+    const ansWords = [...new Set([...r.split(/[^a-zñ]+/), ...rRaw.split(/[^a-zñ]+/)].filter((w) => w.length >= 3))];
+    let fuzzyCat: string | null = null;
+    let fuzzyName = "";
+    let fuzzyTie = false;
+    for (const cat of state.structure.categories) {
+      const nameWords = [foldQ(names.cat(cat.id)), ...cat.subs.map((s) => foldQ(names.sub(s.id)))]
+        .flatMap((n) => n.split(/[^a-zñ]+/)).filter((w) => w.length >= 4);
+      const hit = ansWords.some((w) => nameWords.some((n) => phonFold(w) === phonFold(n) || oneDropAway(w, n) || oneSwapAway(w, n)));
+      if (!hit) continue;
+      /* La estructura trae casas con el MISMO nombre («Casa» la de
+       * fijos y «Casa» la de variables): empatar entre dos con el
+       * mismo nombre no es ambigüedad — la pasada exacta también
+       * resuelve a la primera. El empate que frena es entre
+       * nombres DISTINTOS. */
+      const nm = foldQ(names.cat(cat.id));
+      if (!fuzzyCat) { fuzzyCat = cat.id; fuzzyName = nm; }
+      else if (nm !== fuzzyName) fuzzyTie = true;
+    }
+    if (fuzzyCat && !fuzzyTie) { p.padreId = fuzzyCat; p.pendiente = null; return aDraft(lang, names, p); }
     return preguntaDonde(state, lang, names, p);
   }
   return siguiente(state, lang, names, p);

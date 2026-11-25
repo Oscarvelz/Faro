@@ -125,3 +125,33 @@ describe("crear E5 · la pureza", () => {
     assert.equal(JSON.stringify(ledger.structure), before);
   });
 });
+
+describe("crear · la campaña de mutaciones de la rama (2026-11-25)", () => {
+  it("las respuestas con errata contestan: «es de gato» es el tipo, «bajo Caa» es el dónde", () => {
+    const ledger = fixture();
+    const names = makeNamer(ledger.structure, "es");
+    const s1 = crearInicio(ledger, "es", names, "Peluquería");
+    if (s1.kind !== "pregunta") return assert.fail("debió preguntar el tipo");
+    const s2 = crearRespuesta(ledger, "es", names, s1.propuesta, "es de gato");
+    assert.equal(s2.kind, "pregunta", JSON.stringify(s2).slice(0, 200));
+    if (s2.kind !== "pregunta") return;
+    assert.equal(s2.propuesta.pendiente, "donde");
+    assert.equal(s2.propuesta.tipo, "gasto");
+    const s3 = crearRespuesta(ledger, "es", names, s2.propuesta, "bajo Caa");
+    assert.equal(s3.kind, "draft", JSON.stringify(s3).slice(0, 200));
+    if (s3.kind !== "draft") return;
+    assert.equal(s3.draft.padreId, "f-casa");
+    assert.equal(s3.draft.esSub, true);
+  });
+
+  it("el conflicto con errata se contesta: «no, una nuva» abre el diálogo de la nueva", () => {
+    const ledger = fixture();
+    const names = makeNamer(ledger.structure, "es");
+    const s1 = crearInicio(ledger, "es", names, "Servicio");
+    if (s1.kind !== "pregunta") return assert.fail("debió abrir el conflicto");
+    const s2 = crearRespuesta(ledger, "es", names, s1.propuesta, "no, una nuva");
+    assert.equal(s2.kind, "pregunta", JSON.stringify(s2).slice(0, 200));
+    if (s2.kind !== "pregunta") return;
+    assert.equal(s2.propuesta.pendiente, "tipo");
+  });
+});

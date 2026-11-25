@@ -32,7 +32,7 @@
  */
 import { readAdvisor } from "./advisor.ts";
 import { duesWindow } from "./dues.ts";
-import { lineDate, normalizeEs, parseWordNumber } from "./ask2.ts";
+import { lineDate, normalizeEs, parseWordNumber, repairAgentText } from "./ask2.ts";
 import type { makeNamer } from "./defaults.ts";
 import { foldQ } from "./lexicon.ts";
 import { formatMoney } from "./money.ts";
@@ -365,13 +365,32 @@ function splitClauses(folded: string): string[] {
       const beforeHas = verbOf(before) !== null || amountSpans(before, -1).length > 0 || before.some((t) => PROG_VERBS.has(t));
       if (afterHas && beforeHas) cuts.push(i);
     }
-    if (!cuts.length) { out.push(part); continue; }
-    let last = 0;
+    /* LA COMA QUE FALTA (campaña de mutaciones de la Rama, puerto
+     * 1.3.457): «moví 200 del banco al colchón pagué la luz 45» —
+     * dos cláusulas pegadas sin coma ni «y»: la segunda empezaba
+     * con su verbo y la primera ya traía verbo y monto (una
+     * cláusula completa). Ahí también se corta: un verbo que
+     * aparece tras una cláusula completa abre otra, y el verbo se
+     * QUEDA (abre la pieza nueva, no se cae como la conjunción).
+     * Sin monto antes no se corta, y un verbo pegado a un corte de
+     * conjunción tampoco («…y me entró…» lo corta la «y»: el corte
+     * de verbo exige tres tokens de pieza antes, para no partir el
+     * «me entró» en dos). */
+    const conjSet = new Set(cuts);
+    const verbCuts: number[] = [];
+    for (let i = 2; i < toks.length; i++) {
+      if (!ALL_VERBS.has(toks[i]) || conjSet.has(i)) continue;
+      if ([...conjSet].some((j) => i - j >= 0 && i - j < 3)) continue;
+      const before = toks.slice(0, i);
+      if (verbOf(before) !== null && amountSpans(before, -1).length > 0) verbCuts.push(i);
+    }
+    if (!cuts.length && !verbCuts.length) { out.push(part); continue; }
+    const verbSet = new Set(verbCuts);
     const pieces: string[] = [];
-    const cutSet = new Set(cuts);
     let cur: string[] = [];
     toks.forEach((t, i) => {
-      if (cutSet.has(i)) { pieces.push(cur.join(" ")); cur = []; }
+      if (conjSet.has(i)) { pieces.push(cur.join(" ")); cur = []; }
+      else if (verbSet.has(i)) { pieces.push(cur.join(" ")); cur = [t]; }
       else cur.push(t);
     });
     if (cur.length) pieces.push(cur.join(" "));
@@ -460,21 +479,32 @@ function simpleClause(
       for (let i = Math.max(0, startAt); i < toks.length; i++) used.add(i);
     }
   }
-  // El concepto de cada monto: las palabras de su ventana (entre el monto
-  // anterior y el siguiente), sin verbos, montos, fechas ni relleno.
+  // El concepto de cada monto: las palabras ANTES de su monto (desde
+  // el monto anterior) — la ventana vieja llegaba hasta el monto
+  // SIGUIENTE y arrastraba el concepto del vecino: sin comas, la
+  // lista «luz 45 agua 30 internet 50» asentaba Agua por la luz
+  // (campaña de mutaciones de la Rama, puerto 1.3.457). Si antes no
+  // hay palabras («45 de luz»), valen las de después, y quedan
+  // RECLAMADAS: el monto siguiente no las vuelve a tomar como suyas.
   const drafts: RelatoDraft[] = [];
   let usedPending = false;
   const foodHint = toks.some((t) => FOOD.has(t));
+  const claimed = new Set<number>();
   for (let k = 0; k < spans.length; k++) {
     const s = spans[k];
     const lo = k === 0 ? 0 : spans[k - 1].end;
-    const hi = k === spans.length - 1 ? toks.length : spans[k + 1].start;
     const words: string[] = [];
-    for (let i = lo; i < hi; i++) {
-      if (used.has(i) || (i >= s.start && i < s.end)) continue;
+    const take = (i: number) => {
+      if (used.has(i) || claimed.has(i) || (i >= s.start && i < s.end)) return;
       const t = toks[i];
-      if (STOP.has(t) || ALL_VERBS.has(t)) continue;
+      if (STOP.has(t) || ALL_VERBS.has(t)) return;
       words.push(t);
+      claimed.add(i);
+    };
+    for (let i = lo; i < s.start; i++) take(i);
+    if (!words.length) {
+      const hi = k === spans.length - 1 ? toks.length : spans[k + 1].start;
+      for (let i = s.end; i < hi; i++) take(i);
     }
     const residual = words.join(" ").trim();
     // Sin concepto propio, la cláusula hereda LA COSA pendiente («vale
@@ -529,6 +559,34 @@ function buildEcho(lang: Lang, drafts: RelatoDraft[], today: string, projectedLi
   return [head, ...lines, ...(projectedLine ? [projectedLine] : []), foot].join("\n");
 }
 
+/* LA CAMPAÑA DE MUTACIONES DE LA RAMA (puerto 1.3.457) · LA
+ * ENTRADA QUE OYE LA ESCRITURA IMPERFECTA: los escalones reparan
+ * las erratas contra su vocabulario antes de parsear (la cura de
+ * la Ola 65, traída a la rama) y retiran la cortesía («por favor»,
+ * «please»): la forma no es el contenido — un «, por favor» al
+ * final del relato se volvía una cláusula fantasma que pedía su
+ * propio monto y dejaba el relato entero en una pregunta. Los
+ * nombres del libro se protegen: jamás son erratas. La reparación
+ * es la de DOS pasadas (repairAgentText): el diccionario manda
+ * primero y el libro caza lo que el diccionario no conoce. */
+function agentProtect(state: LedgerState, names: Namer): Set<string> {
+  const out = new Set<string>();
+  const add = (s: string) => { for (const w of foldQ(s).split(/[^a-zñ]+/)) if (w.length >= 3) out.add(w); };
+  for (const m of Object.values(state.months)) for (const l of m.lines) add(l.concept);
+  for (const cat of state.structure.categories) {
+    add(names.cat(cat.id));
+    for (const s of cat.subs) { add(names.sub(s.id)); if (s.customName) add(s.customName); }
+  }
+  for (const it of state.structure.catalog) { add(names.catalog(it.id)); if (it.customName) add(it.customName); }
+  for (const p of state.remitPeople ?? []) add(p.name);
+  return out;
+}
+function agentFold(state: LedgerState, lang: Lang, names: Namer, raw: string): string {
+  const repaired = repairAgentText(foldQ(raw), agentProtect(state, names), lang);
+  const folded = lang === "es" ? normalizeEs(repaired) : repaired;
+  return folded.replace(/\b(por favor|please)\b/g, " ");
+}
+
 /* ---------------- la entrada ---------------- */
 
 /** Oye un relato de movimientos ya hechos y lo vuelve borradores con su
@@ -539,8 +597,7 @@ function buildEcho(lang: Lang, drafts: RelatoDraft[], today: string, projectedLi
 export function parseRelato(
   state: LedgerState, key: string, lang: Lang, names: Namer, raw: string, today: string,
 ): RelatoResult {
-  const folded0 = foldQ(raw);
-  const folded = lang === "es" ? normalizeEs(folded0) : folded0;
+  const folded = agentFold(state, lang, names, raw);
   if (!folded.trim()) return { kind: "unknown", figures: [] };
   const places = placesOf(state, names);
   const idx = filingIndex(state, key, names);
@@ -740,8 +797,7 @@ function firstDateOf(hit: CadHit, today: string): string {
 export function parsePrograma(
   state: LedgerState, key: string, lang: Lang, names: Namer, raw: string, today: string,
 ): ProgramaResult {
-  const folded0 = foldQ(raw);
-  const folded = lang === "es" ? normalizeEs(folded0) : folded0;
+  const folded = agentFold(state, lang, names, raw);
   if (!folded.trim()) return { kind: "unknown" };
   const idx = filingIndex(state, key, names);
   const foodCat = state.structure.categories.some((cat) => cat.id === "f-alimentos") ? "f-alimentos" : "";
