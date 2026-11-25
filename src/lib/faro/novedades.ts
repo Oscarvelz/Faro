@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.447",
+    date: "2026-11-24",
+    level: "grande",
+    title: { es: "El Asesor también obedece", en: "The Advisor takes orders too" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Ahora el Asesor también obedece órdenes sobre lo que ya tienes anotado: «archiva la luz» aparta esa línea al Archivo, nombrada con su monto y su fecha para que confirmes esa y no otra.",
+        "Corregir es contar el arreglo: «corrige la luz, no fueron 45, fueron 50» cambia el monto, y «mueve la luz al día 15» cambia su fecha — siempre con su eco y tu sí antes de tocar el libro.",
+        "Preguntar «¿dónde está el dato de la luz?» no toca nada: te dice dónde vive — en el historial, en la Bandeja o en tu estructura.",
+        "Y cambia seis ajustes si se los nombras: la moneda de vista, el idioma, el modo, la tasa, las notificaciones y los avisos de pagos — cada uno con su antes y su después. Todo queda explicado en el Manual, en «Contarle al Asesor».",
+      ],
+      en: [
+        "Now the Advisor also takes orders about what you already have posted: “archive the power bill” sets that line aside into the Archive, named with its amount and its date so you confirm that one and not another.",
+        "Correcting is telling the fix: “correct the power bill, it wasn't 45, it was 50” changes the amount, and “move the power bill to day 15” changes its date — always with its echo and your yes before the book is touched.",
+        "Asking “where is the power bill entry?” touches nothing: it tells you where it lives — in the history, in the Tray or in your structure.",
+        "And it changes six settings if you name them: the display currency, the language, the mode, the rate, the notifications and the payment alerts — each with its before and after. It's all explained in the Manual, under “Telling the Advisor”.",
+      ],
+    },
+  },
+  {
     version: "1.3.446",
     date: "2026-11-24",
     level: "grande",

@@ -184,6 +184,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["advisor.ask", E], // 1.3.345 — Ola 5a: preguntar al Asesor, declarado antes que la caja
   ["advisor.ask-scenarios", C], // 1.3.345 — Ola 5a: los escenarios del Asesor, declarados con la caja; su motor llega en 5b
   ["advisor.relato", E], // 1.3.445 — el relato que se asienta (puerto de la Rama Agente): contar un movimiento es captura esencial, como capture.text
+  ["advisor.orden", E], // 1.3.447 — los verbos de orden (puerto de la Rama Agente, E4): cuidar lo ya anotado (archivar, corregir, buscar, ajustar) es esencial, como contar
   ["settings.due-alerts", E], // 1.3.356 — Ola 6: el interruptor de los avisos de pagos, con su fila
   ["central.due-alerts", E], // 1.3.356 — Ola 6: la tarjeta de Central que anuncia los pagos
   ["central.birthday", E], // 1.3.425 — la tarjeta del cumpleaños en Central: información esencial

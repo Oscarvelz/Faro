@@ -154,6 +154,12 @@ export type Api = {
    * la entrada deliberada y veraz de la confirmación de modo que no
    * aplicó. */
   commitGuarded: (recipe: (s: LedgerState) => LedgerState | null, detail: string | (() => string)) => void;
+  /** 1.3.447 (puerto de la Rama Agente, E4): la mano del proveedor que
+   * escribe settings.mode, expuesta para la orden confirmada del
+   * Asesor («cambia el modo a ritmo»). La cerca de modos293 sigue
+   * intacta: la escritura sigue naciendo solo aquí dentro y en el
+   * selector de Ajustes — la caja dispone por esta mano, no escribe. */
+  chooseMode: (mode: Mode) => void;
   /** Ola 19 (BR19-1): el commit cuyo aborto deja su entrada veraz pero
    * NO marco: la receta que devuelve su propio estado (o null) escribe
    * solo la línea de registro — sin subir la revisión y sin apilar
@@ -2025,6 +2031,7 @@ export function FaroProvider({ userId, children }: { userId: string; children: R
     refreshGuestRate,
     commit,
     commitGuarded,
+    chooseMode,
     commitAnnounced,
     commitFlushed,
     hidePeriodRange: (from, to, label) => {

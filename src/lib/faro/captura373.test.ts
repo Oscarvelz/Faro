@@ -67,7 +67,9 @@ test("373-3 · tocar la pregunta cierra la respuesta y vuelven las sugeridas", (
   // La ley no cambia: una sola puerta, y el cierre la devuelve.
   // ENMIENDA 1.3.446 (E3): el cuarto término llega con la tarjeta de
   // la programación — la misma ley, la misma puerta única.
-  assert.ok(boxSrc.includes("{!result && !caps && !relato && !programa ? ("), "sin respuesta, las sugeridas del banco viven — el cierre las devuelve");
+  // ENMIENDA 1.3.447 (E4): el quinto término llega con las tarjetas
+  // de la orden — la misma ley, la misma puerta única.
+  assert.ok(boxSrc.includes("{!result && !caps && !relato && !programa && !orden ? ("), "sin respuesta, las sugeridas del banco viven — el cierre las devuelve");
 });
 
 test("373-4 · el acabado: grupos con su marca, y el párrafo suelto retirado", () => {

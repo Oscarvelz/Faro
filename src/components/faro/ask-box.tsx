@@ -55,6 +55,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, Compass, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, classifyBankQuestion, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
 import { parsePrograma, parseRelato, type ProgramaResult, type RelatoResult } from "@/lib/faro/relato";
+import { parseOrden, type OrdenResult } from "@/lib/faro/orden";
+import { applyOrdenDraft } from "@/lib/faro/orden-settle";
 import { settleProgramaDrafts } from "@/lib/faro/programa-settle";
 import { settleRelatoDrafts } from "@/lib/faro/relato-settle";
 import { formatMoney } from "@/lib/faro/money";
@@ -111,7 +113,7 @@ function todayLocal(): string {
 }
 
 export function AskBox() {
-  const { session, lang, names, key, commit, commitGuarded, has, mode, fmt, goTopic } = useFaro();
+  const { session, lang, names, key, commit, commitGuarded, chooseMode, has, mode, fmt, goTopic } = useFaro();
   const [text, setText] = useState("");
   const [result, setResult] = useState<BankResult | null>(null);
   const [asked, setAsked] = useState("");
@@ -148,6 +150,12 @@ export function AskBox() {
   // devuelve borradores con su eco, o la pregunta por el dato que
   // falta. «Dejarlo programado» programa por programa-settle.
   const [programa, setPrograma] = useState<ProgramaResult | null>(null);
+  // 1.3.447 · E4: los verbos de orden — archivar, corregir, buscar,
+  // cambiar un ajuste. parseOrden devuelve la orden como borrador
+  // con su eco (o lo encontrado, que no toca nada); «Hacerlo así»
+  // ejecuta por orden-settle — y el ajuste de modo, por la mano del
+  // proveedor (chooseMode), porque el modo tiene cerca de escritores.
+  const [orden, setOrden] = useState<OrdenResult | null>(null);
   // 1.3.376: cada montaje de la caja es una entrada al Asesor; el
   // número de entrada elige el trío de sugerencias del banco.
   const [entry] = useState(() => nextAskEntry());
@@ -196,6 +204,7 @@ export function AskBox() {
     setCaps(false);
     setRelato(null);
     setPrograma(null);
+    setOrden(null);
     setAsked(clean);
     setProposalOff(false);
     // 1.3.445 · LA COSTURA DEL RELATO: lo que no es pregunta puede ser
@@ -205,29 +214,46 @@ export function AskBox() {
     // cascada de siempre, intacta; si no lo es, el relato se intenta
     // primero y solo un «unknown» cae a la cascada. Un relato jamás
     // roba una pregunta, y una pregunta jamás se asienta.
-    if (!pin && has("advisor.relato")) {
+    if (!pin && (has("advisor.relato") || has("advisor.orden"))) {
       const cls = classifyBankQuestion(clean);
       if (!cls.isQuestion) {
-        const rr = parseRelato(session.ledger, key, lang, names, clean, todayLocal());
-        if (rr.kind !== "unknown") {
-          setRelato(rr);
-          setResult(null);
-          setFrame(null);
-          setConvo(null);
-          setText("");
-          return;
+        if (has("advisor.relato")) {
+          const rr = parseRelato(session.ledger, key, lang, names, clean, todayLocal());
+          if (rr.kind !== "unknown") {
+            setRelato(rr);
+            setResult(null);
+            setFrame(null);
+            setConvo(null);
+            setText("");
+            return;
+          }
+          // 1.3.446 · E3: ni pregunta ni relato — ¿la orden de
+          // programar? El mismo criterio: solo un «unknown» cae a la
+          // cascada, y programar jamás roba una pregunta ni un relato.
+          const pr = parsePrograma(session.ledger, key, lang, names, clean, todayLocal());
+          if (pr.kind !== "unknown") {
+            setPrograma(pr);
+            setResult(null);
+            setFrame(null);
+            setConvo(null);
+            setText("");
+            return;
+          }
         }
-        // 1.3.446 · E3: ni pregunta ni relato — ¿la orden de
-        // programar? El mismo criterio: solo un «unknown» cae a la
-        // cascada, y programar jamás roba una pregunta ni un relato.
-        const pr = parsePrograma(session.ledger, key, lang, names, clean, todayLocal());
-        if (pr.kind !== "unknown") {
-          setPrograma(pr);
-          setResult(null);
-          setFrame(null);
-          setConvo(null);
-          setText("");
-          return;
+        // 1.3.447 · E4: ni relato ni programa — ¿una orden sobre lo
+        // que ya existe (archivar, corregir, cambiar un ajuste)? El
+        // verbo buscar tiene forma de pregunta y llega por la puerta
+        // de reserva, tras la cascada (solo si el banco se abstiene).
+        if (has("advisor.orden")) {
+          const orr = parseOrden(session.ledger, key, lang, names, clean, todayLocal());
+          if (orr.kind !== "unknown") {
+            setOrden(orr);
+            setResult(null);
+            setFrame(null);
+            setConvo(null);
+            setText("");
+            return;
+          }
         }
       }
     }
@@ -251,6 +277,21 @@ export function AskBox() {
     // vivo a la cascada — el turno del «¿por qué?» lo devuelve intacto
     // (porqueResult lo conserva), en vez de cerrarlo con r.frame ?? null.
     const r = fu ?? answerBankQuestion(session.ledger, key, lang, names, clean, ctx(), todayLocal(), pin, mode, patterns, convo, frame);
+    // 1.3.447 · E4, la puerta de reserva del verbo buscar: «¿dónde
+    // está…?» tiene forma de pregunta y el banco no la conoce — solo
+    // si la cascada se abstiene (unknown) se oye como orden de
+    // búsqueda (y, en general, como orden: «¿puedes cambiar el modo
+    // a ritmo?» también llega por aquí). El banco tuvo su turno
+    // primero; nada se le roba.
+    if (!pin && r.kind === "unknown" && has("advisor.orden")) {
+      const orr = parseOrden(session.ledger, key, lang, names, clean, todayLocal());
+      if (orr.kind !== "unknown") {
+        setOrden(orr);
+        setResult(null);
+        setText("");
+        return;
+      }
+    }
     setResult(r);
     if (r.kind === "answer") {
       setFrame(r.frame ?? null);
@@ -366,6 +407,29 @@ export function AskBox() {
     setPrograma(null);
   }
 
+  // 1.3.447 · E4: el SÍ de la orden. Archivar y corregir se ejecutan
+  // por orden-settle dentro de su commit; el ajuste igual — salvo el
+  // modo, que va por la mano del proveedor (chooseMode): su cerca de
+  // escritores (modos293) no se toca.
+  function confirmOrden() {
+    if (!session || orden?.kind !== "order") return;
+    const o = orden.order;
+    if (o.op === "ajuste" && o.setting === "mode") {
+      chooseMode(o.value as "esencial" | "ritmo" | "completo");
+      importToast({ text: L("Quedó cambiado.", "It's changed.") });
+    } else if (o.op === "archivar") {
+      commit((s) => applyOrdenDraft(s, o), L("Archivar la línea", "Archive the line"));
+      importToast({ text: L("Quedó en el Archivo.", "It's in the Archive now.") });
+    } else if (o.op === "ajuste") {
+      commit((s) => applyOrdenDraft(s, o), L("Cambiar el ajuste", "Change the setting"));
+      importToast({ text: L("Quedó cambiado.", "It's changed.") });
+    } else {
+      commit((s) => applyOrdenDraft(s, o), L("Corregir la línea", "Correct the line"));
+      importToast({ text: L("Quedó corregido en tu libro.", "It's corrected in your book.") });
+    }
+    setOrden(null);
+  }
+
   // La fija del sistema: «¿Qué puede hacer el asesor?» — su respuesta no pasa por
   // el motor de preguntas: es la descripción honesta generada del banco
   // en el momento (askpresets.capabilitiesText), rendida como tarjeta de
@@ -387,6 +451,7 @@ export function AskBox() {
     setResult(null);
     setRelato(null);
     setPrograma(null);
+    setOrden(null);
     setFrame(null);
     setCaps(false);
     setAsked("");
@@ -535,6 +600,36 @@ export function AskBox() {
           <p className="ask-verdict">{programa.question}</p>
         </div>
       ) : null}
+      {orden?.kind === "order" ? (
+        <div className="ask-card" data-anchor="ask-orden">
+          <p className="ask-verdict">{orden.echo}</p>
+          <div className="ask-chips">
+            {"alreadyArchived" in orden.order && orden.order.alreadyArchived ? (
+              <button type="button" className="ask-chip is-fixed" data-anchor="ask-orden-ok" onClick={() => setOrden(null)}>{L("Entendido", "Got it")}</button>
+            ) : (
+              <>
+                <button type="button" className="ask-chip is-fixed" data-anchor="ask-orden-yes" onClick={confirmOrden}>{L("Hacerlo así", "Do it like this")}</button>
+                <button type="button" className="ask-chip" data-anchor="ask-orden-no" onClick={() => setOrden(null)}>{L("Ahora no", "Not now")}</button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+      {orden?.kind === "found" ? (
+        <div className="ask-card" data-anchor="ask-orden-found">
+          <p className="ask-verdict">{orden.text}</p>
+        </div>
+      ) : null}
+      {orden?.kind === "note" ? (
+        <div className="ask-card" data-anchor="ask-orden-note">
+          <p className="ask-verdict">{orden.text}</p>
+        </div>
+      ) : null}
+      {orden?.kind === "ask" ? (
+        <div className="ask-card" data-anchor="ask-orden-ask">
+          <p className="ask-verdict">{orden.question}</p>
+        </div>
+      ) : null}
       {result?.kind === "unknown" ? (
         <div className="ask-card" data-anchor="ask-card">
           <p className="ask-verdict">{L("Eso todavía no lo sé responder. Esto sí:", "That I can't answer yet. This I can:")}</p>
@@ -653,7 +748,7 @@ export function AskBox() {
           TRES, con su propio rótulo — como «A la mano» lleva el suyo —
           y DEBAJO de las preguntas de la persona. El trío rota en cada
           entrada a la caja (askpresets.suggestionTrio). */}
-      {!result && !caps && !relato && !programa ? (
+      {!result && !caps && !relato && !programa && !orden ? (
         <div className="ask-presets" data-anchor="ask-suggest">
           <span className="ask-presets-label">{L("Sugerencias", "Suggestions")}</span>
           <div className="ask-chips">

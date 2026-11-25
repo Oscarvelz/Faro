@@ -477,6 +477,15 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // los borradores oídos por settleProgramaDrafts, que nunca se niega
   // y jamás programa un duplicado.
   "components/faro/ask-box.tsx|commit|settleProgramaDrafts|settleProgramaDrafts": ["aterrizaje", 1],
+  // 1.3.447 (puerto de la Rama Agente, E4): «Hacerlo así» de la
+  // tarjeta de la orden comete por la misma receta de aterrizaje —
+  // el toque confirmado del usuario sobre su propio libro: ejecuta
+  // la orden oída por applyOrdenDraft (archivar por descanso,
+  // corregir esa línea, cambiar ese ajuste), que jamás toca otra
+  // línea ni otro ajuste que el nombrado en el eco. Tres sitios
+  // (archivar, ajuste, corregir); el ajuste de modo no comete aquí:
+  // va por chooseMode, la mano del proveedor.
+  "components/faro/ask-box.tsx|commit|applyOrdenDraft|applyOrdenDraft+hideLines": ["aterrizaje", 3],
   // 1.3.383 (la integración del banco, Olas 11/17): la caja del Asesor
   // escribe los patrones aprendidos por la puerta ordinaria — el
   // olvido que el usuario ordenó («olvida…», la señal forgetWord del
