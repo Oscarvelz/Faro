@@ -23,7 +23,7 @@ const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 test("385 · la serie ofrece TODAS las grandes sin ver, en orden", () => {
   const serie = announcementsFor("1.3.344", FARO_VERSION);
   assert.ok(serie.length > 3, `la serie trae la pila entera (${serie.length})`);
-  assert.equal(serie[0].version, "1.3.447"); // la más nueva primero (1.3.447, la grande del Asesor que obedece; antes la 1.3.446 de programar contándolo, la 1.3.445 del relato que se asienta, la 1.3.420 del Manual premium, y antes la 1.3.408 — la expectativa se mueve con cada grande, y la de la 408 quedó desactualizada en silencio hasta que la suite de la 409 corrió con el sello ya en 1.3.408)
+  assert.equal(serie[0].version, "1.3.448"); // la más nueva primero (1.3.448, la grande de crear preguntando; antes la 1.3.447 del Asesor que obedece, la 1.3.446 de programar contándolo, la 1.3.445 del relato que se asienta, la 1.3.420 del Manual premium, y antes la 1.3.408 — la expectativa se mueve con cada grande, y la de la 408 quedó desactualizada en silencio hasta que la suite de la 409 corrió con el sello ya en 1.3.408)
   assert.ok(serie.every((n) => n.level === "grande"), "solo grandes: las menores viven en Ajustes");
   const vs = serie.map((n) => n.version);
   assert.deepEqual(vs, [...vs].sort().reverse(), "de la más nueva a la más vieja");
@@ -33,10 +33,10 @@ test("385 · la serie ofrece TODAS las grandes sin ver, en orden", () => {
   // Nada sin ver → serie vacía (silencio).
   assert.deepEqual(announcementsFor(FARO_VERSION, FARO_VERSION), []);
   // Las grandes sin ver desde la 1.3.400 vista: la 1.3.408, la 1.3.420,
-  // la 1.3.445, la 1.3.446 y la 1.3.447, en orden — la serie las
-  // ofrece todas, como manda esta cerca.
+  // la 1.3.445, la 1.3.446, la 1.3.447 y la 1.3.448, en orden — la
+  // serie las ofrece todas, como manda esta cerca.
   const una = announcementsFor("1.3.400", FARO_VERSION);
-  assert.deepEqual(una.map((n) => n.version), ["1.3.447", "1.3.446", "1.3.445", "1.3.420", "1.3.408"]);
+  assert.deepEqual(una.map((n) => n.version), ["1.3.448", "1.3.447", "1.3.446", "1.3.445", "1.3.420", "1.3.408"]);
 });
 
 test("385 · las superficies: el shell anuncia la serie; el dock la rinde entera", () => {

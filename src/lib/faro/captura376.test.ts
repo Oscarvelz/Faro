@@ -51,9 +51,11 @@ test("376-3 · en la caja: «A la mano» antes que las sugerencias, y estas con 
   // tarjeta de la programación — la misma ley, la misma puerta única.
   // ENMIENDA 1.3.447 (E4): el quinto término (!orden) llega con las
   // tarjetas de la orden — la misma ley, la misma puerta única.
-  const idleGate = boxSrc.indexOf("{!result && !caps && !relato && !programa && !orden ? (");
+  // ENMIENDA 1.3.448 (E5): el sexto término (!crear) llega con las
+  // tarjetas de crear preguntando — la misma ley, la misma puerta.
+  const idleGate = boxSrc.indexOf("{!result && !caps && !relato && !programa && !orden && !crear ? (");
   assert.ok(idleGate > presets, "la única puerta de reposo (las sugerencias) vive tras «A la mano»: entre el campo y las preguntas de la persona no hay chips sueltos");
-  assert.equal(boxSrc.split("{!result && !caps && !relato && !programa && !orden ? (").length - 1, 1, "una sola puerta de reposo en toda la caja");
+  assert.equal(boxSrc.split("{!result && !caps && !relato && !programa && !orden && !crear ? (").length - 1, 1, "una sola puerta de reposo en toda la caja");
   assert.ok(row > 0 && row < presets, "el campo sigue arriba de todo");
 });
 

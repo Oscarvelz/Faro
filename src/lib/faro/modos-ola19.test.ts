@@ -486,6 +486,18 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // (archivar, ajuste, corregir); el ajuste de modo no comete aquí:
   // va por chooseMode, la mano del proveedor.
   "components/faro/ask-box.tsx|commit|applyOrdenDraft|applyOrdenDraft+hideLines": ["aterrizaje", 3],
+  // 1.3.448 (puerto de la Rama Agente, E5): la confirmación de la
+  // creación compone la costura DENTRO de su commit — applyCrearDraft
+  // nace la pieza (o devuelve la existente, si la cerca repetida la
+  // encuentra) y ubica el movimiento que esperaba; es aterrizaje
+  // porque el diálogo ya preguntó todo y el eco ya dijo lo que nace:
+  // el toque dispone sobre una propuesta cerrada.
+  "components/faro/ask-box.tsx|commit|applyCrearDraft|applyCrearDraft+locatePendingLine": ["aterrizaje", 1],
+  // 1.3.448 (E5): el «esa misma» del diálogo de crear ubica el
+  // movimiento que esperaba en la pieza que ya existía — no crea
+  // nada; es aterrizaje porque la respuesta del usuario cierra la
+  // pregunta de conflicto que la caja misma hizo.
+  "components/faro/ask-box.tsx|commit|locatePendingLine|locatePendingLine": ["aterrizaje", 1],
   // 1.3.383 (la integración del banco, Olas 11/17): la caja del Asesor
   // escribe los patrones aprendidos por la puerta ordinaria — el
   // olvido que el usuario ordenó («olvida…», la señal forgetWord del

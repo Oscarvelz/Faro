@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.448",
+    date: "2026-11-24",
+    level: "grande",
+    title: { es: "Crear preguntando", en: "Creating by asking" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Si cuentas algo que tu estructura no conoce — «pagué 80 de jardinería» — el Asesor ya no lo deja sin ubicar: la tarjeta del relato trae el botón para crear ese lugar, con tu nombre tal como lo escribiste.",
+        "Crear es preguntar: primero, si ya tienes algo con el mismo nombre o casi, te pregunta si es esa misma o una nueva — ningún duplicado entra sin que lo decidas sabiéndolo.",
+        "Después pregunta solo lo que el relato no sabe: si es de gasto, de ingreso o de ahorro, y si va como categoría nueva o bajo una que ya tienes. Lo que tu verbo ya dijo — «pagué» es gasto — no se pregunta.",
+        "La creación nace como borrador con su eco, como todo en la caja, y tu movimiento queda ubicado en la pieza nueva. También puedes pedirlo directo: «crea una categoría jardinería». Todo queda explicado en el Manual, en «Contarle al Asesor».",
+      ],
+      en: [
+        "If you tell something your structure doesn't know — “I paid 80 for gardening” — the Advisor no longer leaves it unplaced: the story card brings the button to create that place, with your name spelled the way you wrote it.",
+        "Creating is asking: first, if you already have something with the same name or nearly, it asks whether it's that same one or a new one — no duplicate comes in without your deciding it knowingly.",
+        "Then it asks only what the story doesn't already say: whether it's for spending, income or saving, and whether it goes as a new category or under one you already have. What your verb already said — “I paid” is spending — is not asked.",
+        "The creation is born as a draft with its echo, like everything in the box, and your movement ends up placed in the new piece. You can also ask directly: “create a category gardening”. It's all explained in the Manual, under “Telling the Advisor”.",
+      ],
+    },
+  },
+  {
     version: "1.3.447",
     date: "2026-11-24",
     level: "grande",

@@ -54,9 +54,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, Compass, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, classifyBankQuestion, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
-import { parsePrograma, parseRelato, type ProgramaResult, type RelatoResult } from "@/lib/faro/relato";
+import { parsePrograma, parseRelato, type ProgramaResult, type RelatoDraft, type RelatoResult } from "@/lib/faro/relato";
 import { parseOrden, type OrdenResult } from "@/lib/faro/orden";
 import { applyOrdenDraft } from "@/lib/faro/orden-settle";
+import { crearDesdeRelato, crearInicio, crearRespuesta, type CrearPropuesta, type CrearStep } from "@/lib/faro/crear";
+import { applyCrearDraft, locatePendingLine, rawNameFor } from "@/lib/faro/crear-settle";
 import { settleProgramaDrafts } from "@/lib/faro/programa-settle";
 import { settleRelatoDrafts } from "@/lib/faro/relato-settle";
 import { formatMoney } from "@/lib/faro/money";
@@ -156,6 +158,17 @@ export function AskBox() {
   // ejecuta por orden-settle — y el ajuste de modo, por la mano del
   // proveedor (chooseMode), porque el modo tiene cerca de escritores.
   const [orden, setOrden] = useState<OrdenResult | null>(null);
+  // 1.3.448 · E5: CREAR PREGUNTANDO — cuando el relato nombra algo
+  // que el libro no conoce, la caja ofrece crearlo y pregunta solo
+  // lo que falta (la cerca de conflictos va primero). El diálogo es
+  // sin estado en el motor (crear.ts): la propuesta viaja aquí, en
+  // la caja, y mientras una pregunta del diálogo espera, el turno
+  // siguiente ES su respuesta. La creación nace por crear-settle al
+  // «Crearla así»; el movimiento que la abrió queda ubicado.
+  const [crear, setCrear] = useState<{ step: CrearStep; propuesta: CrearPropuesta | null; pending: RelatoDraft | null } | null>(null);
+  // El texto crudo del relato vigente: de él sale el nombre nuevo
+  // tal como el usuario lo escribió (rawNameFor), con su acento.
+  const [relatoRaw, setRelatoRaw] = useState("");
   // 1.3.376: cada montaje de la caja es una entrada al Asesor; el
   // número de entrada elige el trío de sugerencias del banco.
   const [entry] = useState(() => nextAskEntry());
@@ -201,10 +214,46 @@ export function AskBox() {
   function ask(q: string, pin?: { accountId: string }) {
     const clean = q.trim();
     if (!clean || !session) return;
+    // 1.3.448 · E5: EL DIÁLOGO DE CREAR MANDA EN SU TURNO — si una
+    // pregunta de crear preguntando espera respuesta, lo escrito ES
+    // esa respuesta (crearRespuesta la lee; lo que no contesta la
+    // pregunta la repite, no avanza a ciegas). «Olvídalo» lo cierra
+    // sin crear nada. El diálogo vive tras su propio asiento.
+    if (!pin && crear?.propuesta && has("advisor.crear")) {
+      setCaps(false);
+      setAsked(clean);
+      setProposalOff(false);
+      if (/^(olv[ií]dalo|cancel|cancela|d[eé]jalo|forget it|cancel it|stop)$/i.test(clean)) {
+        setCrear(null);
+        setText("");
+        importToast({ text: L("Dejado así: no creo nada.", "Left as is: I won't create anything.") });
+        return;
+      }
+      const step = crearRespuesta(session.ledger, lang, names, crear.propuesta, clean);
+      if (step.kind === "usar" && crear.pending) {
+        // «Esa misma»: el movimiento que esperaba queda ubicado en
+        // la pieza existente — en el borrador abierto si sigue en
+        // pantalla, o en su línea ya asentada.
+        const pd = crear.pending;
+        const catId = step.categoryId || session.ledger.structure.categories.find((c) => c.subs.some((s) => s.id === step.subId))?.id || "";
+        if (relato?.kind === "drafts" && relato.drafts.includes(pd)) {
+          setRelato({ ...relato, drafts: relato.drafts.map((d) => (d === pd ? { ...d, categoryId: catId, subId: step.subId } : d)) });
+        } else {
+          commit((s) => locatePendingLine(s, pd, catId, step.subId), L("Ubicar el movimiento", "Place the movement"));
+        }
+      }
+      setCrear({ step, propuesta: step.kind === "pregunta" ? step.propuesta : null, pending: crear.pending });
+      setText("");
+      return;
+    }
     setCaps(false);
     setRelato(null);
     setPrograma(null);
     setOrden(null);
+    // 1.3.448: un borrador de creación ya cerrado el diálogo (sin
+    // pregunta pendiente) se va con la pregunta nueva; con pregunta
+    // pendiente, el turno era del diálogo y nunca se llega aquí.
+    if (!crear?.propuesta) setCrear(null);
     setAsked(clean);
     setProposalOff(false);
     // 1.3.445 · LA COSTURA DEL RELATO: lo que no es pregunta puede ser
@@ -221,6 +270,7 @@ export function AskBox() {
           const rr = parseRelato(session.ledger, key, lang, names, clean, todayLocal());
           if (rr.kind !== "unknown") {
             setRelato(rr);
+            setRelatoRaw(clean);
             setResult(null);
             setFrame(null);
             setConvo(null);
@@ -248,6 +298,23 @@ export function AskBox() {
           const orr = parseOrden(session.ledger, key, lang, names, clean, todayLocal());
           if (orr.kind !== "unknown") {
             setOrden(orr);
+            setResult(null);
+            setFrame(null);
+            setConvo(null);
+            setText("");
+            return;
+          }
+        }
+        // 1.3.448 · E5, la puerta directa: «crea una categoría
+        // jardinería» — ni relato ni programa ni orden lo conocen;
+        // el nombre que sigue al verbo abre el diálogo de crear
+        // (que pregunta conflicto, tipo y dónde, en ese orden).
+        if (has("advisor.crear")) {
+          const cm = clean.match(/^(?:crea|crear|create)\s+(?:una?\s+|la\s+|the\s+)?(?:categor[ií]a|subcategor[ií]a|category|subcategory)?\s*(?:llamada\s+|named\s+|called\s+)?["«"]?(.+?)["»"]?$/i);
+          const nombre = cm?.[1]?.trim() ?? "";
+          if (cm && nombre && !/\d/.test(nombre)) {
+            const step = crearInicio(session.ledger, lang, names, nombre);
+            setCrear({ step, propuesta: step.kind === "pregunta" ? step.propuesta : null, pending: null });
             setResult(null);
             setFrame(null);
             setConvo(null);
@@ -430,6 +497,48 @@ export function AskBox() {
     setOrden(null);
   }
 
+  // 1.3.448 · E5: la oferta de crear nace del relato — el primer
+  // borrador fresco sin ubicar cuyo concepto no existe en la
+  // estructura. crearDesdeRelato decide (null = nada que crear: el
+  // concepto existe, o es un mover); el nombre sale del texto crudo
+  // del usuario, con su ortografía.
+  const crearOffer = (() => {
+    if (!session || !relato || relato.kind !== "drafts" || crear) return null;
+    const cand = relato.drafts.find((d) => !d.duplicate && !d.categoryId && d.op !== "mover");
+    if (!cand) return null;
+    const step = crearDesdeRelato(session.ledger, lang, names, cand, rawNameFor(relatoRaw, cand.concept) ?? undefined);
+    return step ? { step, draft: cand } : null;
+  })();
+
+  function startCrear(step: CrearStep, pending: RelatoDraft | null) {
+    setCrear({ step, propuesta: step.kind === "pregunta" ? step.propuesta : null, pending });
+  }
+
+  // 1.3.448 · E5: el SÍ de la creación — la pieza nace por
+  // crear-settle (que repite la cerca de conflictos al nacer y ubica
+  // el movimiento que esperaba si ya se asentó); si su relato sigue
+  // en pantalla, el borrador queda ubicado para su propio asiento.
+  function confirmCrear() {
+    if (!session || crear?.step.kind !== "draft") return;
+    const { draft } = crear.step;
+    const pending = crear.pending;
+    // El id de nacimiento se fija AQUÍ (la forma de la casa: c-/s-)
+    // para que el borrador abierto quede ubicado con el mismo id
+    // que nace dentro del commit; si la cerca repetida encuentra el
+    // nombre ya creado, la costura devuelve el existente y el
+    // borrador se ubica en él por la misma vía del commit.
+    const fixedId = `${draft.esSub ? "s" : "c"}-${uid().slice(0, 8)}`;
+    commit((s) => applyCrearDraft(s, names, draft, pending, fixedId).state, L("Crear en tu estructura", "Create in your structure"));
+    if (pending && relato?.kind === "drafts" && relato.drafts.includes(pending)) {
+      const out = applyCrearDraft(session.ledger, names, draft, null, fixedId);
+      if (out.categoryId) {
+        setRelato({ ...relato, drafts: relato.drafts.map((d) => (d === pending ? { ...d, categoryId: out.categoryId, subId: out.subId } : d)) });
+      }
+    }
+    importToast({ text: L(`«${draft.nombre}» ya está en tu estructura.`, `"${draft.nombre}" is in your structure now.`) });
+    setCrear(null);
+  }
+
   // La fija del sistema: «¿Qué puede hacer el asesor?» — su respuesta no pasa por
   // el motor de preguntas: es la descripción honesta generada del banco
   // en el momento (askpresets.capabilitiesText), rendida como tarjeta de
@@ -452,6 +561,7 @@ export function AskBox() {
     setRelato(null);
     setPrograma(null);
     setOrden(null);
+    setCrear(null);
     setFrame(null);
     setCaps(false);
     setAsked("");
@@ -552,6 +662,11 @@ export function AskBox() {
               </div>
             ))}
           </div>
+          {crearOffer ? (
+            <div className="ask-chips">
+              <button type="button" className="ask-chip" data-anchor="ask-crear-start" onClick={() => startCrear(crearOffer.step, crearOffer.draft)}>{L(`Crear «${crearOffer.draft.concept}» en tu estructura`, `Create "${crearOffer.draft.concept}" in your structure`)}</button>
+            </div>
+          ) : null}
           <div className="ask-chips">
             {relato.drafts.some((d) => !d.duplicate) ? (
               <>
@@ -628,6 +743,31 @@ export function AskBox() {
       {orden?.kind === "ask" ? (
         <div className="ask-card" data-anchor="ask-orden-ask">
           <p className="ask-verdict">{orden.question}</p>
+        </div>
+      ) : null}
+      {crear?.step.kind === "pregunta" ? (
+        <div className="ask-card" data-anchor="ask-crear">
+          <p className="ask-verdict">{crear.step.question}</p>
+          <div className="ask-chips">
+            <button type="button" className="ask-chip" data-anchor="ask-crear-no" onClick={() => setCrear(null)}>{L("Ahora no", "Not now")}</button>
+          </div>
+        </div>
+      ) : null}
+      {crear?.step.kind === "draft" ? (
+        <div className="ask-card" data-anchor="ask-crear">
+          <p className="ask-verdict">{crear.step.echo}</p>
+          <div className="ask-chips">
+            <button type="button" className="ask-chip is-fixed" data-anchor="ask-crear-yes" onClick={confirmCrear}>{L("Crearla así", "Create it like this")}</button>
+            <button type="button" className="ask-chip" data-anchor="ask-crear-no" onClick={() => setCrear(null)}>{L("Ahora no", "Not now")}</button>
+          </div>
+        </div>
+      ) : null}
+      {crear?.step.kind === "usar" ? (
+        <div className="ask-card" data-anchor="ask-crear-usar">
+          <p className="ask-verdict">{crear.step.text}</p>
+          <div className="ask-chips">
+            <button type="button" className="ask-chip is-fixed" data-anchor="ask-crear-ok" onClick={() => setCrear(null)}>{L("Entendido", "Got it")}</button>
+          </div>
         </div>
       ) : null}
       {result?.kind === "unknown" ? (
@@ -748,7 +888,7 @@ export function AskBox() {
           TRES, con su propio rótulo — como «A la mano» lleva el suyo —
           y DEBAJO de las preguntas de la persona. El trío rota en cada
           entrada a la caja (askpresets.suggestionTrio). */}
-      {!result && !caps && !relato && !programa && !orden ? (
+      {!result && !caps && !relato && !programa && !orden && !crear ? (
         <div className="ask-presets" data-anchor="ask-suggest">
           <span className="ask-presets-label">{L("Sugerencias", "Suggestions")}</span>
           <div className="ask-chips">
