@@ -120,8 +120,23 @@ export type AskNode = {
  * navega por el mapa, nunca por una ruta escrita a mano. La respuesta
  * PROPONE; el toque del usuario dispone (R2: nada se guarda solo). */
 export type BankAction = { id: string; label: string; target: string };
+/** LA FIGURA DECLARADA (censo de figuras, aprobado por Oscar el
+ * 2026-11-23 con su condición de exactitud; puerto de la Rama
+ * Agente, 1.3.449): el banco NO dibuja — declara la figura con los
+ * números REALES del libro, y canon la dibuja con los tokens del
+ * tema. Las piezas de una figura de barras SUMAN el total que el
+ * veredicto nombra (A23-3 entre medios); la brecha se nombra en el
+ * veredicto o en la nota; donde la cifra no se puede medir con
+ * exactitud, la respuesta NO trae figura. */
+export type BankFigurePoint = { label: string; minor: number; mark?: "conflicto" | "piso" | "mediana" | "minimo" | "premisa" | "cierre" };
+export type BankFigure = {
+  kind: "escala" | "barras" | "camino" | "lado" | "meses" | "arbol";
+  points: BankFigurePoint[];
+  band?: { floor: number; median?: number; total: number };
+  note: string | null;
+};
 export type BankResult =
-  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null; actions?: BankAction[]; proposal?: { word: string; question: string } | null; forgetWord?: string | null; frame?: AskFrame; convo?: ConvoFrame | null; graph?: AskNode[] }
+  | { kind: "answer"; family: BankFamilyId | "spend" | "free" | "left" | "how" | "reach"; verdict: string; pieces: BankPiece[]; note: string | null; source: string[]; lines: number; draft?: { amountMinor: number; currency: Currency; concept: string } | null; actions?: BankAction[]; proposal?: { word: string; question: string } | null; forgetWord?: string | null; frame?: AskFrame; convo?: ConvoFrame | null; graph?: AskNode[]; figure?: BankFigure }
   | { kind: "ask-back"; family: BankFamilyId; verdict: string; options: (BankPiece & { id: string })[]; source: string[] }
   | { kind: "need-amount"; family: BankFamilyId }
   | { kind: "unknown" };
@@ -2332,6 +2347,11 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
       pieces: piecesJ,
       note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      figure: {
+        kind: "lado",
+        points: piecesJ.map((p) => ({ label: p.label, minor: p.minor })),
+        note: null,
+      },
     };
   }
   // OLA 12b — DOS FILTROS, UN FILTRO CONTRA SU PASADO, EL MEJOR MES.
@@ -2361,6 +2381,14 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
           note: L(c.lang, "Cada lado es el filtro que su nombre resuelve en tu libro; si un nombre no es el que esperabas, pregúntame por el otro.", "Each side is the filter its name resolves to in your book; if a name isn't the one you meant, ask me by the other."),
           source: ["libros.lineas", "estudio.flujo"], lines: 0,
           actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+          figure: {
+            kind: "lado",
+            points: [
+              { label: L(c.lang, "Primer lado", "First side"), minor: t1 },
+              { label: L(c.lang, "Segundo lado", "Second side"), minor: t2 },
+            ],
+            note: null,
+          },
         };
       }
       if (!f1 && !f2 && w1 && w2) {
@@ -3037,6 +3065,14 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
     }],
     source: onAccount ? ["central.tengo", "ahorros.stock"] : ["central.queda", "asesor.lectura"], lines: 0,
     actions: onAccount ? undefined : reportDoor(c, "central.queda", "Ver mi Queda en Central", "See my Left in Central"),
+    figure: {
+      kind: "lado",
+      points: [
+        { label: baseLabel, minor: base },
+        { label: L(c.lang, "Con la premisa", "With the premise"), minor: result, mark: "premisa" },
+      ],
+      note: L(c.lang, "El «si» que trajiste en tu pregunta: nada de esto está anotado.", "The 'if' you brought in your question: none of this is recorded."),
+    },
   };
 }
 
@@ -3642,6 +3678,15 @@ function comparadorAnswer(c: Ctx, folded: string, raw: string): BankResult | nul
     ],
     note, source: src, lines: 0,
     actions: reportDoor(c, "cobros.plan", "Ver el plan en Cobros · Plan de pago", "See the plan in Payments · Payoff plan"),
+    figure: {
+      kind: "lado",
+      points: [
+        { label: `${L(c.lang, "Avalancha", "Avalanche")} · ${L(c.lang, "libre en", "free in")} ${monthName(av.months)}`, minor: av.interest, mark: "cierre" },
+        { label: `${L(c.lang, "Bola de nieve", "Snowball")} · ${L(c.lang, "libre en", "free in")} ${monthName(sb.months)}`, minor: sb.interest, mark: "cierre" },
+        ...(hybrid ? [{ label: `${L(c.lang, "Intermedio", "Middle path")} · ${L(c.lang, "libre en", "free in")} ${monthName(hybrid.months)}`, minor: hybrid.interest, mark: "cierre" as const }] : []),
+      ],
+      note: null,
+    },
   };
 }
 
@@ -3705,6 +3750,18 @@ function simuladorAnswer(c: Ctx, folded: string, raw: string): BankResult | null
     note: L(c.lang, `El supuesto, dicho: el motor del propio Plan de la app, atacando ${plan.order === "avalanche" ? "la deuda más cara primero" : "la deuda más pequeña primero"}, tasas fijas y ningún cargo nuevo a las tarjetas.${guessed ? " Una de las tasas es estimada por la app: el resultado hereda esa estima." : ""}`, `The assumption, stated: the app's own Plan engine, attacking ${plan.order === "avalanche" ? "the most expensive debt first" : "the smallest debt first"}, fixed rates and no new card charges.${guessed ? " One rate is the app's estimate: the result inherits it." : ""}`),
     source: ["cobros.plan"], lines: plan.debts.length,
     actions: reportDoor(c, "cobros.plan", "Verlo en Cobros · Plan", "See it in Payments · Plan"),
+    ...(base && newBudget !== plan.budget && (base.months !== run.months || base.interest !== run.interest)
+      ? {
+          figure: {
+            kind: "lado" as const,
+            points: [
+              { label: `${L(c.lang, "Tu ritmo", "Your pace")} · ${L(c.lang, "libre en", "free in")} ${(() => { const k = monthAhead(base.months, c.today); const [by, bm] = k.split("-").map(Number); return `${MONTH_LABELS[bm][c.lang === "en" ? 1 : 0]} ${by}`; })()}`, minor: base.interest, mark: "cierre" as const },
+              { label: `${L(c.lang, "Con este pago", "With this payment")} · ${L(c.lang, "libre en", "free in")} ${whenLabel}`, minor: run.interest, mark: "cierre" as const },
+            ],
+            note: null,
+          },
+        }
+      : {}),
   };
 }
 
@@ -3758,6 +3815,12 @@ function repartoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
       note: L(c.lang, "Es el reparto que trajiste, sumado y nombrado: nada se ha enviado. Si quieres, desde Remesas lo conviertes en envíos.", "It's the split you brought, summed and named: nothing has been sent. From Remittances you can turn it into sends if you want."),
       source: ["cobros.mideben", "cobros.debo"], lines: 0,
       actions: reportDoor(c, "remesas.personas", "Verlo en Remesas", "See it in Remittances"),
+      figure: {
+        kind: "barras",
+        points: [...shares.map((s) => ({ label: s.name, minor: s.minor })), ...(rest > 0 ? [{ label: L(c.lang, "Sin repartir", "Unassigned"), minor: rest }] : [])],
+        band: { floor: 0, total: total ?? sum },
+        note: null,
+      },
     };
   }
   if (!hasVerb && shares.length < 2) return null;
@@ -3777,6 +3840,12 @@ function repartoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
         pieces, note: rem > 0 ? L(c.lang, "El centavo que no se puede partir se reparte de uno en uno desde el primero: por eso alguna pieza lleva un centavo más.", "The indivisible cent is dealt one by one from the first: that's why some pieces carry one cent more.") : null,
         source: ["cobros.mideben", "cobros.debo"], lines: 0,
         actions: reportDoor(c, "remesas.personas", "Verlo en Remesas", "See it in Remittances"),
+        figure: {
+          kind: "barras",
+          points: pieces.map((p) => ({ label: p.label, minor: p.minor })),
+          band: { floor: 0, total },
+          note: null,
+        },
       };
     }
   }
@@ -3876,6 +3945,12 @@ function estacionalidadAnswer(c: Ctx, folded: string): BankResult | null {
     pieces: rows.slice(0, 3).map((r) => ({ label: label(r[0]), minor: r[1] })),
     note: null, source: ["historial.stream"], lines: rows.length,
     actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+    figure: {
+      kind: "meses",
+      points: [...byMonth.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((r) => ({ label: label(r[0]), minor: r[1] })),
+      band: { floor: 0, median: avg, total: rows[0][1] },
+      note: null,
+    },
   };
 }
 
@@ -4095,6 +4170,20 @@ function respaldoAnswer(c: Ctx, folded: string): BankResult | null {
     note: L(c.lang, "El supuesto, dicho: el gasto sigue a su ritmo promedio medido y no entra nada más. Es una medida, no un consejo.", "The assumption, stated: spending keeps its measured average pace and nothing else comes in. It's a measure, not advice."),
     source: ["ahorros.stock", "historial.stream"], lines: m.lines,
     actions: reportDoor(c, "ahorros.colchon", "Verlo en Ahorros · Colchón", "See it in Savings · Cushion"),
+    // La condición del censo, verificada en canon (1.3.449): la
+    // vista de Ahorros · Colchón NO dibuja la escala de meses al
+    // abrirla (enseña el stock y su cuenta, no la banda 0–12+) —
+    // la declaración se queda; no baja a puerta.
+    ...(stock.total > 0
+      ? {
+          figure: {
+            kind: "escala" as const,
+            points: [{ label: L(c.lang, `Tu marca: ${whole} mes${whole === 1 ? "" : "es"} de colchón`, `Your mark: ${whole} month${whole === 1 ? "" : "s"} of cushion`), minor: stock.total }],
+            band: { floor: m.avg, total: stock.total },
+            note: L(c.lang, "La banda se mide en meses de tu gasto promedio.", "The band is measured in months of your average spending."),
+          },
+        }
+      : {}),
   };
 }
 
@@ -4245,6 +4334,12 @@ function ingresoVolatilAnswer(c: Ctx, folded: string): BankResult | null {
     ],
     note: null, source: src, lines: 0,
     actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+    figure: {
+      kind: "meses",
+      points: kit.months.map((m) => { const [y, mo] = m.key.split("-").map(Number); return { label: `${MONTH_LABELS[mo][c.lang === "en" ? 1 : 0]} ${y}`, minor: m.total }; }),
+      band: { floor: kit.floor, median: kit.median, total: kit.best },
+      note: null,
+    },
   };
 }
 
@@ -4375,6 +4470,19 @@ function metaAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
         { id: "falta", label: L(c.lang, "Lo que falta por juntar", "What's still to gather"), minor: target - fv, tense: "proyectado", flow: "stock", currency: c.display, sign: 1 },
       ],
     }],
+    ...(kit && kit.months.length >= 2 && kit.floor > 0
+      ? {
+          figure: {
+            kind: "escala" as const,
+            points: [
+              { label: L(c.lang, "Lo guardado", "What's saved"), minor: stock.total },
+              { label: L(c.lang, "El apartado al mes", "The monthly set-aside"), minor: perMonth },
+            ],
+            band: { floor: kit.floor, median: kit.median, total: target },
+            note: null,
+          },
+        }
+      : {}),
   };
 }
 
@@ -4447,6 +4555,19 @@ function verificacionAnswer(c: Ctx, folded: string, raw: string): BankResult | n
       }],
       source: ["asesor.lectura", "central.pagos"], lines: 0,
       actions: reportDoor(c, "central.pagos", "Verlo en la Agenda", "See it in the Agenda"),
+      ...(leftN > 0
+        ? {
+            figure: {
+              kind: "escala" as const,
+              points: [
+                { label: L(c.lang, "Tu ritmo seguro de hoy", "Your safe pace today"), minor: perN, mark: "piso" as const },
+                { label: named.name, minor: amtN, mark: "premisa" as const },
+              ],
+              band: { floor: perN, total: leftN },
+              note: null,
+            },
+          }
+        : {}),
     };
   }
   if (!/(para gastar|para hoy|gastar.{0,24}hoy|hoy.{0,24}gastar|to spend|spend.{0,24}today)/.test(folded)) return null;
@@ -4500,6 +4621,19 @@ function verificacionAnswer(c: Ctx, folded: string, raw: string): BankResult | n
     ],
     source: ["asesor.lectura", "central.queda"], lines: 0,
     actions: reportDoor(c, "central.queda", "Ver mi Queda en Central", "See my Left in Central"),
+    ...(left > 0
+      ? {
+          figure: {
+            kind: "escala" as const,
+            points: [
+              { label: L(c.lang, "Tu ritmo seguro de hoy", "Your safe pace today"), minor: per, mark: "piso" as const },
+              { label: L(c.lang, "Lo que quieres gastar", "What you want to spend"), minor: amt, mark: "premisa" as const },
+            ],
+            band: { floor: per, total: left },
+            note: null,
+          },
+        }
+      : {}),
   };
 }
 
@@ -4562,19 +4696,49 @@ function scheduledEvents(c: Ctx, days: number): { events: SchedEvent[]; counted:
   }
   return { events: out.sort((a, b) => a.on.localeCompare(b.on)), counted };
 }
-function walkEvents(start: number, events: SchedEvent[], upto: string): { end: number; min: number; minOn: string; conflict: { ev: SchedEvent; bal: number } | null; applied: SchedEvent[] } {
+function walkEvents(start: number, events: SchedEvent[], upto: string): { end: number; min: number; minOn: string; conflict: { ev: SchedEvent; bal: number } | null; applied: SchedEvent[]; steps: Array<{ on: string; name: string; bal: number }> } {
   let bal = start;
   let min = start;
   let minOn = "";
   let conflict: { ev: SchedEvent; bal: number } | null = null;
   const applied = events.filter((e) => e.on <= upto);
+  const steps: Array<{ on: string; name: string; bal: number }> = [];
   for (const e of applied) {
     if (!e.known) continue;
     bal += e.delta;
+    steps.push({ on: e.on, name: e.name, bal });
     if (bal < min) { min = bal; minOn = e.on; }
     if (bal < 0 && !conflict) conflict = { ev: e, bal };
   }
-  return { end: bal, min, minOn, conflict, applied };
+  return { end: bal, min, minOn, conflict, applied, steps };
+}
+/** EL CAMINO como figura (censo de figuras; puerto de la Rama
+ * Agente, 1.3.449): el saldo caminando, declarado desde el MISMO
+ * paseo que el veredicto leyó — cada punto es un saldo real tras un
+ * evento real, con el punto más bajo y el día del conflicto
+ * marcados. Si el paseo trae más pasos de los que la figura enseña
+ * (8), se conservan el arranque, los primeros, el mínimo, el
+ * conflicto y el cierre: ningún punto se inventa ni se interpola. */
+function caminoFigure(c: Ctx, start: number, w: ReturnType<typeof walkEvents>, note: string | null, lastPoint?: BankFigurePoint): BankFigure {
+  const all: BankFigurePoint[] = [{ label: L(c.lang, `Hoy · ${fmtFecha(c, c.today)}`, `Today · ${fmtFecha(c, c.today)}`), minor: start }];
+  const minIdx = w.steps.findIndex((s) => s.bal === w.min);
+  const confIdx = w.conflict ? w.steps.findIndex((s) => s.on === w.conflict!.ev.on && s.bal === w.conflict!.bal) : -1;
+  let idxs = w.steps.map((_, i) => i);
+  if (idxs.length > 8) {
+    const keep = new Set<number>([0, 1, 2, idxs.length - 1]);
+    if (minIdx >= 0) keep.add(minIdx);
+    if (confIdx >= 0) keep.add(confIdx);
+    idxs = [...keep].sort((a, b) => a - b);
+  }
+  for (const i of idxs) {
+    const s = w.steps[i];
+    const p: BankFigurePoint = { label: `${s.name} · ${fmtFecha(c, s.on)}`, minor: s.bal };
+    if (i === confIdx) p.mark = "conflicto";
+    else if (i === minIdx && w.min < start) p.mark = "minimo";
+    all.push(p);
+  }
+  if (lastPoint) all.push(lastPoint);
+  return { kind: "camino", points: all, note };
 }
 /* OLA 33 · LA DERIVA QUE AVISA (investigación II, mecanismo #7):
  * la proactividad como CANDIDATAS EN DATOS — la superficie que
@@ -5642,6 +5806,16 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
       source: src, lines: 0,
       actions: door,
       graph: graphOf("punto-bajo", L(c.lang, "Tu punto más bajo (solo lo programado)", "Your low point (scheduled only)"), ends[lowIdx], events.filter((e) => e.on <= addDaysIso(c.today, 90))),
+      figure: {
+        kind: "camino",
+        points: [
+          { label: L(c.lang, `Hoy · ${fmtFecha(c, c.today)}`, `Today · ${fmtFecha(c, c.today)}`), minor: start },
+          ...ends.map((e, i) => (i === lowIdx
+            ? { label: L(c.lang, `Semana ${i + 1}`, `Week ${i + 1}`), minor: e, mark: "minimo" as const }
+            : { label: L(c.lang, `Semana ${i + 1}`, `Week ${i + 1}`), minor: e })),
+        ],
+        note: L(c.lang, "Solo lo programado: cuotas, tarjetas y lo que te deben, con sus fechas.", "Scheduled only: dues, cards and what you're owed, with their dates."),
+      },
     };
   }
 
@@ -5706,6 +5880,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
       source: src, lines: 0,
       actions: door,
       graph: graphOf("saldo-tras-pago", L(c.lang, "Tu saldo tras ese pago", "Your balance after that payment"), after, events.filter((e) => e.on <= D), { id: "pago", label: L(c.lang, "El pago que traes", "The payment you bring"), minor: amt, tense: "proyectado", flow: "flujo", currency: c.display, sign: -1, assumption: { text: L(c.lang, "pagar esa cantidad ese día, como preguntaste", "paying that amount that day, as you asked"), origin: "usuario" } }),
+      figure: caminoFigure(c, start, w, null, { label: L(c.lang, `El pago · ${fmtFecha(c, D)}`, `The payment · ${fmtFecha(c, D)}`), minor: after, mark: "cierre" }),
     };
   }
 
@@ -5713,6 +5888,9 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
   const end = monthEndIso(c.today);
   const { events, counted } = scheduledEvents(c, daysBetweenIso(c.today, end));
   const w = walkEvents(start, events, end);
+  // Un camino de un solo punto no enseña ningún camino: sin eventos
+  // conocidos por caminar, la respuesta del mes no trae figura.
+  const monthFigure = w.steps.length ? caminoFigure(c, start, w, null) : undefined;
   const known = events.filter((e) => e.known);
   const outSum = -known.filter((e) => e.delta < 0).reduce((a, e) => a + e.delta, 0);
   const inSum = known.filter((e) => e.delta > 0).reduce((a, e) => a + e.delta, 0);
@@ -5737,6 +5915,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
         note: noteOf(events, counted),
         source: src, lines: 0, actions: door,
         graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+        ...(monthFigure ? { figure: monthFigure } : {}),
       };
     }
     if (needVoice) {
@@ -5757,6 +5936,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
         note: noteOf(events, counted),
         source: src, lines: 0, actions: door,
         graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+        ...(monthFigure ? { figure: monthFigure } : {}),
       };
     }
     // runOutVoice: el día del cero — por lo programado si cruza
@@ -5769,6 +5949,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
         note: noteOf(events, counted),
         source: src, lines: 0, actions: door,
         graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+        ...(monthFigure ? { figure: monthFigure } : {}),
       };
     }
     const spent = allLines(c).filter((l) => l.monthKey === c.key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && lineDate(l) <= c.today).reduce((a, l) => a + view(c, l), 0);
@@ -5800,6 +5981,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
       note: noteOf(events, counted),
       source: src, lines: 0, actions: door,
       graph: graphOf("cierre-mes", L(c.lang, "Tu cierre del mes", "Your month close"), close, events),
+      ...(monthFigure ? { figure: monthFigure } : {}),
     };
   }
   /* OLA 32 · EL MENÚ DE VUELTAS del mes (investigación II, #6):
@@ -5848,6 +6030,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
     source: src, lines: 0,
     actions: door,
     graph: graphOf("cierre-del-mes", L(c.lang, "El cierre del mes, sobre lo anotado", "The month's close, on what's recorded"), w.end, events),
+    ...(monthFigure ? { figure: monthFigure } : {}),
   };
 }
 /* OLA 46 (F1) · EL TOTAL DE TODO — «¿cuánto dinero tengo en
@@ -6299,14 +6482,14 @@ function seriesAnswer(c: Ctx, folded: string): BankResult | null {
   // LA SUBIDA, medida contra la propia serie.
   if (/(ha subido|subieron|han subido|price (increase|went up|raise)|prices went up|went up|go up|gone up|going up)/.test(folded)
     || (/(subio|aumento|encareci)/.test(folded) && /(suscripcion|precio|cuota)/.test(folded))) {
-    const rises: Array<{ name: string; from: number; to: number }> = [];
+    const rises: Array<{ name: string; from: number; to: number; pts: Array<{ date: string; minor: number }> }> = [];
     for (const s of series) {
       if (s.points.length < 2) continue;
       const prev = s.points.slice(0, -1).map((p) => p.minor);
       const med = medianOf(prev);
       const noise = prev.reduce((a, v) => Math.max(a, Math.abs(v - med)), 0);
       const last = s.points[s.points.length - 1].minor;
-      if (last > med && last - med > noise) rises.push({ name: s.name, from: med, to: last });
+      if (last > med && last - med > noise) rises.push({ name: s.name, from: med, to: last, pts: s.points });
     }
     return {
       kind: "answer", family: "series",
@@ -6317,6 +6500,16 @@ function seriesAnswer(c: Ctx, folded: string): BankResult | null {
       note: L(c.lang, "La medida: el último cobro contra la MEDIANA de los anteriores, y solo llamo subida a lo que supera la variación que la propia serie ya mostraba — una serie que siempre baila no acusa por bailar.", "The measure: the latest charge against the MEDIAN of the previous ones, and I only call it a rise when it beats the variation the series itself already showed — a series that always dances doesn't get accused for dancing."),
       source: ["libros.lineas", "cobros.cuotas"], lines: 0,
       actions: reportDoor(c, "cobros.cuotas", "Verlo en Cobros", "See it in Payments"),
+      ...(rises.length === 1
+        ? {
+            figure: {
+              kind: "camino" as const,
+              points: rises[0].pts.map((p) => ({ label: fmtFecha(c, p.date), minor: p.minor })),
+              band: { floor: 0, median: rises[0].from, total: rises[0].to },
+              note: null,
+            },
+          }
+        : {}),
     };
   }
   // LA CUOTA QUE NO LLEGÓ: la fecha pasó y no hay cobro nuevo anotado.
@@ -6689,6 +6882,14 @@ function sintesisAnswer(c: Ctx, folded: string): BankResult | null {
       note: L(c.lang, "La comparación es a igual tramo: los mismos días de cada mes, con las mismas reglas.", "The comparison is at equal stretch: the same days of each month, under the same rules."),
       source: ["historial.stream", "estudio.flujo"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      figure: {
+        kind: "lado",
+        points: [
+          { label: L(c.lang, `Este mes al día ${day}`, `This month by day ${day}`), minor: now },
+          { label: L(c.lang, `El mes pasado al día ${day}`, `Last month by day ${day}`), minor: then },
+        ],
+        note: null,
+      },
     };
   }
   // (b) EL CIERRE COMPARADO: el cierre proyectado de este mes (al ritmo
@@ -6730,6 +6931,14 @@ function sintesisAnswer(c: Ctx, folded: string): BankResult | null {
       ],
       source: ["historial.stream", "asesor.lectura"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      figure: {
+        kind: "lado",
+        points: [
+          { label: L(c.lang, "El cierre proyectado", "The projected close"), minor: projected, mark: "premisa" },
+          { label: L(c.lang, "El cierre del mes pasado", "Last month's close"), minor: lastTotal },
+        ],
+        note: L(c.lang, "Si el ritmo medido de estos días sigue hasta fin de mes.", "If the measured pace of these days holds to month's end."),
+      },
     };
   }
   return null;
@@ -8135,6 +8344,11 @@ function porqueResult(state: LedgerState, frame: ConvoFrame | null, lang: Lang, 
       source: frame.source, lines: t.children.length, ...(door ? { actions: door } : {}),
       convo: { ...frame, whyId: t.id },
       ...keep,
+      figure: {
+        kind: "arbol",
+        points: t.children.map((ch) => ({ label: ch.label, minor: (ch.sign === -1 ? -1 : 1) * ch.minor })),
+        note: t.assumption ? t.assumption.text : null,
+      },
     };
   }
   const counted = frame.pieces.length
@@ -9090,6 +9304,25 @@ function answerSingle(
   // piezas de la resta (apartado, colchón) y nombran el mismo piso.
   const base: AskResult = answerQuestion(state, key, lang, names, raw, parseCtx, today, c.mode);
   if (base.kind === "answer") {
+    /* LAS BARRAS QUE SUMAN del delegado (censo de figuras; puerto
+     * de la Rama Agente, 1.3.449): cuando las piezas del delegado
+     * SON una resta que prueba su total — la última pieza es la
+     * suma de las demás (left: entró − salió = queda), o las piezas
+     * suman el libre pieza a pieza (free: saldo − apartado − cuotas
+     * − colchón) — la resta se declara como figura de barras, de
+     * las MISMAS piezas. Si las piezas no forman esa resta (spend,
+     * la proyección del año), no hay figura: la exactitud manda. */
+    let figure: BankFigure | undefined;
+    const pcs = base.pieces;
+    if (pcs.length >= 2 && pcs.some((p) => p.minor !== 0)) {
+      const rest = pcs.slice(0, -1);
+      const restSum = rest.reduce((a, p) => a + p.minor, 0);
+      if (restSum === pcs[pcs.length - 1].minor && pcs[pcs.length - 1].minor !== 0) {
+        figure = { kind: "barras", points: rest.map((p) => ({ label: p.label, minor: p.minor })), band: { floor: 0, total: pcs[pcs.length - 1].minor }, note: null };
+      } else if (base.intent === "free") {
+        figure = { kind: "barras", points: pcs.map((p) => ({ label: p.label, minor: p.minor })), band: { floor: 0, total: pcs.reduce((a, p) => a + p.minor, 0) }, note: null };
+      }
+    }
     return {
       kind: "answer", family: base.intent, verdict: base.verdict,
       pieces: base.pieces, note: base.note, draft: base.draft,
@@ -9098,6 +9331,7 @@ function answerSingle(
         : base.intent === "how" ? ["asesor.lectura"]
         : ["asesor.lectura", "cobros.cuotas"],
       lines: 0,
+      ...(figure ? { figure } : {}),
     };
   }
   if (base.kind === "need-amount") return { kind: "need-amount", family: "gustos" };

@@ -3568,6 +3568,258 @@ describe("rama E2 · la pregunta en figurado (la idea de Alvin) — puerto de la
   });
 });
 
+describe("rama · FIGURAS DEL CENSO (el banco declara, canon dibuja — con la condición de exactitud de Oscar) — puerto de la Rama Agente", () => {
+  const figOf = (r: BankResult) => {
+    assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "answer") throw new Error("no es respuesta");
+    return r.figure;
+  };
+  const libroVerif = () => {
+    const l = createInitial("es", "oscuro");
+    l.months[KEY] = {
+      lines: [
+        line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "casa", kind: "expense-fixed" as LineKind, concept: "Casa", amountMinor: 20000, categoryId: "f-casa", subId: "f.casa.servicios" }),
+        line({ id: "net", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, nextDue: "2026-10-28", bookedOn: "2026-09-28" }),
+      ],
+    };
+    l.settings.display = "USD";
+    return l;
+  };
+  const libroCamino = () => {
+    // Como libroVerif, pero el Internet vive en el bucket de
+    // septiembre con vencimiento el 28 de octubre: así la cuota NO
+    // está contada en la queda de hoy y el paseo de la factibilidad
+    // la camina como evento (queda 80000 → cierre 75001).
+    const l = createInitial("es", "oscuro");
+    l.months["2026-09"] = {
+      lines: [
+        line({ id: "net", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, monthKey: "2026-09", categoryId: "f-casa", subId: "f.casa.internet", recurring: true, nextDue: "2026-10-28", bookedOn: "2026-09-28" }),
+      ],
+    };
+    l.months[KEY] = {
+      lines: [
+        line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "casa", kind: "expense-fixed" as LineKind, concept: "Casa", amountMinor: 20000, categoryId: "f-casa", subId: "f.casa.servicios" }),
+      ],
+    };
+    l.settings.display = "USD";
+    return l;
+  };
+  const libroSeries = () => {
+    const l = createInitial("es", "oscuro");
+    l.months["2026-08"] = { lines: [line({ id: "net8", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4000, monthKey: "2026-08", categoryId: "f-casa", subId: "f.casa.internet", bookedOn: "2026-08-28" })] };
+    l.months["2026-09"] = { lines: [line({ id: "net9", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4000, monthKey: "2026-09", categoryId: "f-casa", subId: "f.casa.internet", bookedOn: "2026-09-28" })] };
+    l.months[KEY] = { lines: [line({ id: "net10", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", bookedOn: "2026-10-28" })] };
+    l.settings.display = "USD";
+    return l;
+  };
+  const deuda = (id: string, concept: string, balance: number, aprBps: number) =>
+    line({ id, kind: "expense-fixed" as LineKind, concept, amountMinor: 1000, categoryId: "f-creditos", balanceMinor: balance, aprBps });
+  const libroDeudas = () => {
+    const l = createInitial("es", "oscuro");
+    l.months[KEY] = {
+      lines: [
+        line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        deuda("da", "Tarjeta grande", 300000, 3600),
+        deuda("db", "Préstamo amigo", 20000, 0),
+        deuda("dc", "Consumo", 100000, 1000),
+      ],
+    };
+    l.settings.display = "USD";
+    return l;
+  };
+  const libroIngresos = () => {
+    const l = createInitial("es", "oscuro");
+    for (const [k, amt] of [["2026-08", 90000], ["2026-09", 110000], ["2026-10", 100000]] as const) {
+      l.months[k] = { lines: [line({ id: `sal-${k}`, kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: amt, monthKey: k, bookedOn: `${k}-05` })] };
+    }
+    l.settings.display = "USD";
+    return l;
+  };
+  it("FACTIBILIDAD · EL CAMINO del mes: los puntos son los saldos reales del paseo, desde la queda de hoy", () => {
+    // ASIENTO DE CANON (1.3.449): en canon «¿Llego a fin de mes?»
+    // es de la costura del alcance (0r, §19.1) — la frase que llega
+    // a la prueba del mes es «¿Me alcanza el mes?»; el libro y las
+    // cifras esperadas son los de la rama.
+    const f = figOf(ask(libroCamino(), "¿Me alcanza el mes?"));
+    assert.ok(f, "la factibilidad del mes trae figura");
+    assert.equal(f.kind, "camino");
+    assert.ok(f.points.length >= 2, JSON.stringify(f.points));
+    assert.equal(f.points[0].minor, 80000);
+    assert.equal(f.points.at(-1)?.minor, 75001);
+  });
+
+  it("FACTIBILIDAD · el punto bajo de 13 semanas camina semana a semana y marca el mínimo", () => {
+    const f = figOf(ask(fixture(), "¿Cuál es mi punto más bajo en las próximas semanas?"));
+    assert.ok(f);
+    assert.equal(f.kind, "camino");
+    assert.equal(f.points.length, 14);
+    assert.ok(f.points.some((p) => p.mark === "minimo"), JSON.stringify(f.points));
+  });
+
+  it("FACTIBILIDAD · sin eventos por caminar no hay camino de un punto: el fixture no trae figura", () => {
+    const f = figOf(ask(fixture(), "¿Llego a fin de mes?"));
+    assert.equal(f, undefined);
+  });
+
+  it("META · LA ESCALA contra el piso: la banda trae el piso y la mediana medidos, y el total es la meta", () => {
+    const f = figOf(ask(libroIngresos(), "¿Cuánto tengo que guardar al mes para juntar 2000 en 6 meses?"));
+    assert.ok(f);
+    assert.equal(f.kind, "escala");
+    assert.deepEqual(f.band, { floor: 90000, median: 100000, total: 200000 });
+  });
+
+  it("INGRESO · EL MAPA DE MESES: un punto por mes medido, con el piso y la mediana en la banda", () => {
+    const f = figOf(ask(libroIngresos(), "¿Cuál es el piso de mi ingreso?"));
+    assert.ok(f);
+    assert.equal(f.kind, "meses");
+    assert.equal(f.points.length, 3);
+    assert.deepEqual(f.band, { floor: 90000, median: 100000, total: 110000 });
+  });
+
+  it("VERIFICACIÓN · LA ESCALA DE HOY: el ritmo seguro marcado como piso y el monto traído como premisa", () => {
+    const f = figOf(ask(libroVerif(), "¿Tengo $100 para gastar hoy?"));
+    assert.ok(f);
+    assert.equal(f.kind, "escala");
+    assert.deepEqual(f.band, { floor: 7500, total: 75001 });
+    assert.equal(f.points.find((p) => p.mark === "piso")?.minor, 7500);
+    assert.equal(f.points.find((p) => p.mark === "premisa")?.minor, 10000);
+  });
+
+  it("COMPARADOR · LADO A LADO: un punto por camino, cada uno con su fecha de libertad marcada", () => {
+    const f = figOf(ask(libroDeudas(), "Con $500 al mes, ¿qué orden me conviene más, avalancha o bola de nieve?"));
+    assert.ok(f);
+    assert.equal(f.kind, "lado");
+    assert.equal(f.points.length, 3);
+    assert.ok(f.points.every((p) => p.mark === "cierre"), JSON.stringify(f.points));
+  });
+
+  it("SIMULADOR · LADO A LADO solo cuando hay un ritmo contra el cual comparar; sin plan ni ritmo, no hay figura", () => {
+    const sin = figOf(ask(libroDeudas(), "Si abono 50 dólares más al mes a mis deudas, ¿cuándo termino?"));
+    assert.equal(sin, undefined);
+    const l = libroDeudas();
+    l.debtPlan = { order: "avalanche", monthlyMinor: 30000, currency: "USD" };
+    const f = figOf(ask(l, "Si abono 50 dólares más al mes a mis deudas, ¿cuándo termino?"));
+    assert.ok(f, "con plan guardado el simulador compara los dos caminos");
+    assert.equal(f.kind, "lado");
+    assert.equal(f.points.length, 2);
+  });
+
+  it("FUTURO · sin figura, declarado: la serie proyectada del plan no existe como dato y no se interpola", () => {
+    const f = figOf(ask(libroDeudas(), "¿Cuándo quedo libre de deudas?"));
+    assert.equal(f, undefined);
+  });
+
+  it("SERIES · EL CAMINO de la cuota que subió: sus cobros reales, con su mediana en la banda", () => {
+    const f = figOf(ask(libroSeries(), "¿Ha subido alguna suscripción?"));
+    assert.ok(f);
+    assert.equal(f.kind, "camino");
+    assert.deepEqual(f.points.map((p) => p.minor), [4000, 4000, 4999]);
+    assert.equal(f.band?.median, 4000);
+  });
+
+  it("ESTACIONALIDAD · EL MAPA DE MESES del gasto, con la media en la banda", () => {
+    const f = figOf(ask(fixture(), "¿En qué mes gasto más?"));
+    assert.ok(f);
+    assert.equal(f.kind, "meses");
+    assert.equal(f.points.length, 2);
+    assert.equal(f.band?.total, 32456);
+  });
+
+  it("COMPARAR y SÍNTESIS · LADO A LADO mínimo: los totales que el veredicto nombra", () => {
+    const c = figOf(ask(fixture(), "gaste mucho este mes?"));
+    assert.ok(c);
+    assert.equal(c.kind, "lado");
+    const s = figOf(ask(fixture(), "¿Estoy gastando más rápido que el mes pasado a estas alturas?"));
+    assert.ok(s);
+    assert.equal(s.kind, "lado");
+    assert.equal(s.points.length, 2);
+  });
+
+  it("HIPOTÉTICO · LADO A LADO: la queda de hoy contra la queda con la premisa, la premisa marcada", () => {
+    const f = figOf(ask(fixture(), "¿Cuánto me queda si gasto 300 pesos en zapatos?"));
+    assert.ok(f);
+    assert.equal(f.kind, "lado");
+    assert.equal(f.points[1].mark, "premisa");
+  });
+
+  it("RESPALDO · LA ESCALA del colchón: la marca es lo guardado y la banda se mide en meses de gasto; sin guardado, no hay figura", () => {
+    const f = figOf(ask(fixture(), "¿Cuántos meses me dura lo que tengo?"));
+    assert.ok(f);
+    assert.equal(f.kind, "escala");
+    assert.equal(f.band?.total, 129900);
+    assert.ok((f.band?.floor ?? 0) > 0);
+    const sin = figOf(ask(libroVerif(), "¿Cuántos meses me dura lo que tengo?"));
+    assert.equal(sin, undefined);
+  });
+
+  it("REPARTO · LAS BARRAS QUE SUMAN: las piezas de la figura suman el total, centavo a centavo", () => {
+    const f = figOf(ask(fixture(), "La cuenta fue de 90 dólares, reparte entre mamá, Carlos y yo"));
+    assert.ok(f);
+    assert.equal(f.kind, "barras");
+    assert.equal(f.points.reduce((a, p) => a + p.minor, 0), 9000);
+    assert.equal(f.band?.total, 9000);
+  });
+
+  it("EL DELEGADO · LAS BARRAS de la queda (left) y del libre (free): la resta misma, declarada desde sus piezas", () => {
+    // ASIENTO DE CANON (1.3.449): «¿Cuánto me queda para cerrar el
+    // mes?» lo responde la síntesis en canon; la queda del delegado
+    // se pide «¿Cuánto me queda?».
+    const left = figOf(ask(fixture(), "¿Cuánto me queda?"));
+    assert.ok(left);
+    assert.equal(left.kind, "barras");
+    assert.equal(left.points.reduce((a, p) => a + p.minor, 0), left.band?.total);
+    const free = figOf(ask(fixture(), "¿Cuánto puedo sacar sin tocar lo apartado ni el colchón?"));
+    assert.ok(free);
+    assert.equal(free.kind, "barras");
+    assert.equal(free.points.reduce((a, p) => a + p.minor, 0), free.band?.total);
+  });
+  it("PORQUÉ · EL ÁRBOL DE LA CIFRA: la figura del porqué son los hijos del grafo, con su signo", () => {
+    const fx = libroCamino();
+    // ASIENTO DE CANON (1.3.449): el marco que el porqué abre viaja
+    // en canon como ConvoFrame (la respuesta lo trae en `convo` y
+    // entra por el undécimo parámetro) — en la rama viajaba como
+    // `frame`. La sustancia del espécimen no cambia.
+    const askFx = (raw: string, convo?: import("./ask2.ts").ConvoFrame | null) =>
+      answerBankQuestion(fx, KEY, "es", makeNamer(fx.structure, "es"), raw, ctx(fx), TODAY, undefined, undefined, undefined, convo ?? undefined);
+    const g1 = askFx("¿Me alcanza el mes?");
+    assert.equal(g1.kind, "answer", JSON.stringify(g1).slice(0, 200));
+    if (g1.kind !== "answer") return;
+    const g2 = askFx("¿Por qué?", g1.convo);
+    assert.equal(g2.kind, "answer", JSON.stringify(g2).slice(0, 200));
+    if (g2.kind !== "answer") return;
+    assert.equal(g2.family, "porque");
+    assert.ok(g2.figure, "el porqué con grafo trae su árbol");
+    assert.equal(g2.figure.kind, "arbol");
+    assert.ok(g2.figure.points.length >= 2, JSON.stringify(g2.figure.points));
+  });
+
+  it("LA CERCA DEL CENSO: toda figura de barras suma su total, y toda figura usa una de las seis formas", () => {
+    const KINDS = ["escala", "barras", "camino", "lado", "meses", "arbol"];
+    const casos: BankResult[] = [
+      ask(fixture(), "La cuenta fue de 90 dólares, reparte entre mamá, Carlos y yo"),
+      ask(fixture(), "¿Cuánto me queda para cerrar el mes?"),
+      ask(fixture(), "¿Cuánto puedo sacar sin tocar lo apartado ni el colchón?"),
+      ask(fixture(), "¿Cuál es mi punto más bajo en las próximas semanas?"),
+      ask(fixture(), "¿Cuántos meses me dura lo que tengo?"),
+      ask(libroVerif(), "¿Tengo $100 para gastar hoy?"),
+      ask(libroIngresos(), "¿Cuál es el piso de mi ingreso?"),
+      ask(libroDeudas(), "Con $500 al mes, ¿qué orden me conviene más, avalancha o bola de nieve?"),
+    ];
+    for (const r of casos) {
+      assert.equal(r.kind, "answer", JSON.stringify(r).slice(0, 160));
+      if (r.kind !== "answer" || !r.figure) continue;
+      assert.ok(KINDS.includes(r.figure.kind), r.figure.kind);
+      assert.ok(r.figure.points.length >= 1, r.family);
+      assert.ok(r.figure.points.every((p) => Number.isFinite(p.minor)), r.family);
+      if (r.figure.kind === "barras") {
+        assert.equal(r.figure.points.reduce((a, p) => a + p.minor, 0), r.figure.band?.total, `las barras de ${r.family} no suman su total`);
+      }
+    }
+  });
+});
+
 describe("espécimen 2026-11-23 · la cena en córdobas (la premisa de costo) — puerto de la Rama Agente", () => {
   // El mismo libro de las olas 55/56 (queda $830), local a este bloque.
   function libroCena(): LedgerState {

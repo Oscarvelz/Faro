@@ -40,6 +40,24 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.449",
+    date: "2026-11-24",
+    level: "menor",
+    title: { es: "Las figuras, declaradas", en: "The figures, declared" },
+    points: {
+      es: [
+        "El banco del Asesor ya declara la figura de cada respuesta cuya cifra es una forma: el camino de tu saldo día a día, la escala de tu colchón, el mapa de tus meses, dos caminos lado a lado, el árbol de un porqué y las barras que suman tu queda.",
+        "Cada figura se declara con los números reales de tu libro — las piezas de una figura de barras suman su total, centavo a centavo — y donde una cifra no se puede medir con exactitud, la respuesta no trae figura: el texto honesto manda.",
+        "Todavía no se dibujan: el dibujo, con los colores de tu tema, llega en la próxima versión. Esta deja las figuras declaradas y cercadas, una por una, dentro del motor.",
+      ],
+      en: [
+        "The Advisor's bank now declares the figure of every answer whose number is a shape: the path of your balance day by day, the scale of your cushion, the map of your months, two paths side by side, the tree of a why, and the bars that add up to what's left.",
+        "Each figure is declared with your book's real numbers — the pieces of a bars figure sum their total, cent by cent — and where a number cannot be measured exactly, the answer carries no figure: honest text rules.",
+        "They aren't drawn yet: the drawing, in your theme's colors, arrives in the next version. This one leaves the figures declared and fenced, one by one, inside the engine.",
+      ],
+    },
+  },
+  {
     version: "1.3.448",
     date: "2026-11-24",
     level: "grande",
