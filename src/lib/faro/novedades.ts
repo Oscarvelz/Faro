@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.452",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "Cada monto obedece a su verbo", en: "Every amount obeys its verb" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "El Asesor ya oye el porcentaje en palabras: «el quince por ciento de mil quinientos» y «ten percent of three hundred» tienen su respuesta, en dígitos o en letras.",
+        "Cada monto obedece a su verbo: si ingresas 200 y gastas 100, ya no sale un gasto de 300 — la diferencia se dice firmada, a tu favor o en tu contra, y apartar a ahorros sigue siendo tuyo.",
+        "Familia nueva: la proyección de ahorro. «Si aparto $100 cada semana, ¿cuánto tendría a fin de año?» se responde con tu guardado de hoy más los aportes completos que caben, con el supuesto dicho y su camino dibujado. Sin cadencia, el Asesor pregunta cada cuánto en vez de adivinar.",
+        "Las preguntas de dos hechos se responden enteras: la última paga y la próxima (fechada de tu libro, nunca inventada), los dos extremos con su diferencia, y el juicio de las dos cosas — lo apartado y el gasto, medidos por separado.",
+      ],
+      en: [
+        "The Advisor now hears percentages in words: “fifteen percent of fifteen hundred” and “el quince por ciento de mil quinientos” get their answer, in digits or in letters.",
+        "Every amount obeys its verb: if you take in 200 and spend 100, it no longer comes out as 300 spent — the difference is stated signed, in your favor or against you, and setting money aside into savings keeps it yours.",
+        "A new family: the savings projection. “If I save $100 each week, how much would I have by the end of the year?” is answered with today's savings plus the full set-asides that fit, the assumption stated and its path drawn. With no pace given, the Advisor asks how often instead of guessing.",
+        "Two-fact questions are answered whole: the last pay and the next one (dated from your book, never invented), both extremes with their difference, and the judgment of the two things — what's set aside and what's spent, measured separately.",
+      ],
+    },
+  },
+  {
     version: "1.3.451",
     date: "2026-11-25",
     level: "menor",

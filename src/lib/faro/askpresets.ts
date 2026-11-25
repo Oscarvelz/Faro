@@ -143,7 +143,7 @@ const CAP_GROUPS: { title: { es: string; en: string }; families: string[] }[] = 
   { title: { es: "Tus cuotas y deudas", en: "Your dues and debts" }, families: ["agenda", "ya-pague", "ranking", "conteo", "deudas", "simulador", "series"] },
   { title: { es: "Tus ahorros y envíos", en: "Your savings and remittances" }, families: ["ahorros", "total", "cuenta-origen", "remesas", "remesas-periodo", "respaldo", "meta", "reparto", "acciones"] },
   { title: { es: "Cuentas y fechas", en: "Math and dates" }, families: ["calculadora", "hipotetico", "contrafactual", "conversor", "calendario", "precio-tiempo", "regla"] },
-  { title: { es: "Faro y tu futuro", en: "Faro and your future" }, families: ["faro-mismo", "futuro", "reach", "puente", "aprendizaje", "seguimiento", "compuesta", "capacidades", "limites", "porque", "falta"] },
+  { title: { es: "Faro y tu futuro", en: "Faro and your future" }, families: ["faro-mismo", "futuro", "reach", "puente", "aprendizaje", "seguimiento", "compuesta", "capacidades", "limites", "porque", "falta", "proyeccion"] },
 ];
 
 export function capabilitiesText(lang: Lang): {

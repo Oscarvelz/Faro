@@ -4373,3 +4373,252 @@ describe("banco · ola 49 — las ausencias con nombre (F6 + F7, la Caza II)", (
   });
 });
 
+describe("ola 57 · el porcentaje de una cifra, en dígitos y en palabras — puerto de la línea Q&A", () => {
+  const ledger = fixture();
+  it("CAP01: «el quince por ciento de mil quinientos dólares» — porcentaje y base en palabras", () => {
+    const r = ask(ledger, "¿Cuál es el quince por ciento de mil quinientos dólares?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes("$225.00"), r.verdict);
+    assert.deepEqual(r.pieces.map((x) => x.minor), [150000, 22500]);
+  });
+  it("CAP02: «What's the 10 percent of $355?» — la puerta oye «percent»", () => {
+    const r = ask(ledger, "What's the 10 percent of $355?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes("$35.50"), r.verdict);
+  });
+  it("primo: porcentaje en dígitos, base en palabras — «el 20% de mil quinientos»", () => {
+    const r = ask(ledger, "¿Cuánto es el 20% de mil quinientos?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("$300.00"), r.verdict);
+  });
+  it("primo EN en palabras enteras: «ten percent of three hundred dollars»", () => {
+    const r = ask(ledger, "What's the ten percent of three hundred dollars?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("$30.00"), r.verdict);
+  });
+  it("primo: «el cincuenta por ciento de doscientos» y la base en córdobas convierte", () => {
+    const r = ask(ledger, "¿Cuál es el cincuenta por ciento de doscientos?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("$100.00"), r.verdict);
+    const nio = ask(ledger, "¿Cuál es el diez por ciento de mil córdobas?");
+    assert.equal(nio.kind, "answer");
+    if (nio.kind !== "answer") return;
+    assert.equal(nio.family, "calculadora");
+    // C$1,000 a la tasa semilla (36.6243) = $27.30; el 10% = $2.73.
+    assert.ok(nio.verdict.includes("$2.73"), nio.verdict);
+  });
+});
+
+describe("ola 58 · el hipotético con signo: cada monto obedece a su verbo — puerto de la línea Q&A", () => {
+  const ledger = fixture();
+  it("CAP06: «si ingreso 1800 córdobas al banco» — el ingreso SUMA, no se usa", () => {
+    const r = ask(ledger, "Si ingreso 1800 córdobas al banco, ¿cuánto tendría en mi cuenta final?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    // CORRECCIÓN DE LA CAMPAÑA (Ola 67): la expectativa vieja
+    // ($3,099.00) consagraba un defecto — el lector no oía la
+    // moneda nombrada porque el texto llegaba con acento y la
+    // detección de «córdobas» fallaba, así que los 1800 se leían
+    // como dólares. La doctrina de la moneda (la cena en
+    // córdobas, 2026-11-23) manda oír la moneda nombrada:
+    // C$1,800 a la tasa del libro son $49.15, y la cuenta final
+    // es $1,299.00 + $49.15 = $1,348.15.
+    assert.ok(r.verdict.includes("$1,348.15"), r.verdict);
+    assert.ok(r.verdict.includes("$49.15"), r.verdict);
+    assert.ok(r.verdict.includes("entrarían"), r.verdict);
+  });
+  it("CAP07: «si ingreso 200 y gasto 100» — entran 200, salen 100, no un gasto de 300", () => {
+    const r = ask(ledger, "Si ingreso 200 dólares en mi cuenta y gasto 100, ¿cuánto me queda?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    assert.ok(r.verdict.includes("$1,399.00"), r.verdict);
+  });
+  it("CAP08: «si ingreso 1200 y muevo 300 a mis ahorros» — la diana son los ahorros y el ingreso va a cuentas", () => {
+    const r = ask(ledger, "Si ingreso 1200 dólares y muevo 300 a mis ahorros, cuánto tengo en mis ahorros?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    assert.ok(r.verdict.includes("$1,599.00"), r.verdict);
+    assert.ok(r.verdict.includes("$1,200.00"), r.verdict);
+    assert.ok(!/factibilidad|no puedes/i.test(r.verdict), r.verdict);
+  });
+  it("CAP05: «if I pay $100 and then earn $200, what's the difference?» — la resta firmada", () => {
+    const r = ask(ledger, "If I pay $100 and then earn $200, what's the difference?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes("$100.00"), r.verdict);
+    assert.ok(r.verdict.includes("in your favor"), r.verdict);
+  });
+  it("primo: la diferencia en español — «si gasto 100 y gano 250»", () => {
+    const r = ask(ledger, "Si gasto 100 y gano 250, ¿cuál es la diferencia?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "calculadora");
+    assert.ok(r.verdict.includes("$150.00"), r.verdict);
+    assert.ok(r.verdict.includes("a tu favor"), r.verdict);
+  });
+  it("primo EN: «if I earn $300 more, how much would I have left?» — la entrada camina sobre la queda", () => {
+    const r = ask(ledger, "If I earn $300 more, how much would I have left?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "hipotetico");
+    assert.ok(r.verdict.includes("354.92"), r.verdict);
+  });
+});
+
+describe("ola 59 · la proyección de ahorro: el aporte repetido contra el horizonte — puerto de la línea Q&A", () => {
+  const ledger = fixture();
+  it("CAP03: «if I save $100 each week… by the end of the year» — 10 semanas completas", () => {
+    const r = ask(ledger, "If I save $100 each week, how much money I would have by the end of the year?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(r.verdict.includes("$2,299.00"), r.verdict);
+  });
+  it("CAP04: «if I save $500 each month… end of the year» — 2 meses completos", () => {
+    const r = ask(ledger, "If I save $500 each month, how much would I have by the end of the year?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(r.verdict.includes("$2,299.00"), r.verdict);
+  });
+  it("CAP10: «ahorro doscientos mensuales, ¿cuánto para diciembre?»", () => {
+    const r = ask(ledger, "Si ahorro doscientos dólares mensuales, ¿cuánto tendría para diciembre?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(r.verdict.includes("$1,699.00"), r.verdict);
+  });
+  it("CAP12: «comenzara a ahorrar quinientos semanales… a fin de mes» — cabe 1 aporte", () => {
+    const r = ask(ledger, "Si comenzara a ahorrar quinientos dólares semanales, ¿cuánto tendría a fin de mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(r.verdict.includes("$1,799.00"), r.verdict);
+  });
+  it("CAP09: sin cadencia, pregunta de vuelta — y con el pin «cad:monthly» proyecta 60 meses", () => {
+    const q = "Si ahorro mil doscientos, ¿cuánto tendría en cinco años?";
+    const r = ask(ledger, q);
+    assert.equal(r.kind, "ask-back");
+    if (r.kind !== "ask-back") return;
+    assert.equal(r.family, "proyeccion");
+    assert.deepEqual(r.options.map((o) => o.id), ["cad:weekly", "cad:monthly", "cad:once"]);
+    const back = answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), q, ctx(ledger), TODAY, { accountId: "cad:monthly" });
+    assert.equal(back.kind, "answer");
+    if (back.kind !== "answer") return;
+    assert.equal(back.family, "proyeccion");
+    assert.ok(back.verdict.includes("$73,299.00"), back.verdict);
+  });
+  it("CAP11: sin cadencia, pregunta de vuelta — y con «cad:once» es un solo apartado", () => {
+    const q = "Si ahorro doscientos, ¿cuánto tendría a fin de año?";
+    const r = ask(ledger, q);
+    assert.equal(r.kind, "ask-back");
+    if (r.kind !== "ask-back") return;
+    const back = answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), q, ctx(ledger), TODAY, { accountId: "cad:once" });
+    assert.equal(back.kind, "answer");
+    if (back.kind !== "answer") return;
+    assert.equal(back.family, "proyeccion");
+    assert.ok(back.verdict.includes("$1,499.00"), back.verdict);
+  });
+  it("primo: quincenal — «ahorro $50 cada quincena… a fin de año» caben 5", () => {
+    const r = ask(ledger, "Si ahorro $50 cada quincena, ¿cuánto tendría a fin de año?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(r.verdict.includes("$1,549.00"), r.verdict);
+  });
+  it("primo: sin período completo que quepa, se dice — «cada año… en 6 meses»", () => {
+    const r = ask(ledger, "Si ahorro 1000 cada año, ¿cuánto tendría en 6 meses?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(r.verdict.includes("no cabe un aporte anual completo"), r.verdict);
+  });
+});
+
+describe("ola 60 · las preguntas de dos hechos — puerto de la línea Q&A", () => {
+  const ledger = fixture();
+  it("CAP14: última vez que me pagaron Y la próxima — las dos mitades, la segunda honesta sin fecha escrita", () => {
+    const r = ask(ledger, "¿Cuándo fue la última vez que me pagaron y cuándo me van a pagar de nuevo?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("último ingreso"), r.verdict);
+    assert.ok(r.verdict.includes("La próxima no la puedo fechar"), r.verdict);
+  });
+  it("la próxima paga con fecha escrita en la línea: sale de su nextDue", () => {
+    const l = createInitial("es", "oscuro");
+    l.months[KEY] = { lines: [line({ id: "sal", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05", nextDue: "2026-11-05" })] };
+    l.settings.display = "USD";
+    const r = ask(l, "¿Cuándo me van a pagar de nuevo?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "recencia");
+    assert.ok(r.verdict.includes("5 de noviembre"), r.verdict);
+  });
+  it("la próxima paga por ritmo medido: dos pagas de la misma fuente cada 30 días", () => {
+    const l = createInitial("es", "oscuro");
+    l.months[KEY] = { lines: [line({ id: "sal2", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-22" })] };
+    l.months[PREV] = { lines: [line({ id: "sal1", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-09-22", monthKey: PREV })] };
+    l.settings.display = "USD";
+    const r = ask(l, "¿Cuándo me van a pagar de nuevo?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("21 de noviembre"), r.verdict);
+    assert.ok(r.verdict.includes("cada 30 días"), r.verdict);
+  });
+  it("CAP17: «¿cuál fue mi último gasto? ¿Y cuál fue mi gasto más grande?» — dos preguntas, dos respuestas, y el gasto es gasto", () => {
+    const r = ask(ledger, "¿Cuál fue mi último gasto? ¿Y cuál fue mi gasto más grande?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("último gasto"), r.verdict);
+    assert.ok(r.verdict.includes("Zapatos"), r.verdict);
+    assert.ok(r.verdict.includes("Remesa"), r.verdict);
+    assert.ok(!r.verdict.includes("último registro"), r.verdict);
+  });
+  it("CAP16: los dos extremos en comparación — grande, chiquito y la diferencia", () => {
+    const r = ask(ledger, "¿Cuál fue mi gasto más chiquito en comparación con el gasto más grande?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "extremos");
+    assert.ok(r.verdict.includes("$170.00"), r.verdict);
+    assert.ok(r.verdict.includes("$24.57"), r.verdict);
+    assert.ok(r.verdict.includes("$145.43"), r.verdict);
+  });
+  it("CAP13: el juicio de las dos cosas — el apartado que crece y el gasto medido contra lo que entró", () => {
+    const r = ask(ledger, "Si ahorro quinientos, ¿estaría incrementando mis ahorros o tengo demasiados gastos?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("$500.00"), r.verdict);
+    assert.ok(r.verdict.includes("$324.56"), r.verdict);
+    assert.ok(r.verdict.includes("33.5%"), r.verdict);
+  });
+});
+
+describe("ola 59 · LA FIGURA DEL CENSO en canon: el camino de la proyección, exacto — 1.3.452", () => {
+  const ledger = fixture();
+  it("CAP03 con figura: puntos = hoy y hoy + k × aporte, con su k real; el cierre marca el total", () => {
+    const r = ask(ledger, "If I save $100 each week, how much money I would have by the end of the year?", "en");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(r.figure, "la proyección con cadencia declara su camino");
+    assert.equal(r.figure?.kind, "camino");
+    assert.deepEqual(r.figure?.points.map((p) => p.minor), [129900, 159900, 179900, 209900, 229900]);
+    assert.equal(r.figure?.points[r.figure.points.length - 1].mark, "cierre");
+  });
+  it("sin cadencia no hay figura: la pregunta de vuelta no dibuja", () => {
+    const r = ask(ledger, "Si ahorro mil doscientos, ¿cuánto tendría en cinco años?");
+    assert.equal(r.kind, "ask-back");
+  });
+});

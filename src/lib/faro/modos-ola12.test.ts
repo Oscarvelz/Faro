@@ -363,6 +363,7 @@ const CARAS: Record<string, [Clase, string]> = {
 
   "lib/faro/ask.ts:leftAnswer:reading.outTotal": ["movimiento", "«Salió»: el total del río nombrado como salida junto a «Entró», nunca como gasto a secas"],
   "lib/faro/ask2.ts:ahorrosAnswer:sum.savingsFlow": ["movimiento", "la nota de ahorros del banco nombra el flujo como «flujo hacia el ahorro»: el apartado nombrado en la respuesta"],
+  "lib/faro/ask2.ts:ahorrosAnswer:sum.spend": ["gasto", "el juicio de las dos cosas (Ola 60, puerto 1.3.452) mide el gasto del mes contra lo que entró: monthTotals.spend, solo-gasto por construcción, nombrado como «el gasto» en la respuesta"],
   "lib/faro/ask2.ts:compararAnswer:a.spend": ["gasto", "la comparación de gastos del banco lee el spend de cada lado: solo-gasto en ambos lados"],
   "lib/faro/ask2.ts:compararAnswer:b.spend": ["gasto", "el otro lado de la misma comparación: solo-gasto, simétrico"],
   // 1.3.383 (la integración del banco): la comparación canónica del

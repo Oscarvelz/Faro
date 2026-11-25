@@ -224,6 +224,21 @@ export const QUESTION_BANK: BankFamily[] = [
     silences: ["«Si sacara $X de mi cuenta» con cuenta elegible es cuenta-origen (el injerto de escenarios), no esta familia.", "Un «si» sin montos no se calcula: cae a las demás familias o al silencio honesto."],
   },
   {
+    id: "proyeccion",
+    name: { es: "La proyección de ahorro: el aporte repetido contra el horizonte", en: "The savings projection: the repeated set-aside against the horizon" },
+    cap: { es: "cuánto tendrías ahorrado si apartaras lo mismo cada semana o cada mes hasta una fecha", en: "how much you'd have saved if you set the same amount aside every week or month until a date" },
+    status: "viva",
+    source: ["ahorros.stock", "asesor.lectura"],
+    axes: ["cadencia (semana × quincena × mes × año × una sola vez) × horizonte (fin de mes × fin de año × mes nombrado × en N unidades) × el guardado de hoy"],
+    canonical: {
+      es: ["Si ahorro doscientos dólares mensuales, ¿cuánto tendría para diciembre?", "Si ahorro mil doscientos, ¿cuánto tendría en cinco años?", "Si comenzara a ahorrar quinientos dólares semanales, ¿cuánto tendría a fin de mes?"],
+      en: ["If I save $100 each week, how much money I would have by the end of the year?", "If I save $500 each month, how much would I have by the end of the year?"],
+    },
+    answerShape: "El guardado que consta hoy MÁS el aporte repetido por los períodos completos que caben hasta el horizonte, cada cifra como pieza; el supuesto a la vista: aporte constante, sin interés (el libro no promete ninguno), nada anotado. Sin cadencia en la pregunta, el Asesor pregunta de vuelta (cada semana / cada mes / una sola vez) en vez de adivinarla — la vuelta entra por el pin «cad:» de la caja, la misma costura del contexto de cuentas.",
+    contradiction: "El monto del horizonte («en cinco años») no es un monto de la premisa: los cinco son años, no dólares.",
+    silences: ["Sin horizonte no hay proyección: «si ahorro N» a secas camina por el hipotético con signo.", "La proyección no promete interés ni rendimiento: pedir rendimiento sobre lo anotado es de la familia de rendimiento, no de esta."],
+  },
+  {
     id: "calculadora",
     name: { es: "Calculadora en lenguaje llano", en: "Plain-language calculator" },
     cap: { es: "cuentas sueltas con los números que traes: sumas, repartos, porcentajes y fracciones en palabras", en: "loose math with the numbers you bring: sums, splits, percentages and fractions in words" },
@@ -231,8 +246,8 @@ export const QUESTION_BANK: BankFamily[] = [
     source: ["asesor.lectura"],
     axes: ["operación (suma × reparto × porcentaje × ritmo/cadencia) × montos traídos (con su moneda: dólares × pesos=córdobas)"],
     canonical: {
-      es: ["Si me regalaron 300 dólares de cumpleaños, 200 de aumento y mamá me dio 150, ¿cuánto sería?", "Si divido 1500 dólares en tres partes, ¿cómo me quedaría?", "¿Cuánto es el 20% de 1500?"],
-      en: ["If I got 300 for my birthday, 200 as a raise and 150 from Mom, how much would that be?", "If I split 1500 dollars into three parts, how much is each?"],
+      es: ["Si me regalaron 300 dólares de cumpleaños, 200 de aumento y mamá me dio 150, ¿cuánto sería?", "Si divido 1500 dólares en tres partes, ¿cómo me quedaría?", "¿Cuánto es el 20% de 1500?", "¿Cuál es el quince por ciento de mil quinientos dólares?"],
+      en: ["If I got 300 for my birthday, 200 as a raise and 150 from Mom, how much would that be?", "If I split 1500 dollars into three parts, how much is each?", "What's the 10 percent of $355?"],
     },
     answerShape: "La operación sobre los números TRAÍDOS, con cada monto como pieza con su concepto («de cumpleaños», «en comida»); el reparto dice su sobra si no es exacto. La nota lo declara: es aritmética de la pregunta, el libro no se tocó.",
     contradiction: "Si los números de la pregunta no cuadran con lo que el usuario afirma («son 700»), la suma real de sus propios montos manda.",

@@ -84,7 +84,7 @@ export type BankFamilyId =
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
   | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
-  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada";
+  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion";
 
 export type BankPiece = { label: string; minor: number };
 /* OLA 27 · EL GRAFO QUE EXPLICA (investigación II, mecanismos #1 y
@@ -318,6 +318,33 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
   const savInMonth = (key: string) => (c.state.months[key]?.lines ?? []).filter((l) => l.active && roleOf(c.state, l.categoryId) === "savings").reduce((a, l) => a + view(c, l), 0);
   const monthKeys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
   const savAvg = monthKeys.length ? Math.round(monthKeys.reduce((a, k) => a + savInMonth(k), 0) / monthKeys.length) : 0;
+  // OLA 60 · EL JUICIO DE LAS DOS COSAS: «¿estaría incrementando
+  // mis ahorros o tengo demasiados gastos?» (captura de Oscar,
+  // 2026-11-24) — la pregunta trae dos hechos y se responden los
+  // dos, medidos: lo apartado del mes (eso es lo que hace crecer
+  // el guardado) y el gasto del mes contra lo que entró. Sin
+  // sermón: las cifras y su lectura llana.
+  if (/(incrementando|creciendo|aumentando|growing|increasing|demasiados gastos|gasto demasiado|mucho gasto|too much (spending|expenses)|overspending)/.test(folded) && /(ahorr|savings|gasto|spend)/.test(folded)) {
+    const sum = summarize(c.state, c.key, c.lang);
+    const saved = savInMonth(c.key);
+    const { list } = verbAmounts(raw, c.display);
+    const premise = list.find((s) => s.sign === 0);
+    const premiseMinor = premise ? convertMinor(premise.a.minor, premise.a.currency, c.display, c.rateE4) : 0;
+    const pct = sum.income > 0 ? Math.round((sum.spend / sum.income) * 1000) / 10 : null;
+    return {
+      kind: "answer", family: "ahorros",
+      verdict: L(c.lang,
+        `Las dos cosas se miden por separado. Tu guardado crece con lo que apartas: este mes constan ${c.money(saved)} apartados${premiseMinor > 0 ? `, y los ${c.money(premiseMinor)} de tu «si» lo subirían en eso mismo — apartar sí incrementa` : ""}. Y el gasto: este mes salieron ${c.money(sum.spend)}${sum.income > 0 ? ` de los ${c.money(sum.income)} que entraron — el ${pct}% de lo que entró${sum.spend > sum.income ? "; en números, salió más de lo que entró" : ""}` : ", sin ingreso anotado este mes contra el que medirlo"}.`,
+        `The two things are measured separately. Your savings grow with what you set aside: this month shows ${c.money(saved)} set aside${premiseMinor > 0 ? `, and the ${c.money(premiseMinor)} in your "if" would raise it by that much — setting aside does increase it` : ""}. And spending: this month ${c.money(sum.spend)} went out${sum.income > 0 ? ` of the ${c.money(sum.income)} that came in — ${pct}% of what came in${sum.spend > sum.income ? "; in numbers, more went out than came in" : ""}` : ", with no income recorded this month to measure it against"}.`),
+      pieces: [
+        { label: L(c.lang, "Apartado este mes", "Set aside this month"), minor: saved },
+        { label: L(c.lang, "Entró este mes", "Came in this month"), minor: sum.income },
+        { label: L(c.lang, "Salió este mes", "Went out this month"), minor: sum.spend },
+      ],
+      note: null, source: ["ahorros.stock", "historial.stream"], lines: 0,
+      actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+    };
+  }
   if (/(porcentaje|por ciento|percent)/.test(folded) && /(ahorr|ingres|gano|guarde)/.test(folded)) {
     const sum = summarize(c.state, c.key, c.lang);
     const saved = savInMonth(c.key);
@@ -1177,6 +1204,55 @@ function remitUnclearPerson(c: Ctx, family: BankFamilyId): BankResult {
 /* ------------------------------------------------------------------ */
 function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
   const lines = allLines(c);
+  // OLA 60 · LA PRÓXIMA PAGA: «¿cuándo me van a pagar de nuevo?»
+  // no tenía familia — la recencia solo miraba atrás, y la mitad
+  // futura de la pregunta se perdía (captura de Oscar, 2026-11-24).
+  // La próxima fecha sale del libro: la fecha escrita en la línea
+  // del ingreso (su nextDue) o el ritmo medido entre las dos
+  // últimas pagas de la misma fuente. Sin ninguna de las dos, se
+  // dice — no se inventa un día.
+  const wantsNextPay = /(pagar de nuevo|van a pagar|pagaran de nuevo|proximo (pago|sueldo|salario|ingreso)|proxima paga|cuando me pagan|cuando cobro|next pay|get paid again|when will i get paid|when do i get paid)/.test(folded);
+  if (wantsNextPay) {
+    const incomes = lines.filter((l) => l.kind.startsWith("income")).sort((a, b) => lineDate(b).localeCompare(lineDate(a)) || b.id.localeCompare(a.id));
+    const lastIn = incomes[0];
+    if (lastIn) {
+      let nextDate: string | null = null;
+      let how: string | null = null;
+      if (lastIn.nextDue && lastIn.nextDue > c.today) {
+        nextDate = lastIn.nextDue;
+        how = L(c.lang, `es la fecha que trae escrita tu línea de «${lastIn.concept}»`, `it's the date written on your "${lastIn.concept}" line`);
+      } else {
+        const series = incomes.filter((l) => (l.seriesId && l.seriesId === lastIn.seriesId) || l.concept === lastIn.concept);
+        if (series.length >= 2) {
+          const gap = Math.round((Date.parse(lineDate(series[0])) - Date.parse(lineDate(series[1]))) / 86400000);
+          if (gap >= 1 && gap <= 62) {
+            let t = Date.parse(lineDate(series[0]));
+            const todayT = Date.parse(c.today);
+            while (t <= todayT) t += gap * 86400000;
+            nextDate = new Date(t).toISOString().slice(0, 10);
+            how = L(c.lang, `tu paga viene cada ${gap} días — la última fue el ${fmtFecha(c, lineDate(lastIn))}`, `your pay comes every ${gap} days — the last one was on ${fmtFecha(c, lineDate(lastIn))}`);
+          }
+        }
+      }
+      const asksLast = /(ultim|last)/.test(folded);
+      const lastText = L(c.lang, `La última vez que te pagaron fue el ${fmtFecha(c, lineDate(lastIn))}: «${lastIn.concept}», ${c.money(view(c, lastIn))}.`, `The last time you were paid was ${fmtFecha(c, lineDate(lastIn))}: "${lastIn.concept}", ${c.money(view(c, lastIn))}.`);
+      if (nextDate && how) {
+        return {
+          kind: "answer", family: "recencia",
+          verdict: `${asksLast ? `${lastText} ` : ""}${L(c.lang, `Tu próxima paga sería el ${fmtFecha(c, nextDate)}: ${how}.`, `Your next pay would be on ${fmtFecha(c, nextDate)}: ${how}.`)}`,
+          pieces: [{ label: lastIn.concept, minor: view(c, lastIn) }],
+          note: L(c.lang, "La fecha sale de tu libro — de su fecha escrita o de su ritmo medido — no de un calendario inventado.", "The date comes from your book — its written date or its measured pace — not from an invented calendar."),
+          source: ["historial.stream", "libros.lineas"], lines: 1,
+        };
+      }
+      return {
+        kind: "answer", family: "recencia",
+        verdict: `${asksLast ? `${lastText} ` : ""}${L(c.lang, "La próxima no la puedo fechar: tu libro no trae la fecha escrita en esa línea ni dos pagas de la misma fuente con qué medir el ritmo.", "I can't date the next one: your book doesn't carry the date written on that line, nor two pays from the same source to measure the pace with.")}`,
+        pieces: [{ label: lastIn.concept, minor: view(c, lastIn) }],
+        note: null, source: ["historial.stream"], lines: 1,
+      };
+    }
+  }
   let pool: Line[] = [];
   let what = "";
   if (/pagaron|me pagaron|got paid|get paid|salary|salario/.test(folded) || (/ultim/.test(folded) && /ingreso|pago que recibi/.test(folded))) {
@@ -1234,6 +1310,13 @@ function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
   } else if (/compre|compra|bought|purchase/.test(folded)) {
     pool = lines.filter((l) => l.kind === "purchase");
     what = L(c.lang, "la última compra", "the last purchase");
+  } else if (/gasto|gaste|gastado|spent|spending|expense/.test(folded)) {
+    // OLA 60: «¿cuál fue mi último gasto?» no tenía rama — caía al
+    // stream entero y presentaba un INGRESO como «último registro»
+    // (captura de Oscar, 2026-11-24). El gasto es salida: su pool
+    // es el de las salidas, como manda la dirección de la pregunta.
+    pool = lines.filter((l) => isOut(l));
+    what = L(c.lang, "el último gasto", "the last expense");
   } else {
     // OLA 9: una acción que el libro no registra como clase (presté,
     // vendí, regalé, cobré) no se disfraza con «el último registro»:
@@ -1369,6 +1452,29 @@ function extremosAnswer(c: Ctx, folded: string): BankResult | null {
   else if (/este ano|this year/.test(folded)) pool = pool.filter((l) => l.monthKey.startsWith(c.key.slice(0, 4)));
   const valued = pool.filter((l) => view(c, l) > 0).sort((a, b) => view(c, a) - view(c, b));
   if (!valued.length) return null;
+  // OLA 60 · LOS DOS EXTREMOS: «¿cuál fue mi gasto más chiquito en
+  // comparación con el gasto más grande?» pedía los DOS y recibía
+  // uno (captura de Oscar, 2026-11-24). Con los dos polos en la
+  // pregunta, la respuesta trae los dos y la diferencia — la
+  // comparación pedida, entera.
+  if (max && min && valued.length >= 2) {
+    const big = valued[valued.length - 1];
+    const small = valued[0];
+    const diff = view(c, big) - view(c, small);
+    const ratio = view(c, small) > 0 ? view(c, big) / view(c, small) : 0;
+    const smallWord = fem ? "chiquita" : "chiquito";
+    const scope60 = /este mes|this month/.test(folded) ? L(c.lang, "este mes", "this month") : /este ano|this year/.test(folded) ? L(c.lang, "este año", "this year") : L(c.lang, "en todo tu historial", "in your whole history");
+    return {
+      kind: "answer", family: "extremos",
+      verdict: L(c.lang, `Tu ${noun} más grande ${scope60} fue «${big.concept}»: ${c.money(view(c, big))}, el ${fmtFecha(c, lineDate(big))}. ${fem ? "La" : "El"} más ${smallWord} fue «${small.concept}»: ${c.money(view(c, small))}, el ${fmtFecha(c, lineDate(small))}. La diferencia entre los dos: ${c.money(diff)}${ratio >= 2 ? ` — el grande es ${Math.round(ratio * 10) / 10} veces ${fem ? "la chiquita" : "el chiquito"}` : ""}.`, `Your biggest ${noun} ${scope60} was "${big.concept}": ${c.money(view(c, big))}, on ${fmtFecha(c, lineDate(big))}. The smallest was "${small.concept}": ${c.money(view(c, small))}, on ${fmtFecha(c, lineDate(small))}. The difference between the two: ${c.money(diff)}${ratio >= 2 ? ` — the biggest is ${Math.round(ratio * 10) / 10} times the smallest` : ""}.`),
+      pieces: [
+        { label: L(c.lang, `El más grande: ${big.concept}`, `The biggest: ${big.concept}`), minor: view(c, big) },
+        { label: L(c.lang, `${fem ? "La" : "El"} más ${smallWord}: ${small.concept}`, `The smallest: ${small.concept}`), minor: view(c, small) },
+        { label: L(c.lang, "La diferencia", "The difference"), minor: diff },
+      ],
+      note: null, source: ["historial.stream", "libros.lineas"], lines: valued.length,
+    };
+  }
   const pick = max ? valued[valued.length - 1] : valued[0];
   const runner = max ? valued[valued.length - 2] : valued[1];
   const scope = /este mes|this month/.test(folded) ? L(c.lang, "este mes", "this month") : /este ano|this year/.test(folded) ? L(c.lang, "este año", "this year") : L(c.lang, "en todo tu historial", "in your whole history");
@@ -2927,9 +3033,181 @@ export function amountsIn(raw: string, def: Currency = "USD"): FoundAmount[] {
   return out;
 }
 
+/* OLA 58 · EL VERBO DE CADA MONTO (capturas de Oscar, 2026-11-24):
+ * el hipotético viejo sumaba TODOS los montos traídos con el signo
+ * de la pregunta entera — «si ingreso 200 y gasto 100» salía como
+ * un gasto de 300, y «si ingreso 1800 córdobas» como si USARA los
+ * 1800. La calle, en cambio, le pone a cada monto SU verbo: el que
+ * lo gobierna de cerca. Este lector lee los montos CON su posición
+ * (gemelo de amountsIn: mismos dígitos, mismas palabras-número) y
+ * le busca a cada uno el verbo que lo manda — hasta seis palabras
+ * atrás, o la frase de destino que lo sigue («de ingreso», «a mis
+ * ahorros»). Los signos: +1 entra (ingreso), −1 sale (gasto),
+ * 0 aparta o mueve (ahorro: sale de lo libre, pero SIGUE SIENDO
+ * TUYO — apartar no es salir, fallo de Oscar en 1.3.316). Las
+ * formas con persona ambigua se resuelven por la persona misma:
+ * «me pagan / me envían / me mandan» entra; «pago / envío / mando»
+ * sale; el «pay» inglés entra solo con su «me» detrás. Un monto
+ * sin verbo queda sin signo (null) y lo firma la regla de quien
+ * lo lea, dicha en su comentario.
+ * Enmienda de canon (1.3.452): el lector recibe la moneda de vista
+ * del libro (def) — un monto sin palabra de moneda se lee en ella,
+ * la misma doctrina que amountsIn ganó en la 444; la copia de la
+ * línea no la traía porque su banco nació antes de esa doctrina. */
+type VerbAmount = { a: FoundAmount; sign: 1 | -1 | 0 | null; verb: string; start: number; end: number };
+const VERB_IN_PRE = /^(ingres|gan|recib|cobr|deposit|earn|receiv)/;
+const VERB_OUT_PRE = /^(gast|compr|cost|cuest|spend|spent|buy|bought|pierd|perd)/;
+const VERB_SAVE_PRE = /^(ahorr|apart|traslad|sav)/;
+function verbClassAt(toks: string[], i: number): { sign: 1 | -1 | 0; verb: string } | null {
+  const t = toks[i];
+  if (!t) return null;
+  const prev = toks[i - 1] ?? "";
+  const next = toks[i + 1] ?? "";
+  if (/^pag/.test(t)) {
+    if (prev === "me") return { sign: 1, verb: t };
+    if (/^(pagan|pagaran|pagaron)$/.test(t)) return null;
+    return { sign: -1, verb: t };
+  }
+  if (/^(envi|mand)/.test(t)) {
+    if (prev === "me") return { sign: 1, verb: t };
+    return { sign: -1, verb: t };
+  }
+  if (/^(pay|paid|pays)$/.test(t)) return next === "me" ? { sign: 1, verb: t } : { sign: -1, verb: t };
+  if (/^(get|got)$/.test(t)) return { sign: 1, verb: t };
+  if (/^entr/.test(t)) return { sign: 1, verb: t };
+  if (t === "ingreso" || t === "ingresos") return { sign: 1, verb: t };
+  if (t === "gasto" || t === "gastos") return { sign: -1, verb: t };
+  if (t === "ahorro" || t === "ahorros") return { sign: 0, verb: t };
+  if (VERB_IN_PRE.test(t)) return { sign: 1, verb: t };
+  if (VERB_SAVE_PRE.test(t)) return { sign: 0, verb: t };
+  if (/^(guard|muev|mov|met)/.test(t)) return { sign: 0, verb: t };
+  if (/^(pon|pong)/.test(t)) {
+    for (let j = i + 1; j <= Math.min(toks.length - 1, i + 6); j++) if (/^(ahorr|savings)/.test(toks[j])) return { sign: 0, verb: t };
+    return null;
+  }
+  if (t === "set" && next === "aside") return { sign: 0, verb: "set aside" };
+  if (t === "move" || t === "moves" || t === "moved" || t === "moving") return { sign: 0, verb: t };
+  if (t === "save" || t === "saves" || t === "saved" || t === "saving" || t === "savings") return { sign: 0, verb: t };
+  if (VERB_OUT_PRE.test(t)) return { sign: -1, verb: t };
+  if (/^sac/.test(t)) return { sign: -1, verb: t };
+  return null;
+}
+function verbAmounts(raw: string, def?: Currency): { list: VerbAmount[]; toks: string[] } {
+  const foldedAll = foldQ(raw);
+  const toks = foldedAll.split(/[^a-z0-9]+/).filter(Boolean);
+  const spans: Array<{ minor: number; currency: Currency; label: string; start: number; end: number }> = [];
+  // Las palabras-número, con la certificación de wordAmountsIn y una
+  // más, la que esta ola trae: un verbo de dinero pegado atrás
+  // también certifica («ahorro quinientos» ES un monto).
+  {
+    const cands: Array<{ value: number; start: number; end: number }> = [];
+    for (let i = 0; i < toks.length;) {
+      const t = toks[i];
+      if (WORD_NUM_ALL[t] !== undefined || t === "mil" || t === "millon" || t === "millones" || t === "thousand" || t === "million" || t === "millions" || t === "hundred") {
+        if (i > 0 && /\d/.test(toks[i - 1])) { i++; continue; }
+        const p = parseWordNumber(toks, i);
+        if (p) { cands.push({ value: p.value, start: i, end: p.end }); i = p.end; continue; }
+      }
+      i++;
+    }
+    const hasDigit = /\d/.test(raw);
+    for (const cd of cands) {
+      const prev = toks[cd.start - 1] ?? "";
+      const next1 = toks[cd.end] ?? "";
+      const next2 = toks[cd.end + 1] ?? "";
+      const curWord = [next1, next2].find((x) => /^(dolares|dollars|cordobas|pesos|billete|billetes)$/.test(x)) ?? "";
+      const certified = !!curWord || WORD_MONEY_VERB.has(prev) || cands.length >= 2
+        || (hasDigit && (prev === "mas" || prev === "plus" || next1 === "mas" || next1 === "plus"))
+        || verbClassAt(toks, cd.start - 1) !== null;
+      if (!certified) continue;
+      spans.push({ minor: Math.round(cd.value * 100), currency: /^(cordobas|pesos)$/.test(curWord) ? "NIO" : (def ?? "USD"), label: "", start: cd.start, end: cd.end });
+    }
+  }
+  // Los dígitos, gemelos del lector de amountsIn (escala y moneda;
+  // el «billón» ambiguo tampoco se lee aquí).
+  {
+    const tokSpans: Array<{ s: number; e: number; idx: number }> = [];
+    const tre = /[a-z0-9]+/g;
+    let tm: RegExpExecArray | null;
+    while ((tm = tre.exec(foldedAll)) !== null) tokSpans.push({ s: tm.index, e: tm.index + tm[0].length, idx: tokSpans.length });
+    // El token EN o DESPUÉS de la posición: el match crudo puede
+    // empezar en el «$» o en un espacio, que no son token.
+    const tokAt = (pos: number) => tokSpans.find((x) => x.e > pos)?.idx ?? -1;
+    const re = /(-|−|menos\s+)?(\$|c\$|us\$)?\s*(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d{1,2})?)\s*(dolares|dólares|pesos|cordobas|córdoba|usd|nio)?\s*(millones|millon|millón|million|millions|billion|billions|billones|billon|billón|mil)?/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(raw)) !== null) {
+      const scaleWord = (m[5] ?? "").toLowerCase();
+      if (scaleWord === "billon" || scaleWord === "billón" || scaleWord === "billones") continue;
+      let value = parseNumberToken(m[3]);
+      if (!Number.isFinite(value) || value === 0) continue;
+      if (scaleWord === "mil") value *= 1_000;
+      else if (scaleWord) value *= scaleWord.startsWith("b") ? 1_000_000_000 : 1_000_000;
+      const word = foldQ((m[4] ?? "").toLowerCase());
+      const currency: Currency = word.startsWith("peso") || word.startsWith("cordoba") || word === "nio" || (m[2] ?? "").toLowerCase() === "c$" ? "NIO" : (def ?? "USD");
+      const rest = raw.slice(re.lastIndex, re.lastIndex + 40);
+      const concept = (rest.match(/^\s*(?:en|de|para|por|a)\s+([a-záéíóúñ ]{2,24}?)(?=[,.]|\s+y\s|\s*\d|\?|$)/i)?.[1] ?? "").trim();
+      const sIdx = tokAt(m.index);
+      // El fin del tramo es el token del ÚLTIMO DÍGITO del match:
+      // el regex puede comerse el espacio tras la cifra («6 meses»
+      // dejaba el fin en «meses» y el 6 se leía como apartado).
+      let lastDigit = m.index + m[0].length - 1;
+      while (lastDigit > m.index && !/\d/.test(raw[lastDigit])) lastDigit--;
+      const eIdx = tokAt(lastDigit);
+      if (sIdx < 0 || eIdx < 0) continue;
+      if (spans.some((x) => sIdx >= x.start && sIdx < x.end)) continue;
+      spans.push({ minor: Math.round(value * 100), currency, label: concept, start: sIdx, end: eIdx + 1 });
+    }
+  }
+  spans.sort((x, y) => x.start - y.start);
+  const list: VerbAmount[] = spans.map((sp) => {
+    let found: { sign: 1 | -1 | 0; verb: string } | null = null;
+    for (let i = sp.start - 1; i >= Math.max(0, sp.start - 6) && !found; i--) found = verbClassAt(toks, i);
+    if (!found) {
+      for (let i = sp.end; i <= Math.min(toks.length - 1, sp.end + 2) && !found; i++) {
+        const t = toks[i];
+        if ((t === "ingreso" || t === "ingresos") && toks[i - 1] === "de") found = { sign: 1, verb: "de ingreso" };
+        else if ((t === "ahorro" || t === "ahorros" || t === "savings") && (toks[i - 1] === "de" || toks[i - 1] === "a" || toks[i - 2] === "a")) found = { sign: 0, verb: "a ahorros" };
+        else if (t === "gasto" && toks[i - 1] === "de") found = { sign: -1, verb: "de gasto" };
+      }
+    }
+    return { a: { minor: sp.minor, currency: sp.currency, label: sp.label }, sign: found?.sign ?? null, verb: found?.verb ?? "", start: sp.start, end: sp.end };
+  });
+  return { list, toks };
+}
+
 function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   const amounts = amountsIn(raw, c.display);
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
+  // OLA 58 · LA DIFERENCIA ENTRE LO QUE ENTRA Y LO QUE SALE:
+  // «if I pay $100 and then earn $200, what's the difference?»
+  // caía en silencio — la calculadora no firmaba los montos. Con
+  // el verbo de cada monto (verbAmounts), la diferencia es la
+  // resta firmada, dicha a favor o en contra.
+  if (/(diferencia|difference)/.test(folded)) {
+    const { list } = verbAmounts(raw, c.display);
+    const ins = list.filter((s) => s.sign === 1);
+    const outs = list.filter((s) => s.sign === -1);
+    if (ins.length && outs.length) {
+      const inSum = ins.reduce((a, s) => a + disp(s.a), 0);
+      const outSum = outs.reduce((a, s) => a + disp(s.a), 0);
+      const net = inSum - outSum;
+      const verdict = net > 0
+        ? L(c.lang, `La diferencia es ${c.money(net)} a tu favor: entrarían ${c.money(inSum)} y saldrían ${c.money(outSum)}.`, `The difference is ${c.money(net)} in your favor: ${c.money(inSum)} would come in and ${c.money(outSum)} would go out.`)
+        : net < 0
+          ? L(c.lang, `La diferencia es ${c.money(-net)} en tu contra: saldrían ${c.money(outSum)} y entrarían ${c.money(inSum)}.`, `The difference is ${c.money(-net)} against you: ${c.money(outSum)} would go out and ${c.money(inSum)} would come in.`)
+          : L(c.lang, `No hay diferencia: entra lo mismo que sale (${c.money(inSum)}).`, `There's no difference: the same comes in as goes out (${c.money(inSum)}).`);
+      return {
+        kind: "answer", family: "calculadora",
+        verdict,
+        pieces: [
+          ...ins.map((s) => ({ label: s.a.label || L(c.lang, "Entra", "Comes in"), minor: disp(s.a) })),
+          ...outs.map((s) => ({ label: s.a.label || L(c.lang, "Sale", "Goes out"), minor: -disp(s.a) })),
+        ],
+        note: L(c.lang, "Es aritmética de tu pregunta, con el verbo de cada monto: no toqué tu libro.", "That's arithmetic from your question, with each amount's own verb: I didn't touch your book."),
+        source: ["asesor.lectura"], lines: 0,
+      };
+    }
+  }
   // REPARTO: «divido 1500 en tres partes» / «entre 4 personas».
   const divMatch = folded.match(/(divid|repart|split|divide)/);
   if (divMatch && amounts.length >= 1) {
@@ -2971,16 +3249,82 @@ function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | nu
   const pct = folded.match(/(\d+(?:[.,]\d+)?)\s*(?:%|por ciento|porcentaje|percent)\s*(?:de|of)\s/);
   if (pct && amounts.length >= 1) {
     const p = parseNumberToken(pct[1]);
-    const base = amounts.find((a) => a.minor !== Math.round(p * 100)) ?? amounts[amounts.length - 1];
-    const baseD = disp(base);
-    const result = Math.round((baseD * p) / 100);
-    return {
-      kind: "answer", family: "calculadora",
-      verdict: L(c.lang, `El ${p}% de ${c.money(baseD)} es ${c.money(result)}.`, `${p}% of ${c.money(baseD)} is ${c.money(result)}.`),
-      pieces: [{ label: L(c.lang, "La base", "The base"), minor: baseD }, { label: `${p}%`, minor: result }],
-      note: L(c.lang, "Es aritmética de tu pregunta: no toqué tu libro.", "That's arithmetic from your question: I didn't touch your book."),
-      source: ["asesor.lectura"], lines: 0,
-    };
+    // OLA 57: si el ÚNICO monto leído es el propio porcentaje («el
+    // 20% de mil quinientos» — la base viene en palabras y el lector
+    // no la certificó), la base NO es el porcentaje: se cae a la
+    // lectura por posición de abajo, que lee la base tras el «de».
+    const base = amounts.find((a) => a.minor !== Math.round(p * 100));
+    if (base) {
+      const baseD = disp(base);
+      const result = Math.round((baseD * p) / 100);
+      return {
+        kind: "answer", family: "calculadora",
+        verdict: L(c.lang, `El ${p}% de ${c.money(baseD)} es ${c.money(result)}.`, `${p}% of ${c.money(baseD)} is ${c.money(result)}.`),
+        pieces: [{ label: L(c.lang, "La base", "The base"), minor: baseD }, { label: `${p}%`, minor: result }],
+        note: L(c.lang, "Es aritmética de tu pregunta: no toqué tu libro.", "That's arithmetic from your question: I didn't touch your book."),
+        source: ["asesor.lectura"], lines: 0,
+      };
+    }
+  }
+  // OLA 57 · EL PORCENTAJE EN PALABRAS (capturas de Oscar,
+  // 2026-11-24): «¿Cuál es el quince por ciento de mil quinientos
+  // dólares?» y «the ten percent of three hundred» caían en
+  // silencio — el porcentaje y la base llegaban EN PALABRAS y la
+  // forma cercada solo leía dígitos. La forma se lee por POSICIÓN:
+  // el número pegado ANTES de «por ciento / porcentaje / percent»
+  // es el porcentaje; el monto tras el «de / of» es la base. La
+  // posición manda sobre el valor: un 150% también es porcentaje.
+  {
+    const pm = folded.match(/(por ciento|porcentaje|percent|%)\s*(?:de|of)\s+/);
+    if (pm && pm.index !== undefined) {
+      const before = folded.slice(0, pm.index).trim();
+      const after = folded.slice(pm.index + pm[0].length);
+      let p: number | null = null;
+      const pDig = before.match(/(\d+(?:[.,]\d+)?)$/);
+      if (pDig) p = parseNumberToken(pDig[1]);
+      if (p == null) {
+        const toks = before.split(/[^a-z0-9]+/).filter(Boolean);
+        const numTok = (t: string) => WORD_NUM_ALL[t] !== undefined || /^(mil|millon|millones|thousand|million|millions|hundred|y|and)$/.test(t);
+        let s = toks.length - 1;
+        if (s >= 0 && numTok(toks[s])) {
+          while (s > 0 && numTok(toks[s - 1])) s--;
+          const parsed = parseWordNumber(toks, s);
+          if (parsed && parsed.end === toks.length) p = parsed.value;
+        }
+      }
+      let base: { minor: number; currency: Currency } | null = null;
+      const bDig = after.match(/^\s*(?:\$\s*)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d{1,2})?)\s*(mil|millones|millon|million|millions|thousand)?/);
+      if (bDig) {
+        let v = parseNumberToken(bDig[1]);
+        if (bDig[2] === "mil" || bDig[2] === "thousand") v *= 1_000;
+        else if (bDig[2]) v *= 1_000_000;
+        if (v > 0) base = { minor: Math.round(v * 100), currency: /(cordobas|pesos)/.test(after.slice(0, 48)) ? "NIO" : (c.display) };
+      }
+      if (!base) {
+        const toks = after.split(/[^a-z0-9]+/).filter(Boolean);
+        for (let s = 0; s < toks.length; s++) {
+          if (WORD_NUM_ALL[toks[s]] === undefined && !/^(mil|millon|millones|thousand|million|millions|hundred)$/.test(toks[s])) continue;
+          const parsed = parseWordNumber(toks, s);
+          if (parsed && parsed.value > 0) {
+            const near = toks.slice(parsed.end, parsed.end + 2).join(" ");
+            base = { minor: Math.round(parsed.value * 100), currency: /(cordobas|pesos)/.test(near) ? "NIO" : (c.display) };
+          }
+          break;
+        }
+      }
+      if (p != null && p > 0 && base && base.minor > 0) {
+        const baseD = convertMinor(base.minor, base.currency, c.display, c.rateE4);
+        const result = Math.round((baseD * p) / 100);
+        const pTxt = `${Number(p.toFixed(2))}`;
+        return {
+          kind: "answer", family: "calculadora",
+          verdict: L(c.lang, `El ${pTxt}% de ${c.money(baseD)} es ${c.money(result)}.`, `${pTxt}% of ${c.money(baseD)} is ${c.money(result)}.`),
+          pieces: [{ label: L(c.lang, "La base", "The base"), minor: baseD }, { label: `${pTxt}%`, minor: result }],
+          note: L(c.lang, "Es aritmética de tu pregunta: no toqué tu libro.", "That's arithmetic from your question: I didn't touch your book."),
+          source: ["asesor.lectura"], lines: 0,
+        };
+      }
+    }
   }
   // RITMO (cadencias): «¿cuánto es 50 a la semana al mes?» — semana ⇄
   // mes ⇄ año con el año de 52 semanas dicho como supuesto. OLA 9: el
@@ -3039,9 +3383,79 @@ function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | nu
   return null;
 }
 
+/* OLA 59 · LA PROYECCIÓN DE AHORRO — los ayudantes de horizonte y
+ * cadencia. El horizonte se lee de la frase (fin de mes, fin de
+ * año, el mes nombrado, «en N años/meses/semanas», el año que
+ * viene) y la cadencia de su palabra (cada semana, mensual, each
+ * month…); los períodos que cuentan son los COMPLETOS que caben
+ * entre hoy y el horizonte — la misma honestidad del ritmo de la
+ * calculadora: el supuesto se dice, no se esconde. */
+const MONTH_NUM: Record<string, number> = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+};
+function horizonOf(folded: string, today: string): { date: string; es: string; en: string } | null {
+  const [ty, tm, td] = today.split("-").map(Number);
+  const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const monthEnd = (y: number, m: number) => iso(y, m, new Date(Date.UTC(y, m, 0)).getUTCDate());
+  if (/(fin de ano|a fin de ano|finales de ano|fin del ano|end of the year)/.test(folded)) return { date: iso(ty, 12, 31), es: "a fin de año", en: "by the end of the year" };
+  if (/(fin de mes|a fin de mes|finales de mes|end of the month)/.test(folded)) return { date: monthEnd(ty, tm), es: "a fin de mes", en: "by the end of the month" };
+  const named = folded.match(/(?:en|para|a|by)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december)\b/);
+  if (named) {
+    const mNum = MONTH_NUM[named[1]];
+    const y = mNum < tm ? ty + 1 : ty;
+    return { date: monthEnd(y, mNum), es: `para ${named[1]}`, en: `by ${named[1]}` };
+  }
+  const toksH = folded.split(/[^a-z0-9]+/).filter(Boolean);
+  for (let i = 0; i < toksH.length - 1; i++) {
+    if (toksH[i] !== "en" && toksH[i] !== "in") continue;
+    let n: number | null = null;
+    let used = 0;
+    if (/^\d+$/.test(toksH[i + 1])) { n = Number(toksH[i + 1]); used = 1; }
+    else { const p = parseWordNumber(toksH, i + 1); if (p) { n = p.value; used = p.end - (i + 1); } }
+    if (n == null || n <= 0) continue;
+    const unit = toksH[i + 1 + used] ?? "";
+    if (/^(anos|years)$/.test(unit)) return { date: iso(ty + n, tm, Math.min(td, new Date(Date.UTC(ty + n, tm, 0)).getUTCDate())), es: `en ${n} años`, en: `in ${n} years` };
+    if (/^(meses|months)$/.test(unit)) {
+      const total = (tm - 1) + n;
+      const y = ty + Math.floor(total / 12);
+      const m = (total % 12) + 1;
+      return { date: iso(y, m, Math.min(td, new Date(Date.UTC(y, m, 0)).getUTCDate())), es: `en ${n} meses`, en: `in ${n} months` };
+    }
+    if (/^(semanas|weeks)$/.test(unit)) {
+      const d = new Date(Date.UTC(ty, tm - 1, td) + n * 7 * 86400000);
+      return { date: d.toISOString().slice(0, 10), es: `en ${n} semanas`, en: `in ${n} weeks` };
+    }
+  }
+  if (/(proximo ano|el ano que viene|next year)/.test(folded)) return { date: iso(ty + 1, tm, Math.min(td, new Date(Date.UTC(ty + 1, tm, 0)).getUTCDate())), es: "en un año", en: "in a year" };
+  return null;
+}
+function cadenceOf(folded: string): "weekly" | "biweekly" | "monthly" | "yearly" | null {
+  if (/(cada quincena|quincenal|every two weeks|biweekly)/.test(folded)) return "biweekly";
+  if (/(cada semana|semanal|por semana|a la semana|each week|every week|weekly|per week)/.test(folded)) return "weekly";
+  if (/(cada mes|mensual|por mes|al mes|each month|every month|monthly|per month)/.test(folded)) return "monthly";
+  if (/(cada ano|anual|por ano|each year|every year|yearly|per year)/.test(folded)) return "yearly";
+  return null;
+}
+function periodsBetween(today: string, horizon: string, cad: "weekly" | "biweekly" | "monthly" | "yearly"): number {
+  const [ty, tm, td] = today.split("-").map(Number);
+  const [hy, hm, hd] = horizon.split("-").map(Number);
+  const days = Math.round((Date.UTC(hy, hm - 1, hd) - Date.UTC(ty, tm - 1, td)) / 86400000);
+  if (cad === "weekly") return Math.max(0, Math.floor(days / 7));
+  if (cad === "biweekly") return Math.max(0, Math.floor(days / 14));
+  if (cad === "monthly") { let n = (hy - ty) * 12 + (hm - tm); if (hd < td) n -= 1; return Math.max(0, n); }
+  let n = hy - ty;
+  if (hm < tm || (hm === tm && hd < td)) n -= 1;
+  return Math.max(0, n);
+}
+
 function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): BankResult | null {
   const amounts = amountsIn(raw, c.display);
-  if (amounts.length < 1) return null;
+  // OLA 58/59: el lector con verbo certifica montos que amountsIn
+  // no certifica («ahorro doscientos» a secas) — sin ninguno de
+  // los dos lectores, no hay premisa que caminar.
+  const verbAll = verbAmounts(raw, c.display);
+  if (amounts.length < 1 && !verbAll.list.length) return null;
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   const sum = amounts.reduce((a, x) => a + disp(x), 0);
   // OLA 25: el nombre propio de la pieza de un monto traído — su
@@ -3081,7 +3495,7 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   {
     const filter = filterOf(c, folded);
     const verb = /(sube|subiera|subiese|baja|bajara|bajase|aumenta|aumentara|cuesta|cueste|costara|valiera|fuera|seria|bajaria|subiria)/.test(folded);
-    if (filter && verb && /\bsi\b|\bif\b/.test(folded)) {
+    if (amounts.length >= 1 && filter && verb && /\bsi\b|\bif\b/.test(folded)) {
       const monthLines = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
       const named = monthLines.filter((l) => filter(l));
       if (named.length) {
@@ -3106,6 +3520,228 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
           source: ["libros.lineas"], lines: named.length,
           actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio", "See it in Study"),
         };
+      }
+    }
+  }
+  // OLA 59 · LA PROYECCIÓN DE AHORRO: un monto APARTADO (su verbo
+  // es ahorrar/guardar/save) contra un HORIZONTE (fin de año, fin
+  // de mes, un mes nombrado, «en N años») — la respuesta es el
+  // guardado de hoy más el aporte repetido por los períodos
+  // completos que caben. La factibilidad trataba este ahorro como
+  // un gasto imposible y el hipotético viejo como un gasto de una
+  // vez (capturas de Oscar, 2026-11-24). SIN cadencia en la frase,
+  // no se adivina: se pregunta de vuelta (cada semana / cada mes /
+  // una sola vez) y la vuelta entra por el pin «cad:» — la misma
+  // costura del contexto de cuentas, declarada para la caja.
+  {
+    const { list: signed59, toks: toks59 } = verbAll;
+    const isHorizonAmt = (s: VerbAmount) => /^(anos|meses|semanas|years|months|weeks)$/.test(toks59[s.end] ?? "") && (toks59[s.start - 1] === "en" || toks59[s.start - 1] === "in");
+    const saveCands = signed59.filter((s) => s.sign === 0 && !isHorizonAmt(s));
+    const horizon = horizonOf(folded, c.today);
+    // LA META INVERSA NO ES PROYECCIÓN: cuando la pregunta PIDE el
+    // aporte («¿cuánto debo ahorrar para juntar $2000 en 4 meses?»)
+    // el monto traído es la META, no el aporte — su familia es la
+    // meta, y esta rama se queda fuera aunque el verbo ahorrar
+    // alcance a gobernar la cifra de lejos.
+    const metaVoice = /(cuanto (tengo|debo|necesito|hay) que ahorrar|cuanto (debo|necesito) ahorrar|para (llegar a|juntar|reunir|tener) |quiero (juntar|reunir|llegar)|how much (do i|should i|must i) (need to )?save|how much to save)/.test(folded);
+    if (saveCands.length && horizon && !metaVoice) {
+      const aporte = disp(saveCands[0].a);
+      const stock59 = savingsStock(c.state, c.key);
+      const cadPin = pinId && pinId.startsWith("cad:") ? pinId.slice(4) : null;
+      const cad = cadPin === "weekly" || cadPin === "biweekly" || cadPin === "monthly" || cadPin === "yearly" || cadPin === "once"
+        ? cadPin
+        : cadenceOf(folded);
+      if (!cad) {
+        return {
+          kind: "ask-back", family: "proyeccion",
+          verdict: L(c.lang, `Eso depende de cada cuánto apartas: ¿los ${c.money(aporte)} son cada semana, cada mes, o una sola vez?`, `That depends on how often you set it aside: is the ${c.money(aporte)} every week, every month, or just once?`),
+          options: [
+            { id: "cad:weekly", label: L(c.lang, "Cada semana", "Every week"), minor: aporte },
+            { id: "cad:monthly", label: L(c.lang, "Cada mes", "Every month"), minor: aporte },
+            { id: "cad:once", label: L(c.lang, "Una sola vez", "Just once"), minor: aporte },
+          ],
+          source: ["ahorros.stock"],
+        };
+      }
+      const hLabel = L(c.lang, horizon.es, horizon.en);
+      if (cad === "once") {
+        const total = stock59.total + aporte;
+        return {
+          kind: "answer", family: "proyeccion",
+          verdict: L(c.lang, `Si apartaras ${c.money(aporte)} una sola vez, ${hLabel} tendrías ${c.money(total)} en ahorros: los ${c.money(stock59.total)} que constan hoy más ese apartado.`, `If you set aside ${c.money(aporte)} just once, ${hLabel} you'd have ${c.money(total)} in savings: the ${c.money(stock59.total)} recorded today plus that one set-aside.`),
+          pieces: [
+            { label: L(c.lang, "Consta hoy en ahorros", "Recorded in savings today"), minor: stock59.total },
+            { label: L(c.lang, "El apartado de una vez", "The one-time set-aside"), minor: aporte },
+            { label: L(c.lang, "Tendrías en ahorros", "You'd have in savings"), minor: total },
+          ],
+          note: L(c.lang, "El supuesto, dicho: sin contar interés — tu libro no promete ninguno — y nada se anotó.", "The assumption, stated: no interest counted — your book promises none — and nothing was recorded."),
+          source: ["ahorros.stock", "asesor.lectura"], lines: 0,
+          actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+        };
+      }
+      const n = periodsBetween(c.today, horizon.date, cad);
+      const cadLabel = cad === "weekly" ? L(c.lang, "cada semana", "every week") : cad === "biweekly" ? L(c.lang, "cada quincena", "every two weeks") : cad === "monthly" ? L(c.lang, "cada mes", "every month") : L(c.lang, "cada año", "every year");
+      if (n === 0) {
+        return {
+          kind: "answer", family: "proyeccion",
+          verdict: L(c.lang, `En ese plazo (${hLabel}) no cabe un aporte ${cad === "weekly" ? "semanal" : cad === "biweekly" ? "quincenal" : cad === "monthly" ? "mensual" : "anual"} completo: el primero caería ya pasado el horizonte. Tu guardado quedaría como está: ${c.money(stock59.total)}.`, `In that span (${hLabel}) there isn't room for one full ${cad === "weekly" ? "weekly" : cad === "biweekly" ? "two-weekly" : cad === "monthly" ? "monthly" : "yearly"} set-aside: the first would land past the horizon. Your savings would stay as they are: ${c.money(stock59.total)}.`),
+          pieces: [{ label: L(c.lang, "Consta hoy en ahorros", "Recorded in savings today"), minor: stock59.total }],
+          note: L(c.lang, "El supuesto, dicho: cuento solo los períodos completos que caben desde hoy — nada se anotó.", "The assumption, stated: I count only the full periods that fit from today — nothing was recorded."),
+          source: ["ahorros.stock", "asesor.lectura"], lines: 0,
+          actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+        };
+      }
+      const junto = aporte * n;
+      const total = stock59.total + junto;
+      // LA FIGURA DEL CENSO (condición de exactitud, 1.3.452): el
+      // camino de la proyección se declara porque cada punto ES una
+      // cifra exacta del libro — el guardado de hoy y el guardado
+      // tras k aportes (hoy + k × aporte), sin interpolar nada: con
+      // pocos períodos van todos los pasos; con muchos, el inicio,
+      // los cuartos del camino y el cierre, cada uno con su k real.
+      const figKs: number[] = [];
+      if (n <= 6) { for (let k = 1; k < n; k++) figKs.push(k); }
+      else { for (const k of [Math.ceil(n / 4), Math.ceil(n / 2), Math.ceil((3 * n) / 4)]) if (k > 0 && k < n && !figKs.includes(k)) figKs.push(k); }
+      const figure: BankFigure = {
+        kind: "camino",
+        points: [
+          { label: L(c.lang, "Hoy en ahorros", "Savings today"), minor: stock59.total },
+          ...figKs.map((k) => ({ label: L(c.lang, k === 1 ? "1 aporte" : `${k} aportes`, k === 1 ? "1 set-aside" : `${k} set-asides`), minor: stock59.total + aporte * k })),
+          { label: L(c.lang, "Tendrías en ahorros", "You'd have in savings"), minor: total, mark: "cierre" as const },
+        ],
+        note: null,
+      };
+      return {
+        kind: "answer", family: "proyeccion",
+        verdict: L(c.lang, `Si apartaras ${c.money(aporte)} ${cadLabel}, ${hLabel} tendrías ${c.money(total)} en ahorros: hoy constan ${c.money(stock59.total)} guardados, y de aquí a entonces caben ${n} aportes de ${c.money(aporte)} (${c.money(junto)}).`, `If you set aside ${c.money(aporte)} ${cadLabel}, ${hLabel} you'd have ${c.money(total)} in savings: today shows ${c.money(stock59.total)} saved, and ${n} set-asides of ${c.money(aporte)} fit between now and then (${c.money(junto)}).`),
+        pieces: [
+          { label: L(c.lang, "Consta hoy en ahorros", "Recorded in savings today"), minor: stock59.total },
+          { label: L(c.lang, `${n} aportes de ${c.money(aporte)}`, `${n} set-asides of ${c.money(aporte)}`), minor: junto },
+          { label: L(c.lang, "Tendrías en ahorros", "You'd have in savings"), minor: total },
+        ],
+        note: L(c.lang, "El supuesto, dicho: el aporte se repite sin fallar y no rinde interés — tu libro no promete ninguno — y nada se anotó.", "The assumption, stated: the set-aside repeats without fail and earns no interest — your book promises none — and nothing was recorded."),
+        source: ["ahorros.stock", "asesor.lectura"], lines: 0,
+        actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+        figure,
+      };
+    }
+  }
+  // OLA 58 · EL HIPOTÉTICO CON SIGNO: si la premisa trae montos
+  // que ENTRAN o se APARTAN, cada monto camina con SU signo — el
+  // camino viejo sumaba todo como gasto. Este bloque corre antes
+  // del camino sin signo y solo cuando hay entrada o apartado;
+  // la premisa de puro gasto sigue por su camino de siempre.
+  {
+    const { list: signed, toks: sToks } = verbAll;
+    const inList = signed.filter((s) => s.sign === 1);
+    const outList = signed.filter((s) => s.sign === -1);
+    const saveList = signed.filter((s) => s.sign === 0);
+    if (signed.length && (inList.length || saveList.length)) {
+      const sumOf = (xs: VerbAmount[]) => xs.reduce((a, s) => a + disp(s.a), 0);
+      const inSum = sumOf(inList);
+      const outSum = sumOf(outList);
+      const saveSum = sumOf(saveList);
+      const stock58 = savingsStock(c.state, c.key);
+      // LA DIANA SON LOS AHORROS: «si ingreso 1200 y muevo 300 a
+      // mis ahorros, ¿cuánto tengo en mis ahorros?» — al guardado
+      // entra lo apartado y el ingreso que la frase manda a
+      // ahorros; el demás ingreso va a cuentas y se DICE, no se
+      // mezcla en la cifra de ahorros.
+      const ahorrosAsked = /(ahorros|savings)/.test(folded) && /(cuanto|cuanta|how much)/.test(folded) && !/(cuanto me queda|how much.*left)/.test(folded);
+      if (ahorrosAsked && (saveList.length || inList.length)) {
+        const toSavings = (s: VerbAmount) => s.sign === 0 || sToks.slice(s.end, s.end + 3).some((t) => /^(ahorros|savings)/.test(t));
+        const gainList = signed.filter((s) => s.sign !== -1 && toSavings(s));
+        const gain = sumOf(gainList);
+        const otherIn = inList.filter((s) => !toSavings(s)).reduce((a, s) => a + disp(s.a), 0);
+        if (gain > 0) {
+          const newStock = stock58.total + gain;
+          return {
+            kind: "answer", family: "hipotetico",
+            verdict: L(c.lang,
+              `En tus ahorros tendrías ${c.money(newStock)}: hoy constan ${c.money(stock58.total)} guardados y entrarían ${c.money(gain)} más.${otherIn > 0 ? ` Los ${c.money(otherIn)} del ingreso entrarían a tus cuentas, no a tus ahorros.` : ""}${outSum > 0 ? ` Y los ${c.money(outSum)} que gastarías saldrían de tus cuentas.` : ""}`,
+              `In your savings you'd have ${c.money(newStock)}: today shows ${c.money(stock58.total)} saved and ${c.money(gain)} more would come in.${otherIn > 0 ? ` The ${c.money(otherIn)} of income would land in your accounts, not your savings.` : ""}${outSum > 0 ? ` And the ${c.money(outSum)} you'd spend would come out of your accounts.` : ""}`),
+            pieces: [
+              { label: L(c.lang, "Consta hoy en ahorros", "Recorded in savings today"), minor: stock58.total },
+              ...gainList.map((s, i) => ({ label: amountLabel(s.a, i), minor: disp(s.a) })),
+              { label: L(c.lang, "Tendrías en ahorros", "You'd have in savings"), minor: newStock },
+            ],
+            note: L(c.lang, "El supuesto, dicho: es un «si» — nada de esto está anotado ni se guarda; tu libro queda como está.", "The assumption, stated: it's a hypothetical — none of this is recorded or saved; your book stays as it is."),
+            source: ["ahorros.stock"], lines: 0,
+            actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+          };
+        }
+      }
+      const asksLeft = /(cuanto[^?]{0,24}(quedaria|queda|quedaba|tendria)|how much would i (have|be) left|how much would be left)/.test(folded);
+      if (asksLeft) {
+        const onAccount58 = /cuenta|account/.test(folded);
+        const hosts58 = hostAccounts(c.state, c.key, stock58).filter((h) => h.minor > 0);
+        let base: number | null = null;
+        let baseLabel = "";
+        let singleAccount = false;
+        if (pinId) {
+          const host = hosts58.find((h) => h.id === pinId);
+          if (host) { base = host.minor; baseLabel = c.names.sub(host.id) || host.id; singleAccount = true; }
+        }
+        if (base === null && onAccount58) {
+          if (hosts58.length === 1) { base = hosts58[0].minor; baseLabel = c.names.sub(hosts58[0].id) || hosts58[0].id; singleAccount = true; }
+          else if (hosts58.length === 0) { base = stock58.byClass.cuenta ?? 0; baseLabel = L(c.lang, "Hoy en tus cuentas", "In your accounts today"); }
+          // Con varias cuentas y sin contexto, base queda null y
+          // manda la vuelta de contexto del camino de siempre.
+        }
+        if (base === null && !onAccount58) {
+          const reading58 = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+          base = reading58.left;
+          baseLabel = L(c.lang, "Tu queda de hoy", "Your left-for-the-month today");
+        }
+        if (base !== null) {
+          // El apartado: contra UNA cuenta o contra lo libre del
+          // mes, sale de esa bolsa (y se dice que sigue siendo
+          // tuyo); contra el total de tus cuentas, se mueve
+          // DENTRO de ellas y el total no cambia.
+          const saveEffect = singleAccount || !onAccount58 ? -saveSum : 0;
+          const result = base + inSum - outSum + saveEffect;
+          const baseText = base < 0
+            ? L(c.lang, `hoy tu queda ya va en negativo (${c.money(base)}: salió más de lo que entró)`, `today your left already runs negative (${c.money(base)}: more went out than came in)`)
+            : singleAccount
+              ? L(c.lang, `lo que hoy tienes en ${baseLabel} (${c.money(base)})`, `what you hold in ${baseLabel} today (${c.money(base)})`)
+              : onAccount58
+                ? L(c.lang, `lo que hoy tienes en tus cuentas (${c.money(base)})`, `what you hold in your accounts today (${c.money(base)})`)
+                : L(c.lang, `lo que te queda hoy (${c.money(base)})`, `what you have left today (${c.money(base)})`);
+          const clauses: string[] = [];
+          if (inSum > 0) clauses.push(L(c.lang, `más los ${c.money(inSum)} que entrarían`, `plus the ${c.money(inSum)} coming in`));
+          if (outSum > 0) clauses.push(L(c.lang, `menos los ${c.money(outSum)} que saldrían`, `minus the ${c.money(outSum)} going out`));
+          if (saveSum > 0) clauses.push(saveEffect !== 0
+            ? L(c.lang, `menos los ${c.money(saveSum)} que apartarías a tus ahorros — apartar no es gastar: seguirían siendo tuyos`, `minus the ${c.money(saveSum)} you'd set aside into savings — setting aside isn't spending: they'd still be yours`)
+            : L(c.lang, `con ${c.money(saveSum)} apartados a tus ahorros — apartar no es salir: seguirían en tus cuentas y seguirían siendo tuyos`, `with ${c.money(saveSum)} set aside into savings — setting aside isn't leaving: they'd stay in your accounts and still be yours`));
+          const effectOf = (s: VerbAmount) => (s.sign === 1 ? disp(s.a) : s.sign === -1 ? -disp(s.a) : saveEffect !== 0 ? -disp(s.a) : null);
+          return {
+            kind: "answer", family: "hipotetico",
+            verdict: L(c.lang,
+              `Si eso pasara, te quedarían ${c.money(result)}: ${baseText}${clauses.length ? ` ${clauses.join(", ")}` : ""}.`,
+              `If that happened, you'd have ${c.money(result)}: ${baseText}${clauses.length ? ` ${clauses.join(", ")}` : ""}.`),
+            pieces: [
+              { label: baseLabel, minor: base },
+              ...signed.flatMap((s, i) => {
+                const e = effectOf(s);
+                return e === null ? [] : [{ label: amountLabel(s.a, i), minor: e }];
+              }),
+            ],
+            note: L(c.lang, "El supuesto, dicho: es un «si» — nada de esto está anotado ni se guarda; tu libro queda como está.", "The assumption, stated: it's a hypothetical — none of this is recorded or saved; your book stays as it is."),
+            graph: [{
+              id: "quedaria", label: L(c.lang, "Lo que quedaría", "What would be left"), minor: result, tense: "proyectado", flow: "stock", currency: c.display,
+              assumption: { text: L(c.lang, "el «si» que trajiste en tu pregunta: nada de esto está anotado", "the 'if' you brought in your question: none of this is recorded"), origin: "usuario" },
+              children: [
+                { id: "base", label: baseLabel, minor: base, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
+                ...signed.flatMap((s, i): AskNode[] => {
+                  const e = effectOf(s);
+                  return e === null ? [] : [{ id: `si-${i}`, label: amountLabel(s.a, i), minor: disp(s.a), tense: "proyectado", flow: "flujo", currency: c.display, sign: e >= 0 ? 1 : -1, assumption: { text: L(c.lang, "el «si» que trajiste en tu pregunta: nada de esto está anotado", "the 'if' you brought in your question: none of this is recorded"), origin: "usuario" } }];
+                }),
+              ],
+            }],
+            source: onAccount58 ? ["central.tengo", "ahorros.stock"] : ["central.queda", "asesor.lectura"], lines: 0,
+            actions: onAccount58 ? undefined : reportDoor(c, "central.queda", "Ver mi Queda en Central", "See my Left in Central"),
+          };
+        }
       }
     }
   }
@@ -5494,7 +6130,25 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // SÍ es de capacidad, el monto se convierte con la tasa del libro
   // y la conversión se NOMBRA en la nota — nunca en silencio.
   if (/(divid|repart|en (dos|tres|cuatro|cinco|seis|\d+) partes|entre \d+|split)/.test(folded)) return null;
-  if (/%|por ciento|porcentaje/.test(folded)) return null;
+  if (/%|por ciento|porcentaje|percent/.test(folded)) return null;
+  // La diferencia entre montos traídos es de la calculadora: la
+  // pregunta compara, no pide un juicio de capacidad.
+  if (/(diferencia|difference)/.test(folded)) return null;
+  // OLA 58: la premisa cuyos montos obedecen SOLO a verbos de
+  // entrada o de apartado (ingreso, gano, ahorro, muevo a ahorros)
+  // no trae gasto que juzgar — esta familia sumaba ingreso +
+  // apartado como un solo «gasto de una vez» («si ingreso 1200 y
+  // muevo 300 a mis ahorros» → un gasto de $1,500 que no existe).
+  // Cede cuando ningún monto gobernado SALE y todo monto sin
+  // verbo es del horizonte («en 6 meses»: los 6 son meses, no
+  // dólares) — un monto de gasto sin verbo («una renta de 800»)
+  // sí deja la pregunta en esta familia.
+  {
+    const { list, toks } = verbAmounts(raw, c.display);
+    const governed = list.filter((s) => s.sign !== null);
+    const isHorizonAmt = (s: VerbAmount) => /^(anos|meses|semanas|years|months|weeks)$/.test(toks[s.end] ?? "") && (toks[s.start - 1] === "en" || toks[s.start - 1] === "in");
+    if (governed.length && governed.every((s) => s.sign !== null && s.sign >= 0) && list.every((s) => s.sign !== null || isHorizonAmt(s))) return null;
+  }
   if (/(ahorrar|juntar|reunir|guardar).{0,40}(para|en \d+ meses)|para (llegar|juntar|reunir|ahorrar)/.test(folded)) return null;
   // La suma de INGRESOS traídos («me regalaron…, me dio…») es de la
   // calculadora; el abono a una deuda nombrada, del simulador.
@@ -8794,6 +9448,13 @@ function splitCompound(raw: string): [string, string] | null {
     // familia compuesta con el idioma cambiado.
     return c.family !== null || /\b(cuanto|cuanta|cuantos|cuantas|cuando|cual|cuales|quien|quienes|como|donde)\b/.test(foldQ(side)) || /\b(how much|how many|when|where|who|which|what)\b/.test(foldQ(side));
   };
+  // OLA 60: dos preguntas con sus dos signos («¿…? ¿Y…?») también
+  // son una compuesta — la conjunción no es la única costura, y la
+  // segunda pregunta se perdía entera (captura de Oscar,
+  // 2026-11-24: «¿cuál fue mi último gasto? ¿Y cuál fue mi gasto
+  // más grande?» recibía solo la primera, y mal).
+  const qLegs = raw.split(/(?<=\?)\s+/).map((s) => s.trim()).filter(Boolean);
+  if (qLegs.length === 2 && qLegs[0].length >= 8 && qLegs[1].length >= 8 && legOk(qLegs[0]) && legOk(qLegs[1])) return [qLegs[0], qLegs[1]];
   for (const m of raw.matchAll(/\s+(y|and)\s+/gi)) {
     const idx = m.index ?? -1;
     if (idx < 8) continue;
@@ -9092,7 +9753,7 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, raw, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo
@@ -9178,7 +9839,7 @@ function answerSingle(
   // «guardó» (dinero) y «¿cómo guardo una pregunta?» (la especie de
   // la Ola 26 de arriba) — la forma exacta separa los dos mundos
   // sin tocar el objeto-guardia que ya manda.
-  if (!isFreeTrap && !esGuardarPregunta && ((/(ahorr|guardad|guarde|apartad|aparte|colchon|fondo|savings|saving|save|set aside|cushion|emergency fund)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta|puedo|podria|deberia|conviene|bien|sacar|retirar|should|can i|am i)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded))) {
+  if (!isFreeTrap && !esGuardarPregunta && ((/(ahorr|guardad|guarde|apartad|aparte|colchon|fondo|savings|saving|save|set aside|cushion|emergency fund)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta|puedo|podria|deberia|conviene|bien|sacar|retirar|should|can i|am i|incrementando|creciendo|aumentando|demasiados|growing|increasing|too much|overspending)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded))) {
     // OLA 49 (F6): el rendimiento se juzga antes que el stock —
     // «¿cuánto interés he ganado en mis ahorros?» no es una
     // pregunta por el stock, y recibirlo era contestar otra cosa.
@@ -9191,7 +9852,16 @@ function answerSingle(
     // jamás se responde con la cifra del presente: su casa es el
     // proyector (familia reach, viva en canon) — aquí, silencio honesto
     // antes que un presente disfrazado de futuro.
-    if (/(tendr|en (\d+|dos|tres|cuatro|cinco|seis|doce) meses|en un ano|si sigo|si ahorro|de aqui a|a fin de ano|para fin de|will i have|in (\d+|two|three|four|five|six|twelve) months|by the end of)/.test(folded)) {
+    // OLA 60: la premisa «si ahorro…» a secas NO es voz de futuro —
+    // «Si ahorro quinientos, ¿estaría incrementando mis ahorros?»
+    // juzga el PRESENTE con una premisa, y la guarda lo mataba en
+    // silencio antes de que ahorrosAnswer pudiera juzgarlo. La
+    // premisa solo cuenta como futuro si la pregunta PIDE un estado
+    // futuro (cuánto/tendr/para/horizonte); las voces fuertes
+    // (tendr, «en N meses», «a fin de año») mandan como siempre.
+    const futureVoice = /(tendr|habr|en (\d+|dos|tres|cuatro|cinco|seis|doce) meses|en un ano|de aqui a|a fin de ano|para fin de|will i have|in (\d+|two|three|four|five|six|twelve) months|by the end of)/.test(folded)
+      || (/(si sigo|si ahorro)/.test(folded) && /(cuanto|voy a|para |a fin|en (un|una|este|ese) (ano|mes)|\bmeses\b|\banos\b)/.test(folded));
+    if (futureVoice) {
       // OLA 12: la guarda prohíbe disfrazar el presente de futuro — no
       // prohíbe PROYECTAR. Si la pregunta trae su horizonte (un mes
       // nombrado o N meses), el futuro se calcula como futuro: el
@@ -9403,7 +10073,11 @@ function answerSingle(
   // «the last remittance», «the last amount I sent», «when did I
   // last get paid» (el chip del banco): la puerta solo oía «last
   // time / last thing» y las tres morían antes de llegar.
-  if (/(ultim|last time|last thing|last (remittance|remesa|amount|send|sent|payment|pago)|last (get|got) paid|cuando fue)/.test(folded)) {
+  // OLA 60: la recencia también mira ADELANTE — «¿cuándo me van a
+  // pagar de nuevo?» es su otra mitad y el gatillo viejo («ultim»)
+  // no la dejaba ni entrar; las voces de la próxima paga se suman
+  // a las de la Ola 28 sin quitar ninguna.
+  if (/(ultim|last time|last thing|last (remittance|remesa|amount|send|sent|payment|pago)|last (get|got) paid|cuando fue|pagar de nuevo|van a pagar|cuando (me pagan|cobro)|proximo (pago|sueldo|salario|ingreso)|proxima paga|next pay|get paid again|when (will|do) i get paid|when did i last|what was the last|the last (amount|payment|paycheck|remittance))/.test(folded)) {
     const r = recenciaAnswer(c, folded);
     if (r) return r;
   }
@@ -9665,6 +10339,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(que has aprendido|lo que has aprendido|tus patrones|aprendido de mi)/, "aprendizaje"],
     [/(si (dejo|dejara|dejas) de|si no (gastara|comprara|fuera|gastase)|dejara de gastar)/, "contrafactual"],
     [/(cuanto (me dura|dura) (mi|el|lo)|meses (puedo vivir|de respaldo)|sin trabajo|sin ingresos|me despiden|pierdo mi trabajo|fondo de emergencia|mi colchon|cuanto tiempo aguanto|aguanto sin|lose my job|lost my job|how long could i go|without income)/, "respaldo"],
+    [/(si (ahorro|ahorrara|ahorre|comenzara a ahorrar)|if i (save|start saving)|ahorro (doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos|mil|\d)|save \$\d|save \d).{0,40}(cada (semana|mes|quincena|ano)|semanal|mensual|quincenal|fin de (mes|ano)|en (un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce|\d+) (anos|meses|semanas)|para (diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre)|each (week|month|year)|weekly|monthly|end of the (year|month))/, "proyeccion"],
     [/(tardaria|tardare|cuanto (necesito|debo|tengo) que ahorrar|cuanto (debo|necesito) ahorrar|cuanto ahorrar|quiero (juntar|ahorrar|reunir)|juntar \d|meta de ahorro)/, "meta"],
     [/(en (cordobas|dolares|euros)|a (cordobas|dolares)|tipo de cambio|a como esta el cambio|cuanto (es|son) .{0,30}(dolares|cordobas|euros|pesos))/, "conversor"],
     [/(cuando (vence|es|cae|toca)|en cuantos dias|cuantos dias (faltan|quedan|para)|que dia (es|sera|cumple))/, "calendario"],
@@ -9703,7 +10378,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
   if (hasDigit && /(verdad|es cierto|es verdad|no es asi|is it true)/.test(folded)) return { isQuestion, family: "confirmacion" };
   // El hipotético y la calculadora se juzgan por su forma y sus montos.
   if (/^si (uso|gasto|compro|pago|me regalan|recibo)/.test(folded) && /(quedaria|queda|tendria|seria)/.test(folded)) return { isQuestion, family: "hipotetico" };
-  if (hasDigit && /(mas|\+|suma|total|resta|menos|divid|repart|por ciento|porcentaje|%|entre \d|partes iguales)/.test(folded)) return { isQuestion, family: "calculadora" };
+  if (hasDigit && /(mas|\+|suma|total|resta|menos|divid|repart|por ciento|porcentaje|percent|%|entre \d|partes iguales)/.test(folded)) return { isQuestion, family: "calculadora" };
   for (const [re, fam] of G) if (re.test(folded)) return { isQuestion, family: fam };
   return { isQuestion, family: null };
 }
