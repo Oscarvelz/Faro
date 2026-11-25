@@ -874,7 +874,7 @@ export const QUESTION_BANK: BankFamily[] = [
     source: ["libros.lineas", "ahorros.stock", "cobros.mideben"],
     axes: ["las bolsas (la queda de hoy × los ahorros × lo que me deben) × el borde declarado (sin efectivo fuera del libro, sin bienes, sin restar deudas)"],
     canonical: {
-      es: ["¿Cuánto dinero tengo en total?", "¿Cuánto tengo en total?", "¿Todo mi dinero cuánto es?"],
+      es: ["¿Cuánto dinero tengo en total?", "¿Cuánto tengo en total?", "¿Todo mi dinero cuánto es?", "¿Cuánto billete hay?"],
       en: ["How much money do I have in total?", "How much do I have in total?"],
     },
     answerShape: "OLA 46 (F1, la Caza II): la suma de las tres bolsas que el libro conoce — la queda de hoy (readAdvisor), el stock de ahorros (savingsStock) y lo que me deben (netBalance: préstamos dados + recompensas) — sin duplicar: lo apartado ya salió de la queda, porque el ahorro cuenta como salida en la lectura. La respuesta nombra cada bolsa con su cifra y declara su borde: no cuenta efectivo fuera del libro ni el valor de los bienes, y NO resta lo que debes — eso es el patrimonio, de la familia falta. Sin ninguna bolsa, se dice: el libro no guarda dinero en ningún lado todavía.",

@@ -5009,6 +5009,13 @@ describe("olas 65-67 · la campaña de mutaciones (la onda hostil y la onda amig
     assert.equal(r.family, "total");
     assert.ok(r.verdict.includes("En total tienes"), r.verdict);
   });
+  it("OLA 66 · la voz del «hay»: «¿Cuánto billete hay?» es el mismo total", () => {
+    const r = ask(ledger, "¿Cuánto billete hay?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "total");
+    assert.ok(r.verdict.includes("En total tienes"), r.verdict);
+  });
   it("OLA 66 · la guarda de clase: «billete» con clase nombrada es de ahorros, no del total", () => {
     const r = ask(ledger, "¿Cuánto billete tengo en ahorros?");
     assert.equal(r.kind, "answer");

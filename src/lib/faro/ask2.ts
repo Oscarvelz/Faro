@@ -7272,9 +7272,13 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
   // «¿tengo billete?» pide la cifra con su sí o su no por delante.
   // La clase nombrada sigue mandando sobre el nombre del dinero:
   // «¿cuánto billete tengo en ahorros?» es de ahorros, no de aquí.
+  // ADDENDA (puerto 1.3.458): la voz del «hay» con cuánto callaba
+  // — «¿cuánto billete hay?» devolvía unknown sobre un libro con
+  // dinero — y entra con su par inglés («how much money is
+  // there»), en esta puerta y en la fila «total» del clasificador.
   const bare = folded.replace(/[¿?¡!.,;]/g, "").replace(/\s+/g, " ").trim();
   const classNamed = /(en (mis? |el |la )?(ahorr|retiro|emergencia|meta|cuentas?|banco)|de (mis? )?ahorros|in (my )?(savings|retirement|accounts?))/.test(folded);
-  const moneyHow = /(cuanto (dinero|billete|efectivo) tengo|cuanto tengo en total|todo mi dinero|how much (money|cash) do i have|how much do i have in total)/.test(folded);
+  const moneyHow = /(cuanto (dinero|billete|efectivo) tengo|cuanto (dinero|billete|efectivo) hay|cuanto tengo en total|todo mi dinero|how much (money|cash) do i have|how much (money|cash) is there|how much do i have in total)/.test(folded);
   const bareMoney = /^(y )?(no )?(tengo|tenes|me queda|hay) (dinero|billete|efectivo)( para (gastar|comprar|pagar|salir|comer|eso|esto))?$/.test(bare)
     || /^(do i have|have i got) (any )?(money|cash)$/.test(bare);
   if (classNamed || (!moneyHow && !bareMoney)) return null;
@@ -11298,7 +11302,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(de que cuenta (saco|pago|tomo)|cual cuenta (uso|conviene)|de donde saco)/, "cuenta-origen"],
     [/(50.?30.?20|la regla|the rule|deberia gastar en|cuanto deberia (gastar|ahorrar))/, "regla"],
     [/(cuanto necesito (al mes|para vivir)|necesito para vivir|cuanto (me )?cuesta vivir|que (porcentaje|parte) de (lo que gano|mi sueldo|mi salario)|cuanto (me |nos )?(cuesta|cuestan) .{1,30} al mes|cuanto gastamos en|me alcanza con lo que gano|alcanza mi sueldo|how much do i need to live|what (percentage|share) of my income|how much does .{1,30} cost)/, "promedio"],
-    [/(cuanto (dinero )?tengo en total|todo mi dinero|how much money do i have in total)/, "total"],
+    [/(cuanto (dinero )?tengo en total|cuanto (dinero|billete|efectivo) hay|todo mi dinero|how much money do i have in total|how much (money|cash) is there)/, "total"],
     [/(promedio|gasto fijo|cuanto puedo gastar hoy|seguro gastar)/, "promedio"],
     [/(gustos|antojos|puedo gastar|darme el gusto|capricho)/, "gustos"],
     // OLA 25: la verificación nombra «promedio» en el oído — DESPUÉS

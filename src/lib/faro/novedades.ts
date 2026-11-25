@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.458",
+    date: "2026-11-25",
+    level: "menor",
+    title: { es: "La voz del «hay»", en: "The “is there” voice" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Preguntar «¿cuánto billete hay?» ya tiene respuesta: es el mismo total de tu dinero — la queda de hoy, tus ahorros y lo que te deben — con cada bolsa nombrada y su cifra. Antes esa forma callaba aunque el libro tuviera dinero.",
+        "Su par en inglés también entra: «how much money is there?» y «how much cash is there?» preguntan por el mismo total.",
+      ],
+      en: [
+        "Asking “how much cash is there?” now gets its answer: the same total of your money — what's left today, your savings and what's owed to you — with each bag named and its figure. Before, that form stayed silent even with money in the book.",
+        "Its Spanish twin came in too: “¿cuánto billete hay?” asks for the same total.",
+      ],
+    },
+  },
+  {
     version: "1.3.457",
     date: "2026-11-25",
     level: "grande",
