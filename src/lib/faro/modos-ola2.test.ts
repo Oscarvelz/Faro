@@ -458,8 +458,14 @@ describe("ola2 · cerca estructural: todo componente de cara nombra al sistema d
   // de un tema con los números del libro (el coach) y nada decide de
   // modo; el filtro por modo vive en su cara madre, manual.tsx, que sí
   // nombra el sistema.
+  // ENMIENDA 1.3.450 (Las figuras se dibujan): bank-figure.tsx entra
+  // por la misma familia — dibuja la figura que la respuesta del
+  // Asesor declara, con los números del libro, y nada decide de modo:
+  // la figura es contenido de la respuesta, y la respuesta no se
+  // castiga (ningún modo filtra lo que una respuesta trae); su cara
+  // madre, ask-box.tsx, nombra el sistema por sus asientos.
   const EXEMPT = [
-    "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
+    "bank-figure.tsx", "bank-guides.tsx", "bank-import.tsx", "bank-mark.tsx", "bank-pick.tsx",
     "bank-settings.tsx", "battery-row.tsx", "book-side.tsx", "card-art.tsx",
     "color-pick.tsx", "draft-row.tsx", "earnings.tsx", "finish.tsx", "focus-host.tsx", "folios-chips.tsx",
     "icons.tsx", "manual-figure.tsx", "manual-text.tsx", "rewards-real.tsx",

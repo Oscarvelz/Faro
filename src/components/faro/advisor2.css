@@ -547,6 +547,51 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .ask-relato-row strong { font-weight: 560; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ask-relato-row.is-dup { opacity: .62; }
 .ask-relato-dup { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+/* ── EL DIBUJO DE LAS FIGURAS DEL CENSO (1.3.450): la figura que
+ * el banco declara (1.3.449) dibujada dentro de la tarjeta de la
+ * respuesta, con los tokens del tema — su propio envoltorio, como
+ * cada renglón de la casa. */
+.ask-fig { margin: 10px 0 2px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 8px; background: color-mix(in oklab, var(--fg) 3%, transparent); }
+.ask-fig-note { margin-top: 8px; font-size: .78rem; line-height: 1.35; color: var(--muted); }
+.ask-fig-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.ask-fig-legrow { display: flex; justify-content: space-between; gap: 10px; font-size: .8rem; }
+.ask-fig-legrow strong { font-weight: 560; font-variant-numeric: tabular-nums; }
+.ask-fig-legrow.is-band { opacity: .7; font-size: .74rem; }
+.ask-fig-legrow.is-total { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 4px; margin-top: 2px; }
+.ask-fig-legrow.is-total span { font-weight: 560; font-variant-numeric: tabular-nums; }
+.ask-fig-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto; align-items: center; gap: 8px; padding: 3px 0; font-size: .8rem; }
+.ask-fig-rowlab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-fig-row strong { font-weight: 560; font-variant-numeric: tabular-nums; }
+.ask-fig-track { display: block; height: 8px; border-radius: 99px; background: color-mix(in oklab, var(--fg) 10%, transparent); overflow: hidden; }
+.ask-fig-fill { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.ask-fig-fill.is-neg { background: color-mix(in oklab, var(--bad) 62%, transparent); }
+.ask-fig-fill.is-premisa { background: color-mix(in oklab, var(--accent) 26%, transparent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ask-fig-band { position: relative; height: 22px; }
+.ask-fig-band::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 8px; transform: translateY(-50%); border-radius: 99px; background: color-mix(in oklab, var(--fg) 10%, transparent); }
+.ask-fig-tick { position: absolute; top: 50%; width: 2px; height: 15px; transform: translate(-50%, -50%); background: color-mix(in oklab, var(--fg) 45%, transparent); border-radius: 2px; }
+.ask-fig-tick.is-median { background: var(--warn); }
+.ask-fig-mark { position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--accent); }
+.ask-fig-mark.is-piso { background: var(--fg); }
+.ask-fig-mark.is-premisa { background: color-mix(in oklab, var(--accent) 26%, transparent); box-shadow: inset 0 0 0 2px var(--accent); }
+.ask-fig-stack { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: color-mix(in oklab, var(--fg) 10%, transparent); }
+.ask-fig-seg { display: block; height: 100%; background: var(--accent); }
+.ask-fig-seg.is-alt { background: color-mix(in oklab, var(--accent) 55%, transparent); }
+.ask-fig-svg { width: 100%; height: auto; display: block; }
+.ask-fig-path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ask-fig-zero { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
+.ask-fig-dot { fill: var(--fg); }
+.ask-fig-dot.is-minimo, .ask-fig-dot.is-conflicto { fill: var(--bad); }
+.ask-fig-dot.is-cierre { fill: var(--accent); }
+.ask-fig-cols { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 96px; padding-top: 14px; }
+.ask-fig-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+.ask-fig-coltop { font-size: .66rem; font-weight: 560; font-variant-numeric: tabular-nums; height: 12px; }
+.ask-fig-coltop:not(strong) { visibility: hidden; }
+.ask-fig-colbar { display: block; width: 72%; border-radius: 4px 4px 0 0; background: color-mix(in oklab, var(--accent) 52%, transparent); }
+.ask-fig-colbar.is-best { background: var(--accent); }
+.ask-fig-collab { font-size: .66rem; color: var(--muted); margin-top: 3px; }
+.ask-fig-hline { position: absolute; left: 0; right: 0; border-top: 1.5px dashed color-mix(in oklab, var(--fg) 45%, transparent); pointer-events: none; }
+.ask-fig-hline.is-median { border-top-color: var(--warn); }
+.ask-fig-hline em { position: absolute; right: 0; top: -8px; font-style: normal; font-size: .64rem; font-variant-numeric: tabular-nums; padding: 0 2px; opacity: .85; }
 /* 1.3.371 — el cuerpo de la descripción honesta de la fija.
    1.3.373 (Oscar, 19:42): la prosa seguida se leía como texto suelto
    en su teléfono — la descripción se presenta ahora en GRUPOS con

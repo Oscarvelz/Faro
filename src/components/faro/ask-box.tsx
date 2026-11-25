@@ -62,6 +62,7 @@ import { applyCrearDraft, locatePendingLine, rawNameFor } from "@/lib/faro/crear
 import { settleProgramaDrafts } from "@/lib/faro/programa-settle";
 import { settleRelatoDrafts } from "@/lib/faro/relato-settle";
 import { formatMoney } from "@/lib/faro/money";
+import { BankFigureView } from "./bank-figure";
 import { aliasIn, askPatternsOf, forgetAlias, learnAlias, touchAlias } from "@/lib/faro/asklearn";
 import { foldQ } from "@/lib/faro/lexicon";
 import { askPresetsOf, addAskPreset, capabilitiesText, FIXED_PRESET_Q, nextAskEntry, suggestionTrio } from "@/lib/faro/askpresets";
@@ -813,6 +814,13 @@ export function AskBox() {
               </div>
             ))}
           </div>
+          {/* LA FIGURA DE LA RESPUESTA (censo de figuras, 1.3.450):
+              cuando el banco declara la figura de esta respuesta
+              (1.3.449), la tarjeta la DIBUJA bajo sus piezas, con
+              los números reales del libro — la brecha ya la nombra
+              el veredicto; la figura enseña la forma. Sin asiento
+              de modo: la respuesta no se castiga. */}
+          {result.figure ? <BankFigureView figure={result.figure} fmt={fmt} /> : null}
           {result.note ? <p className="ask-note">{result.note}</p> : null}
           {/* LAS ACCIONES DE LA RESPUESTA (Olas 5/10/12, integración
               1.3.383): la respuesta PROPONE — la puerta a donde su

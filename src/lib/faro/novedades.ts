@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.450",
+    date: "2026-11-24",
+    level: "grande",
+    title: { es: "Las figuras se dibujan", en: "The figures are drawn" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Cuando la cifra de una respuesta es una forma, la respuesta ahora la DIBUJA bajo sus piezas: el camino de tu saldo día a día, con su día más bajo marcado, cuando preguntas si llegas a fin de mes.",
+        "La escala de tu colchón y de tu meta, con su piso y su mediana como muescas. El mapa de tus meses de ingreso y de gasto, con el mejor mes encendido y las líneas de tu piso y tu mediana.",
+        "Dos caminos lado a lado — avalancha contra bola de nieve, tu ritmo contra el pago que ensayas —, el árbol de un porqué con el signo de cada pieza, y las barras que suman tu queda: una barra partida cuando las piezas suman el total.",
+        "Todo se dibuja con los números reales de tu libro y los colores de tu tema, y la brecha sigue nombrada en palabras junto a la figura. Donde una cifra no se puede medir con exactitud, la respuesta no trae figura: el texto manda.",
+      ],
+      en: [
+        "When an answer's number is a shape, the answer now DRAWS it under its pieces: the path of your balance day by day, with its lowest day marked, when you ask whether you'll make it to month's end.",
+        "The scale of your cushion and of your goal, with its floor and median as notches. The map of your income and spending months, with the best month lit and the lines of your floor and your median.",
+        "Two paths side by side — avalanche against snowball, your pace against the payment you're trying on —, the tree of a why with the sign of each piece, and the bars that add up to what's left: one split bar when the pieces sum the total.",
+        "Everything is drawn with your book's real numbers and your theme's colors, and the gap stays named in words beside the figure. Where a number cannot be measured exactly, the answer carries no figure: the text rules.",
+      ],
+    },
+  },
+  {
     version: "1.3.449",
     date: "2026-11-24",
     level: "menor",
