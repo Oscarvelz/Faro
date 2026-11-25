@@ -47,9 +47,11 @@ test("376-3 · en la caja: «A la mano» antes que las sugerencias, y estas con 
   // ENMIENDA 1.3.445 (puerto de la Rama Agente): la puerta de reposo
   // gana su tercer término (!relato) — con la tarjeta del relato viva
   // la caja no está en reposo. La ley no cambia: una sola puerta.
-  const idleGate = boxSrc.indexOf("{!result && !caps && !relato ? (");
+  // ENMIENDA 1.3.446 (E3): el cuarto término (!programa) llega con la
+  // tarjeta de la programación — la misma ley, la misma puerta única.
+  const idleGate = boxSrc.indexOf("{!result && !caps && !relato && !programa ? (");
   assert.ok(idleGate > presets, "la única puerta de reposo (las sugerencias) vive tras «A la mano»: entre el campo y las preguntas de la persona no hay chips sueltos");
-  assert.equal(boxSrc.split("{!result && !caps && !relato ? (").length - 1, 1, "una sola puerta de reposo en toda la caja");
+  assert.equal(boxSrc.split("{!result && !caps && !relato && !programa ? (").length - 1, 1, "una sola puerta de reposo en toda la caja");
   assert.ok(row > 0 && row < presets, "el campo sigue arriba de todo");
 });
 

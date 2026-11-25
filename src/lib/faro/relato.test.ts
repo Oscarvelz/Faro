@@ -287,6 +287,18 @@ describe("relato E3 · programar por relato", () => {
     assert.equal(d.firstDate, "2026-11-06");
   });
 
+  it("el programa compuesto: «programa el internet 50 cada mes y recuérdame pagar la luz cada mes» — dos borradores (enmienda de canon 1.3.446)", () => {
+    const r = programa(fixture(), "programa el internet 50 cada mes y recuérdame pagar la luz cada mes");
+    assert.equal(r.kind, "schedules", JSON.stringify(r).slice(0, 200));
+    if (r.kind !== "schedules") return;
+    assert.equal(r.drafts.length, 2, r.echo);
+    assert.equal(r.drafts[0].concept, "Internet");
+    assert.equal(r.drafts[0].clase, "fijo");
+    assert.equal(r.drafts[1].concept, "Luz");
+    assert.equal(r.drafts[1].clase, "recordatorio");
+    assert.equal(r.drafts[1].amountMinor, null);
+  });
+
   it("sin cadencia ni fecha se pregunta el cuándo: «programa el pago de la renta»", () => {
     const r = programa(fixture(), "programa el pago de la renta");
     assert.equal(r.kind, "ask");

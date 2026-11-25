@@ -355,8 +355,14 @@ function splitClauses(folded: string): string[] {
       }
       const before = toks.slice(0, i);
       const after = toks.slice(i + 1);
-      const afterHas = verbOf(after) !== null || amountSpans(after, -1).length > 0;
-      const beforeHas = verbOf(before) !== null || amountSpans(before, -1).length > 0;
+      // 1.3.446 (enmienda de canon al puerto): un lado también trae
+      // contenido si trae un verbo de programar (E3) — «programa el
+      // internet 50 cada mes y recuérdame pagar la luz» es UN relato
+      // de dos cláusulas para el mismo oído que corta los relatos de
+      // lo hecho; sin esto, la segunda cláusula se perdía en silencio
+      // dentro de la primera.
+      const afterHas = verbOf(after) !== null || amountSpans(after, -1).length > 0 || after.some((t) => PROG_VERBS.has(t));
+      const beforeHas = verbOf(before) !== null || amountSpans(before, -1).length > 0 || before.some((t) => PROG_VERBS.has(t));
       if (afterHas && beforeHas) cuts.push(i);
     }
     if (!cuts.length) { out.push(part); continue; }

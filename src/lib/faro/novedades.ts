@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.446",
+    date: "2026-11-24",
+    level: "grande",
+    title: { es: "Programar contándolo", en: "Scheduling by telling" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "La misma caja del Asesor ahora también mira adelante: dile «programa la luz 45 cada mes el día 1» y nace el borrador de dejarlo programado — su monto, su cadencia y su primera fecha — cada uno con su tarjetita, como el relato.",
+        "Nada se programa sin tu sí: la tarjeta te repite lo oído y pregunta «¿Lo dejo programado así?». Con «Dejarlo programado» queda escrito como una línea fija de su mes; con «Ahora no», nada se toca. Lo que ya estaba programado no se programa dos veces: su tarjetita lo dice.",
+        "Sin monto no inventa ninguno: «recuérdame pagar la luz cada mes» queda como solo recordatorio — Faro recuerda y el monto se confirma cuando llega, como pasa con la luz de verdad.",
+        "Y si falta el cuándo — ni cadencia ni fecha — pregunta antes de programar: sin eso no sabe cómo dejarlo programado.",
+      ],
+      en: [
+        "The Advisor's same box now also looks ahead: say “schedule the power bill 45 every month on day 1” and the draft to schedule it is born — its amount, its cadence and its first date — each with its own little card, like the story.",
+        "Nothing is scheduled without your yes: the card repeats what it heard and asks “Shall I schedule it like this?”. With “Schedule it” it is written as a fixed line of its month; with “Not now”, nothing is touched. What was already scheduled is never scheduled twice: its little card says so.",
+        "With no amount it invents none: “remind me to pay the power bill every month” stays as a reminder only — Faro remembers, and the amount is confirmed when it arrives, the way the real power bill works.",
+        "And if the when is missing — no cadence and no date — it asks before scheduling: without that it doesn't know how to schedule it.",
+      ],
+    },
+  },
+  {
     version: "1.3.445",
     date: "2026-11-24",
     level: "grande",

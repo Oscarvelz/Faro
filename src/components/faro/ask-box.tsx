@@ -54,7 +54,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, Compass, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, classifyBankQuestion, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
-import { parseRelato, type RelatoResult } from "@/lib/faro/relato";
+import { parsePrograma, parseRelato, type ProgramaResult, type RelatoResult } from "@/lib/faro/relato";
+import { settleProgramaDrafts } from "@/lib/faro/programa-settle";
 import { settleRelatoDrafts } from "@/lib/faro/relato-settle";
 import { formatMoney } from "@/lib/faro/money";
 import { aliasIn, askPatternsOf, forgetAlias, learnAlias, touchAlias } from "@/lib/faro/asklearn";
@@ -141,6 +142,12 @@ export function AskBox() {
   // falta. La tarjeta propone y el toque dispone: «Asentarlo así»
   // asienta por relato-settle; «Ahora no» no toca el libro.
   const [relato, setRelato] = useState<RelatoResult | null>(null);
+  // 1.3.446 · E3: el mismo oído, mirando adelante — si lo escrito no
+  // es pregunta ni relato de lo ya hecho, puede ser la orden de
+  // programar lo que viene («programa la luz 45 cada mes»): parsePrograma
+  // devuelve borradores con su eco, o la pregunta por el dato que
+  // falta. «Dejarlo programado» programa por programa-settle.
+  const [programa, setPrograma] = useState<ProgramaResult | null>(null);
   // 1.3.376: cada montaje de la caja es una entrada al Asesor; el
   // número de entrada elige el trío de sugerencias del banco.
   const [entry] = useState(() => nextAskEntry());
@@ -188,6 +195,7 @@ export function AskBox() {
     if (!clean || !session) return;
     setCaps(false);
     setRelato(null);
+    setPrograma(null);
     setAsked(clean);
     setProposalOff(false);
     // 1.3.445 · LA COSTURA DEL RELATO: lo que no es pregunta puede ser
@@ -203,6 +211,18 @@ export function AskBox() {
         const rr = parseRelato(session.ledger, key, lang, names, clean, todayLocal());
         if (rr.kind !== "unknown") {
           setRelato(rr);
+          setResult(null);
+          setFrame(null);
+          setConvo(null);
+          setText("");
+          return;
+        }
+        // 1.3.446 · E3: ni pregunta ni relato — ¿la orden de
+        // programar? El mismo criterio: solo un «unknown» cae a la
+        // cascada, y programar jamás roba una pregunta ni un relato.
+        const pr = parsePrograma(session.ledger, key, lang, names, clean, todayLocal());
+        if (pr.kind !== "unknown") {
+          setPrograma(pr);
           setResult(null);
           setFrame(null);
           setConvo(null);
@@ -334,6 +354,18 @@ export function AskBox() {
     setRelato(null);
   }
 
+  // 1.3.446: el toque que dispone de la programación — el eco ya
+  // dijo lo que se oyó; este toque lo deja programado en el libro
+  // por la costura de programa-settle (que jamás programa un
+  // duplicado dos veces).
+  function confirmPrograma() {
+    if (!session || programa?.kind !== "schedules") return;
+    const drafts = programa.drafts;
+    commit((s) => settleProgramaDrafts(s, drafts), L("Dejar programado", "Schedule it"));
+    importToast({ text: L("Quedó programado en tu libro.", "It's scheduled in your book.") });
+    setPrograma(null);
+  }
+
   // La fija del sistema: «¿Qué puede hacer el asesor?» — su respuesta no pasa por
   // el motor de preguntas: es la descripción honesta generada del banco
   // en el momento (askpresets.capabilitiesText), rendida como tarjeta de
@@ -354,6 +386,7 @@ export function AskBox() {
   function closeAnswer() {
     setResult(null);
     setRelato(null);
+    setPrograma(null);
     setFrame(null);
     setCaps(false);
     setAsked("");
@@ -469,6 +502,37 @@ export function AskBox() {
       {relato?.kind === "ask" ? (
         <div className="ask-card" data-anchor="ask-relato-ask">
           <p className="ask-verdict">{relato.question}</p>
+        </div>
+      ) : null}
+      {programa?.kind === "schedules" ? (
+        <div className="ask-card" data-anchor="ask-programa">
+          <p className="ask-verdict">{programa.echo}</p>
+          <div className="ask-relato-rows">
+            {programa.drafts.map((d, i) => (
+              <div key={i} className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
+                <span>{d.concept}</span>
+                {d.clase === "fijo" && d.amountMinor !== null
+                  ? <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
+                  : <span className="ask-relato-dup">{L("solo recordatorio", "reminder only")}</span>}
+                {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba programado", "already scheduled")}</span> : null}
+              </div>
+            ))}
+          </div>
+          <div className="ask-chips">
+            {programa.drafts.some((d) => !d.duplicate) ? (
+              <>
+                <button type="button" className="ask-chip is-fixed" data-anchor="ask-programa-yes" onClick={confirmPrograma}>{L("Dejarlo programado", "Schedule it")}</button>
+                <button type="button" className="ask-chip" data-anchor="ask-programa-no" onClick={() => setPrograma(null)}>{L("Ahora no", "Not now")}</button>
+              </>
+            ) : (
+              <button type="button" className="ask-chip is-fixed" data-anchor="ask-programa-ok" onClick={() => setPrograma(null)}>{L("Entendido", "Got it")}</button>
+            )}
+          </div>
+        </div>
+      ) : null}
+      {programa?.kind === "ask" ? (
+        <div className="ask-card" data-anchor="ask-programa-ask">
+          <p className="ask-verdict">{programa.question}</p>
         </div>
       ) : null}
       {result?.kind === "unknown" ? (
@@ -589,7 +653,7 @@ export function AskBox() {
           TRES, con su propio rótulo — como «A la mano» lleva el suyo —
           y DEBAJO de las preguntas de la persona. El trío rota en cada
           entrada a la caja (askpresets.suggestionTrio). */}
-      {!result && !caps && !relato ? (
+      {!result && !caps && !relato && !programa ? (
         <div className="ask-presets" data-anchor="ask-suggest">
           <span className="ask-presets-label">{L("Sugerencias", "Suggestions")}</span>
           <div className="ask-chips">
