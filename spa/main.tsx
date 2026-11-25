@@ -15,6 +15,7 @@ import { lockCredential, unlock } from "@/spa/lock";
 import { w } from "@/spa/words";
 import { clearGlow } from "@/lib/manual/nav";
 import { startFit } from "@/spa/fit";
+import { startTypingCalm } from "@/spa/typing-calm";
 import { startStatusBar } from "@/spa/statusbar";
 import { startNative } from "@/spa/native";
 import "@/spa/gate.css";
@@ -281,6 +282,7 @@ function Gate({ onReady }: { onReady: (v: boolean) => void }) {
 
 installSampleMode();
 startFit();
+startTypingCalm(); // 1.3.455: la decoración se calla mientras se escribe
 startStatusBar();
 startNative(); // Faro for Android only; a no-op in the browser and the PWA
 createRoot(document.getElementById("root")!).render(

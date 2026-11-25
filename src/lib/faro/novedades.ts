@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.455",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "Escribir ya no se pega", en: "Typing no longer sticks" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Escribir ya no se pega: cuando empiezas a escribir en cualquier campo, la app pausa las animaciones de la decoración que estén corriendo, y vuelven en cuanto terminas. El tema se ve exactamente igual; solo deja de moverse mientras tecleas.",
+        "La causa era una pelea: cada tecla competía contra el repintado continuo de la decoración del tema, y en los temas con mucho movimiento el texto se quedaba atrás, tramo a tramo, hasta que la app podía llegar a cerrarse.",
+        "Vale en todas partes donde escribes: la pregunta del Asesor, los campos de Anotar, los ajustes. La regla es de toda la app y de todo tema: escribir manda sobre decorar.",
+        "Nada de lo que escribes cambia con la pausa: es solo la decoración la que se calla, y lo que el campo muestra y hace mientras escribes queda intacto.",
+      ],
+      en: [
+        "Typing no longer sticks: when you start writing in any field, the app pauses the decorative animations that are running, and they come back as soon as you finish. The theme looks exactly the same; it just stops moving while you type.",
+        "The cause was a fight: every keystroke competed against the theme decoration's constant repainting, and in the busiest themes the text fell behind, stretch by stretch, until the app could even be closed by the system.",
+        "It holds everywhere you write: the Advisor's question, the fields in Add, the settings. The rule belongs to the whole app and every theme: writing outranks decorating.",
+        "Nothing you write changes with the pause: only the decoration goes quiet, and what the field shows and does while you write stays untouched.",
+      ],
+    },
+  },
+  {
     version: "1.3.454",
     date: "2026-11-25",
     level: "grande",
