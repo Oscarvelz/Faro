@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.456",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "La caja obedece", en: "The box obeys" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Tu pregunta ahora trae un lapicito en su esquina: tócalo y lo que preguntaste vuelve a la caja tal como lo escribiste, para corregirlo sin reescribirlo. La respuesta se queda en pantalla hasta que envíes la nueva versión.",
+        "Lo que le cuentas al Asesor para asentar, programar u ordenar ya no desaparece: tu texto queda arriba, en su tarjeta, igual que cuando preguntas, mientras decides si se hace.",
+        "El resumen de lo que el Asesor entendió de tu relato ahora se lee en sus renglones, uno por cosa, en el mismo orden en que abajo ves cada borrador con su monto.",
+        "Cuando una respuesta te propone acciones abajo — enviarlo como remesa, convertirlo, dejarlo en la bandeja — los botones ahora sí están: antes la respuesta los prometía y la caja no los mostraba.",
+      ],
+      en: [
+        "Your question now carries a little pencil in its corner: tap it and what you asked returns to the box exactly as you wrote it, so you can fix it without retyping. The answer stays on screen until you send the new version.",
+        "What you tell the Advisor to post, schedule or carry out no longer disappears: your words stay on top, in their card, just as when you ask, while you decide whether it happens.",
+        "The summary of what the Advisor understood from your story now reads in its own lines, one per thing, in the same order as the drafts you see below with their amounts.",
+        "When an answer proposes actions below — send it as a remittance, convert it, leave it in the tray — the buttons are now actually there: before, the answer promised them and the box never showed them.",
+      ],
+    },
+  },
+  {
     version: "1.3.455",
     date: "2026-11-25",
     level: "grande",

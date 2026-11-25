@@ -523,20 +523,32 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
    respuesta del asesor necesita un mejor envoltorio, más belleza, para
    que el texto no aparezca suelto») — una tarjeta dentro de la caja, con
    el filo del acento a la izquierda: es el Asesor quien habla. */
-.ask-q { background: color-mix(in oklab, var(--accent) 6%, var(--surface)); border: 1px dashed color-mix(in oklab, var(--accent) 40%, var(--line)); border-radius: 12px; padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; font: inherit; text-align: left; width: 100%; cursor: pointer; }
+.ask-q { background: color-mix(in oklab, var(--accent) 6%, var(--surface)); border: 1px dashed color-mix(in oklab, var(--accent) 40%, var(--line)); border-radius: 12px; padding: 9px 44px 9px 12px; display: flex; flex-direction: column; gap: 2px; font: inherit; text-align: left; width: 100%; cursor: pointer; }
 .ask-q-label { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .ask-q-text { margin: 0; font-size: .95rem; font-weight: 600; line-height: 1.35; color: var(--ink); }
+/* 1.3.456 · EL LAPICITO: la envoltura posiciona el lápiz en la esquina
+   inferior derecha de la tarjeta, con su aire parejo (la ley de
+   envoltorio: proporción, sin traslapo — el texto lleva su reserva a
+   la derecha en .ask-q). El lápiz es un botón quieto con los tokens
+   del tema, nunca un color propio. */
+.ask-q-wrap { position: relative; }
+.ask-q-edit { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--line)); background: var(--surface); color: var(--accent); cursor: pointer; padding: 0; }
+.ask-q-edit:hover { background: color-mix(in oklab, var(--accent) 10%, var(--surface)); }
 .ask-card { background: var(--surface2); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
 /* 1.3.436 (Oscar, 2026-11-23, en su teléfono y en la línea de Q&A: «the
    response should not be in bold»): el veredicto es prosa y se lee como
    prosa — peso normal. La negrita queda para lo que la gana: rótulos y
-   la primera palabra de un sí o un no viven en el texto, no en el peso. */
-.ask-verdict { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.35; }
+   la primera palabra de un sí o un no viven en el texto, no en el peso.
+   1.3.456: el veredicto y la nota llevan white-space: pre-line — los
+   textos que nacen con un renglón por cosa (el eco del relato y sus
+   hermanos) se presentan con sus líneas, no cosidos en un párrafo;
+   la prosa de un solo párrafo no cambia en nada. */
+.ask-verdict { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.35; white-space: pre-line; }
 .ask-pieces { display: flex; flex-direction: column; }
 .ask-piece { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: .88rem; color: var(--muted); padding: 5px 0; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
 .ask-piece:first-child { border-top: 0; padding-top: 0; }
 .ask-piece strong { color: var(--ink); font-weight: 560; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ask-note { margin: 0; font-size: .84rem; color: var(--muted); line-height: 1.4; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); padding-top: 8px; }
+.ask-note { margin: 0; font-size: .84rem; color: var(--muted); line-height: 1.4; border-top: 1px solid color-mix(in oklab, var(--fg) 8%, transparent); padding-top: 8px; white-space: pre-line; }
 /* 1.3.445 (puerto de la Rama Agente) — EL RELATO: cada borrador del
    cuento lleva su propia tarjetita dentro de la tarjeta del eco
    (cada renglón, su tarjetita); el duplicado — lo que ya estaba

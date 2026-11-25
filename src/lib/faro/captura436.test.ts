@@ -18,8 +18,11 @@ const advisor = readFileSync(new URL("../../components/faro/advisor2.css", impor
 const styles = readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
 
 test("436 · el veredicto del Asesor se lee como prosa, no en negrita", () => {
+  // ENMIENDA 1.3.456: la regla del veredicto ganó «white-space:
+  // pre-line» (el eco conserva sus líneas al presentarse); el peso
+  // que esta cerca guarda — 400, prosa — no cambia.
   assert.ok(
-    advisor.includes(".ask-verdict { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.35; }"),
+    advisor.includes(".ask-verdict { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.35; white-space: pre-line; }"),
     "el veredicto pesa 400: la respuesta no va en negrita",
   );
   assert.ok(

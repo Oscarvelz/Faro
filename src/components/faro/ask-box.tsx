@@ -50,9 +50,26 @@
  * renglón propio (la prosa cosida con punto y coma se leía como texto
  * suelto), y la tarjeta de la pregunta es un botón: tocarla CIERRA la
  * respuesta y las preguntas sugeridas del banco reaparecen.
+ *
+ * 1.3.456 · LA CAJA OBEDECE (cuatro fallos de Oscar en su teléfono):
+ * (1) EL LAPICITO — la tarjeta de lo dicho lleva un lápiz en su
+ * esquina inferior derecha que devuelve el texto a la caja para
+ * reeditarlo sin reescribirlo. (2) LO DICHO QUEDA ARRIBA TAMBIÉN EN
+ * LAS ÓRDENES — la tarjeta se presenta con la misma forma cuando lo
+ * abierto es un relato, un programa, una orden o una creación, no
+ * solo con una respuesta: la condición de la tarjeta nombra los
+ * cuatro flujos (antes pedía result o caps, y lo dicho desaparecía).
+ * (3) EL ECO CON SUS LÍNEAS — los ecos nacen con un renglón por cosa
+ * (buildEcho une con «\n») y la presentación los aplanaba: el CSS de
+ * la tarjeta conserva ahora los saltos con los que el texto nace
+ * (white-space: pre-line en .ask-verdict y .ask-note). (4) LAS
+ * ACCIONES PROMETIDAS SE VEN — las puertas que el banco emite y cuyo
+ * tema no estaba en FUNCTION_TOPIC se descartaban en silencio; el
+ * mapa las registra (askmap.ts) y captura456 cerca que todo target
+ * emitido resuelva a un tema con ruta.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Compass, Send, Settings, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, Compass, Pencil, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, classifyBankQuestion, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
 import { parsePrograma, parseRelato, type ProgramaResult, type RelatoDraft, type RelatoResult } from "@/lib/faro/relato";
 import { parseOrden, type OrdenResult } from "@/lib/faro/orden";
@@ -554,6 +571,22 @@ export function AskBox() {
     setText("");
   }
 
+  // 1.3.456 (Oscar): EL LAPICITO de la tarjeta — lo dicho vuelve a la
+  // caja tal como se escribió, para corregirlo sin reescribirlo, con
+  // el cursor al final; la respuesta vigente se queda en pantalla
+  // hasta que la versión editada se envíe.
+  function editAsked() {
+    if (!asked) return;
+    setText(asked);
+    requestAnimationFrame(() => {
+      const el = taRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+      el.scrollIntoView({ block: "nearest" });
+    });
+  }
+
   // 1.3.373 (Oscar, 2026-11-21 19:42): tocar la tarjeta de la pregunta
   // CIERRA la respuesta — la tarjeta se va, la respuesta se va, y las
   // preguntas sugeridas del banco reaparecen (viven solo sin respuesta).
@@ -605,11 +638,16 @@ export function AskBox() {
           <Send size={15} />
         </button>
       </div>
-      {(result || caps) && asked ? (
-        <button type="button" className="ask-q" data-anchor="ask-q" onClick={closeAnswer} aria-label={L("Cerrar la respuesta", "Close the answer")}>
-          <span className="ask-q-label">{L("Tu pregunta", "Your question")}</span>
-          <span className="ask-q-text">{asked}</span>
-        </button>
+      {(result || caps || relato || programa || orden || crear) && asked ? (
+        <div className="ask-q-wrap">
+          <button type="button" className="ask-q" data-anchor="ask-q" onClick={closeAnswer} aria-label={L("Cerrar la respuesta", "Close the answer")}>
+            <span className="ask-q-label">{L("Tu pregunta", "Your question")}</span>
+            <span className="ask-q-text">{asked}</span>
+          </button>
+          <button type="button" className="ask-q-edit" data-anchor="ask-q-edit" onClick={editAsked} aria-label={L("Reeditar tu pregunta", "Re-edit your question")}>
+            <Pencil size={14} />
+          </button>
+        </div>
       ) : null}
       {caps ? (
         <div className="ask-card" data-anchor="ask-card">

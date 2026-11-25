@@ -599,6 +599,25 @@ export const FUNCTION_TOPIC: Record<string, string> = {
   "folios.logbook": "bitacora",
   "settings.ask-presets": "preguntas-a-la-mano",
   "captura.billetera": "billetera-notificaciones",
+  // 1.3.456 (Oscar, en su teléfono): LAS ACCIONES PROMETIDAS SE VEN —
+  // el banco emitía estas puertas como datos (las tres acciones de
+  // «quiero enviarle 200 a mi mamá», los reportDoor de Ahorros e
+  // Historial y las fuentes de varias familias) y la caja las
+  // descartaba en silencio porque su función no estaba en este mapa:
+  // la respuesta prometía «abajo te propongo la acción» y abajo no
+  // había nada. Cada entrada de abajo resuelve a un tema con ruta
+  // verificada, y la cerca de captura456 exige que TODO target que el
+  // banco emita resuelva aquí o por las llaves de un tema con ruta.
+  "remesas.personas": "remesas-personas",
+  "cambio.mesa": "mesa-cambio",
+  "captura.bandeja": "captura-mesa",
+  "captura.escribir": "captura-texto",
+  "ahorros.stock": "ahorros-banda",
+  "ahorros.colchon": "bolsas",
+  "ahorros.mes": "apartado-mes",
+  "historial.stream": "folios",
+  "ajustes.estructura": "estructura",
+  "cuenta.sync": "sync",
 };
 
 /** Busca la función del mapa que un usuario nombra al preguntar por la

@@ -69,13 +69,14 @@ test("346 · el anuncio: una sola tarjeta, la grande más nueva sin ver", () => 
   // 1.3.450 («Las figuras se dibujan»), la 1.3.452 («Cada monto
   // obedece a su verbo»), la 1.3.453 («El área de ahorros, mapeada
   // entera»), la 1.3.454 («Tu ortografía ya no mata la pregunta») y la
-  // 1.3.455 («Escribir ya no se pega») — esta expectativa se
+  // 1.3.455 («Escribir ya no se pega») y la
+  // 1.3.456 («La caja obedece») — esta expectativa se
   // mueve con cada nota grande nueva, a propósito. (La 408 la dejó
   // desactualizada en silencio: su suite corrió con el sello en 1.3.407 y
   // la expectativa vieja pasaba por el tope; la enfocada de la 409 la cazó.)
-  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.455");
+  assert.equal(announcementFor("1.3.344", FARO_VERSION)?.version, "1.3.456");
   // Desde la 342 (menor): la grande más nueva del tramo es una sola, no una pila.
-  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.455");
+  assert.equal(announcementFor("1.3.342", FARO_VERSION)?.version, "1.3.456");
   // El tramo (seen, current] no incluye lo ya visto ni lo futuro.
   const tramo = newsBetween("1.3.340", "1.3.344").map((n) => n.version);
   assert.deepEqual(tramo, ["1.3.344", "1.3.343", "1.3.342"]);
