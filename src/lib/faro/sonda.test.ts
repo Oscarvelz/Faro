@@ -16,7 +16,12 @@ import type { LedgerState, Line, LineKind } from "./types.ts";
  * persona que secuestraba el mes, y la costura bilingüe del
  * ciudadano. Los huecos honestos que la sonda midió (el verbo
  * cruzado que no se oye, el ancla «last viernes») NO se afirman
- * aquí como doctrina: viven en el acta de resultados. */
+ * aquí como doctrina: viven en el acta de resultados.
+ * ACTUALIZACIÓN (Ola P1, 1.3.477): la clase 4 del frente ambiguo
+ * quedó cerrada en su parte de anclas — hoy, ayer, antier, el día
+ * de la semana y el fin de semana son rangos con su fecha en
+ * periodOf —; lo mal formado («el last viernes») sigue declarado
+ * abierto, como quedó escrito. */
 
 const KEY = "2026-10";
 const PREV = "2026-09";

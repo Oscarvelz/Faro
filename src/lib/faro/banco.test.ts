@@ -5725,3 +5725,74 @@ describe("banco · caza del teléfono 2026-11-25: la calculadora desnuda y el qu
   });
 });
 
+describe("banco · ola P1 (prejuicio) — las anclas de un día y el fin de semana", () => {
+  // Libro propio de la ola: marzo de 2027, hoy lunes 15. El viernes
+  // pasado es el 12 (Café $12), ayer el 14 (Panadería $18), hoy el
+  // 15 (Almuerzo $25), el fin de semana el 13 y el 14 ($30 + $18),
+  // el lunes pasado el 8 (Farmacia $75).
+  const KEYP1 = "2027-03";
+  const TODAYP1 = "2027-03-15";
+  function libroP1(): LedgerState {
+    const l = createInitial("es", "claro");
+    l.settings.display = "USD";
+    const line = (p: Partial<Line> & { id: string; kind: LineKind; amountMinor: number }): Line => ({
+      seriesId: p.id, monthKey: KEYP1, currency: "USD", active: true, bookedOn: `${KEYP1}-01`, concept: "", subId: "", ...p,
+    } as Line);
+    l.months[KEYP1] = { lines: [
+      line({ id: "sal", kind: "income-fixed", amountMinor: 120000, concept: "Salario", bookedOn: "2027-03-01" }),
+      line({ id: "gas", kind: "expense-variable", amountMinor: 9000, concept: "Gasolina", categoryId: "f-transporte", bookedOn: "2027-03-06" }),
+      line({ id: "farm", kind: "expense-variable", amountMinor: 7500, concept: "Farmacia", categoryId: "personales", subId: "v.personales.salud", bookedOn: "2027-03-08" }),
+      line({ id: "cafe", kind: "expense-variable", amountMinor: 1200, concept: "Café", bookedOn: "2027-03-12" }),
+      line({ id: "cine", kind: "expense-variable", amountMinor: 3000, concept: "Cine", bookedOn: "2027-03-13" }),
+      line({ id: "pan", kind: "expense-variable", amountMinor: 1800, concept: "Panadería", bookedOn: "2027-03-14" }),
+      line({ id: "alm", kind: "expense-variable", amountMinor: 2500, concept: "Almuerzo", bookedOn: "2027-03-15" }),
+    ] };
+    return l;
+  }
+  function askP1(l: LedgerState, raw: string, lang: "es" | "en" = "es") {
+    const names = makeNamer(l.structure, lang);
+    const c = { ledger: l, lang, today: TODAYP1, display: "USD" as const, makeId: () => "q1", now: `${TODAYP1}T12:00:00.000Z` } as ParseCtx;
+    return answerBankQuestion(l, KEYP1, lang, names, raw, c, TODAYP1);
+  }
+  const suma = (r: ReturnType<typeof askP1>) => (r.kind === "answer" ? r.pieces.filter((p) => p.minor > 0).reduce((a, p) => a + p.minor, 0) : -1);
+
+  it("ayer, hoy y el viernes pasado dan SU día, no el mes", () => {
+    const l = libroP1();
+    assert.equal(suma(askP1(l, "¿Cuánto gasté ayer?")), 1800);
+    assert.equal(suma(askP1(l, "¿Cuánto gasté hoy?")), 2500);
+    assert.equal(suma(askP1(l, "¿Cuánto gasté el viernes pasado?")), 1200);
+    assert.equal(suma(askP1(l, "¿Cuánto gasté antier?")), 3000);
+  });
+  it("el fin de semana es sábado y domingo, con sus fechas", () => {
+    const l = libroP1();
+    const r = askP1(l, "¿Cuánto gasté el fin de semana?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(suma(r), 4800);
+    assert.ok(r.verdict.includes("13 y 14 de marzo"), r.verdict);
+  });
+  it("el día de la semana: el pasado es el último vivido y el desnudo cae en el último", () => {
+    const l = libroP1();
+    assert.equal(suma(askP1(l, "¿Cuánto gasté el lunes pasado?")), 7500);
+    assert.equal(suma(askP1(l, "¿Cuánto gasté el lunes?")), 2500); // hoy es lunes: el desnudo es hoy
+    assert.equal(suma(askP1(l, "¿Cuánto gasté el domingo?")), 1800);
+    const fut = askP1(l, "¿Cuánto gasté este viernes?");
+    if (fut.kind !== "answer") assert.fail("debió responder");
+    assert.ok(fut.verdict.includes("19 de marzo"), fut.verdict);
+    assert.equal(suma(fut), 0);
+  });
+  it("el ancla se cruza con el ciudadano y con el ingreso, y en inglés", () => {
+    const l = libroP1();
+    assert.equal(suma(askP1(l, "¿Cuánto gasté en gasolina el viernes pasado?")), 0);
+    assert.equal(suma(askP1(l, "¿Cuánto ingresé ayer?")), 0);
+    assert.equal(suma(askP1(l, "How much did I spend yesterday?", "en")), 1800);
+    assert.equal(suma(askP1(l, "How much did I spend last friday?", "en")), 1200);
+  });
+  it("los guardianes: el mes y la queda de hoy no se mueven", () => {
+    const l = libroP1();
+    assert.equal(suma(askP1(l, "¿Cuánto gasté este mes?")), 25000);
+    const q = askP1(l, "¿Cuánto me queda hoy?");
+    if (q.kind !== "answer") assert.fail("debió responder");
+    assert.equal(q.family, "left");
+  });
+});
+

@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.477",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Las anclas de un día: ayer es ayer", en: "One-day anchors: yesterday is yesterday" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«¿Cuánto gasté ayer?», «¿cuánto gasté hoy?» y «¿cuánto gasté el viernes pasado?» ya responden ese día, con su fecha nombrada en la respuesta. Antes caían al mes entero sin decirlo.",
+        "«El fin de semana» también es el suyo: el sábado y el domingo últimos vividos, con sus fechas. Antes tomaba prestada la semana corriente y respondía otra cosa con el rótulo del fin de semana.",
+        "Lo heredan el historial, el conteo, la frecuencia y la comparación: el día nombrado es un rango de un día en el motor de períodos, no un parche de una sola familia.",
+      ],
+      en: [
+        "“How much did I spend yesterday?”, “today?” and “last Friday?” now answer that day, with its date named in the answer. Before, they fell back to the whole month without saying so.",
+        "“The weekend” is its own too: the last Saturday and Sunday lived, with their dates. Before, it borrowed the current week and answered something else under the weekend's label.",
+        "History, counting, frequency and comparisons all inherit it: the named day is a one-day range in the period engine, not a one-family patch.",
+      ],
+    },
+  },
+  {
     version: "1.3.476",
     date: "2026-11-26",
     level: "menor",

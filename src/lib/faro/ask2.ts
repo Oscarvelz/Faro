@@ -2049,6 +2049,52 @@ function periodOf(c: Ctx, folded: string): Period {
     const k = prevKey(c.key);
     return { kind: "month", key: k, label: L(c.lang, "el mes pasado", "last month") };
   }
+  // OLA P1 · LAS ANCLAS DE UN DÍA Y EL FIN DE SEMANA (la clase 4 del
+  // frente ambiguo, medida por el examen sellado: «¿cuánto gasté
+  // ayer?», «hoy» y «el viernes pasado» caían al MES ENTERO sin
+  // decirlo, y «el fin de semana» tomaba prestada la semana). El
+  // día nombrado es un rango de un día con su fecha en el rótulo:
+  // hoy, ayer, antier, el día de la semana (el pasado es el último
+  // ya vivido; el de esta semana, el que viene, y si hoy es ese
+  // día, hoy) y el fin de semana (sábado y domingo, el último
+  // vivido). Lo heredan historia, conteo, frecuencia y comparar.
+  // En canon va tras el bloque de «hace» de la Ola 35 y antes de
+  // las ramas de semana, como manda la nota de la ola.
+  const dayAnchorP1 = ((): { from: string; to: string; label: string } | null => {
+    const t = new Date(`${c.today}T12:00:00`);
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const shift = (n: number) => { const d = new Date(t); d.setDate(d.getDate() + n); return d; };
+    const MES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const MES_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const one = (d: Date, es: string, en: string) => ({ from: iso(d), to: iso(d), label: L(c.lang, `${es} (${d.getDate()} de ${MES_ES[d.getMonth()]})`, `${en} (${MES_EN[d.getMonth()]} ${d.getDate()})`) });
+    if (/\bantier\b|\banteayer\b|day before yesterday/.test(folded)) return one(shift(-2), "el día de antier", "the day before yesterday");
+    if (/\bayer\b|\byesterday\b/.test(folded)) return one(shift(-1), "el día de ayer", "yesterday");
+    if (/\bhoy\b|\btoday\b/.test(folded)) return one(t, "el día de hoy", "today");
+    if (/fin de semana|weekend/.test(folded)) {
+      const sinceSat = (t.getDay() + 1) % 7;
+      const sat = shift(-sinceSat);
+      const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
+      return { from: iso(sat), to: iso(sun), label: L(c.lang, `el fin de semana (${sat.getDate()} y ${sun.getDate()} de ${MES_ES[sat.getMonth()]})`, `the weekend (${MES_EN[sat.getMonth()]} ${sat.getDate()} and ${sun.getDate()})`) };
+    }
+    const DOW: { re: RegExp; dow: number; es: string; en: string }[] = [
+      { re: /\blunes\b|\bmonday\b/, dow: 1, es: "el lunes", en: "Monday" },
+      { re: /\bmartes\b|\btuesday\b/, dow: 2, es: "el martes", en: "Tuesday" },
+      { re: /\bmiercoles\b|\bwednesday\b/, dow: 3, es: "el miércoles", en: "Wednesday" },
+      { re: /\bjueves\b|\bthursday\b/, dow: 4, es: "el jueves", en: "Thursday" },
+      { re: /\bviernes\b|\bfriday\b/, dow: 5, es: "el viernes", en: "Friday" },
+      { re: /\bsabado\b|\bsaturday\b/, dow: 6, es: "el sábado", en: "Saturday" },
+      { re: /\bdomingo\b|\bsunday\b/, dow: 0, es: "el domingo", en: "Sunday" },
+    ];
+    for (const d of DOW) {
+      if (!d.re.test(folded)) continue;
+      const diff = (t.getDay() - d.dow + 7) % 7;
+      if (/pasad|last/.test(folded)) return one(shift(diff === 0 ? -7 : -diff), d.es, d.en);
+      if (/\beste\b|\besta\b|\bthis\b/.test(folded)) return one(shift((d.dow - t.getDay() + 7) % 7), d.es, d.en);
+      return one(shift(-diff), d.es, d.en);
+    }
+    return null;
+  })();
+  if (dayAnchorP1) return { kind: "range", ...dayAnchorP1 };
   if (/semana pasada|last week/.test(folded)) {
     const anchor = new Date(`${c.today}T12:00:00`);
     anchor.setDate(anchor.getDate() - 7);
