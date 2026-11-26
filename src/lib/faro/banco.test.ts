@@ -5327,3 +5327,56 @@ describe("banco · ola 70: la vigilancia, segunda vuelta (el duplicado, el prime
     assert.ok(sup.some((a) => a.kind === "primero"));
   });
 });
+
+describe("banco · ola 71: el reparto sobre lo anotado (la marca que falta)", () => {
+  const libroRep71 = () => {
+    const l = createInitial("es", "oscuro");
+    l.months[KEY] = { lines: [
+      line({ id: "rs1", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05", monthKey: KEY }),
+      line({ id: "rc1", kind: "expense-flex" as LineKind, concept: "Cena", amountMinor: 9000, categoryId: "f-alimentos", bookedOn: "2026-10-18", monthKey: KEY }),
+      line({ id: "rc2", kind: "expense-flex" as LineKind, concept: "Súper", amountMinor: 30000, categoryId: "f-alimentos", bookedOn: "2026-10-12", monthKey: KEY }),
+    ] };
+    l.settings.display = "USD";
+    return l;
+  };
+
+  it("lo nombrado: la falta dice el bruto y nombra la marca ausente, sin partir nada", () => {
+    const r = ask(libroRep71(), "¿Cuánto puso cada uno en la cena?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "falta");
+    assert.ok(r.verdict.includes("$90.00"), r.verdict);
+    assert.ok(r.verdict.includes("no marca esa línea como compartida"), r.verdict);
+    assert.ok((r.note ?? "").includes("una marca en la línea"), r.note ?? "");
+    assert.deepEqual(r.pieces, [{ label: "Cena", minor: 9000 }]);
+  });
+
+  it("«éramos tres» no convierte la falta en un reparto inventado", () => {
+    const r = ask(libroRep71(), "¿Cuánto me toca de la cena si éramos tres?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "falta");
+    assert.ok(!r.verdict.includes("$30.00"), r.verdict);
+  });
+
+  it("la forma general: sin nombre, la falta dice que ninguna línea lleva la marca", () => {
+    const r = ask(libroRep71(), "¿Cuánto he puesto en gastos compartidos este mes?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "falta");
+    assert.ok(r.verdict.includes("ninguna línea de tu libro está marcada como compartida"), r.verdict);
+    const en = ask(libroRep71(), "How much did each of us put in for dinner?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.equal(en.family, "falta");
+    assert.ok(en.verdict.includes("no line in your book is marked as shared"), en.verdict);
+  });
+
+  it("los guardianes: el aguinaldo no es reparto, la historia no se toca y la tanda manda", () => {
+    const ag = ask(libroRep71(), "¿Cuánto me toca del aguinaldo?");
+    assert.notEqual(ag.kind === "answer" ? ag.family : "unknown", "falta");
+    const h = ask(libroRep71(), "¿Cuánto gasté en la cena?");
+    if (h.kind !== "answer") assert.fail("debió responder");
+    assert.equal(h.family, "historia");
+    const t = ask(libroRep71(), "¿Cuánto puso cada uno en la tanda?");
+    if (t.kind !== "answer") assert.fail("debió responder");
+    assert.equal(t.family, "falta");
+    assert.ok(t.verdict.includes("turno compartido"), t.verdict);
+  });
+});

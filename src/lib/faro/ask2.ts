@@ -6180,6 +6180,60 @@ function derivaAnswer(c: Ctx, folded: string): BankResult | null {
 /** LA TANDA: el libro no tiene el objeto — FALTA lo nombra con su
  * especificación en palabras, jamás disfrazada de suscripción ni de
  * ahorro. La especificación completa para canon va en TANDA-SPEC.md. */
+/* ── OLA 71 · EL REPARTO, LA OTRA MITAD — el reparto sobre lo
+ * anotado. La Ola 16 reparte los números que la pregunta trae; esta
+ * puerta es para el reparto sobre el libro («¿cuánto puso cada uno
+ * en la cena?»). Hoy ninguna línea dice si fue compartida, ni entre
+ * cuántos, ni con quién: partir un total entre personas imaginadas
+ * sería inventar el dato. La respuesta es la de la familia «falta»,
+ * como la tanda: si lo nombrado existe en el libro se dice su total
+ * bruto, se nombra la marca ausente y lo que desbloquearía. La
+ * marca propuesta vive en REPARTO-SPEC.md; cuando exista, esta
+ * misma puerta responderá con las partes. La puerta exige voz de
+ * reparto sobre el libro: «me toca» solo cuenta con compañía de
+ * grupo (éramos, entre, repartir), porque «¿cuánto me toca del
+ * aguinaldo?» no es un reparto. */
+function repartoLibroAnswer(c: Ctx, folded: string): BankResult | null {
+  const splitVoice = /(cuanto puso cada (uno|quien)|cada (uno|quien) puso|cuanto (salio|toco) a cada (uno|quien)|gastos? compartidos?|pague (yo )?por todos|pagamos entre todos|how much did each|each of us (put|paid)|shared expenses|my share of)/.test(folded);
+  const meToca = /(cuanto me toca)/.test(folded) && /(eramos|somos|fuimos|entre|repart)/.test(folded);
+  if (!splitVoice && !meToca) return null;
+  let citizen: { display: string; folded: string; fn: (l: Line) => boolean } | null = null;
+  for (const w of folded.split(/[^a-z0-9]+/).filter((x) => x.length >= 4)) {
+    if (/^(cuanto|puso|cada|uno|quien|gastos|gasto|compartidos|compartido|pague|todos|toca|eramos|somos|fuimos|entre|reparto|repartir|share|shared|expenses|each)$/.test(w)) continue;
+    // ADJUDICACIÓN DE CANON (puerto de la Ola 71): el citizenByName
+    // de canon lleva su firma de tres argumentos — el abrazo
+    // bilingüe (otherNamer, el cuarto argumento de la copia) llega
+    // con la sonda del code-switching, que además actualiza la
+    // llamada de la Ola 68; aquí no se adelanta.
+    citizen = citizenByName(c.state, c.names, w);
+    if (citizen) break;
+  }
+  const src = ["libros.lineas"];
+  const unlock = L(c.lang, "Lo que haría falta es una marca en la línea: que fue compartida y entre cuántas personas (y con quién, si se quiere el nombre). Con esa marca, esta misma pregunta te diría tu parte y la de cada uno; sin ella, cualquier parte que te diera sería inventada. La marca quedó especificada para quien la construya en la captura.", "What's missing is a mark on the line: that it was shared, and among how many people (and with whom, if you want names). With that mark, this same question would tell you your share and each person's; without it, any share I gave you would be invented. The mark is specified for whoever builds it into capture.");
+  if (citizen) {
+    const monthLines = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && citizen!.fn(l));
+    const allLines = Object.values(c.state.months).flatMap((m) => m.lines).filter((l) => l.active && isOut(l) && citizen!.fn(l));
+    const use = monthLines.length ? monthLines : allLines;
+    if (use.length) {
+      const total = use.reduce((s, l) => s + view(c, l), 0);
+      return {
+        kind: "answer", family: "falta",
+        verdict: L(c.lang, `En «${citizen.display}» ${monthLines.length ? "este mes " : "en total "}pusiste ${c.money(total)} — eso es lo que salió de tu mano, entero. Pero tu libro no marca esa línea como compartida, así que la parte de cada uno no existe todavía: no sé entre cuántos se repartía.`, `On "${citizen.display}" ${monthLines.length ? "this month " : "in total "}you put in ${c.money(total)} — that's what left your hand, whole. But your book doesn't mark that line as shared, so each person's share doesn't exist yet: I don't know how many it was split among.`),
+        pieces: [{ label: citizen.display, minor: total }],
+        note: unlock,
+        source: src, lines: use.length,
+      };
+    }
+  }
+  return {
+    kind: "answer", family: "falta",
+    verdict: L(c.lang, "De repartos sobre lo anotado no te puedo contar nada todavía: ninguna línea de tu libro está marcada como compartida, así que no hay partes por persona que contar. Lo que sí te digo cuando quieras es el total bruto de cualquier gasto, por su casa.", "About splits over what's recorded I can't tell you anything yet: no line in your book is marked as shared, so there are no per-person shares to tell. What I can tell you anytime is the gross total of any expense, by its home."),
+    pieces: [],
+    note: unlock,
+    source: src, lines: 0,
+  };
+}
+
 function tandaAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/\b(tanda|rosca)\b/.test(folded)) return null;
   return {
@@ -11249,6 +11303,12 @@ function answerSingle(
     if (td) return td;
     const ag = antiguedadAnswer(c, folded);
     if (ag) return ag;
+    // OLA 71: el reparto sobre lo anotado se juzga aquí, con la
+    // tanda: su puerta es inconfundible y su respuesta honesta es
+    // la de la marca que falta, no un silencio ni una parte
+    // inventada. Va tras la tanda para que «la tanda» mande.
+    const rl = repartoLibroAnswer(c, folded);
+    if (rl) return rl;
     // OLA 40: las prioridades y el interés se juzgan antes — sus
     // puertas («qué pago primero», «cuánto pago de intereses», «o
     // guardo») son inconfundibles y la historia desviaba el interés.
@@ -11601,6 +11661,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month|puedo (ir a|salir)|cuesta.{0,30}cordobas)/, "factibilidad"],
     [/(algo (cambio|raro|nuevo)|que cambio|deberia saber|what changed|anything (unusual|off|new|change|changed))/, "deriva"],
     [/\b(tanda|rosca)\b/, "falta"],
+    [/(cuanto puso cada (uno|quien)|gastos? compartidos?|pague (yo )?por todos|how much did each|shared expenses|my share of)/, "falta"],
     [/(cuanto (interes|rendimiento).{0,40}(ahorr|ganado)|interes ganado|interest have i earned|earned on my savings)/, "falta"],
     [/(cuanto pague de|cuanto he pagado de|how much tax did i pay|how much did i pay in (taxes|tax))/, "historia"],
     [/(que tan viej|antiguedad|desde cuando|how old|age of (my|the) debt)/, "deudas"],

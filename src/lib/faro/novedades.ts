@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.467",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El reparto sobre lo anotado, dicho con honestidad", en: "Splits over what's recorded, answered honestly" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Si preguntas cuánto puso cada uno en un gasto que ya anotaste, el Asesor te dice el total que salió de tu mano, entero, y nombra lo que falta: ninguna línea marca todavía si fue compartida ni entre cuántos.",
+        "Nunca parte un total entre personas imaginadas: sin la marca en la línea, cualquier parte sería inventada.",
+        "La marca de gasto compartido ya quedó especificada para construirse en la captura; cuando exista, esta misma pregunta responderá con la parte de cada uno.",
+      ],
+      en: [
+        "If you ask how much each person put in for an expense you already recorded, the Advisor tells you the whole total that left your hand and names what's missing: no line yet marks whether it was shared or among how many.",
+        "It never splits a total among imagined people: without the mark on the line, any share would be invented.",
+        "The shared-expense mark is already specified to be built into capture; when it exists, this same question will answer with each person's share.",
+      ],
+    },
+  },
+  {
     version: "1.3.466",
     date: "2026-11-26",
     level: "menor",
