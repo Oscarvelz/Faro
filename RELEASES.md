@@ -4332,3 +4332,9 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - El eco de confirmación (relato, programa, órdenes, crear) separa el concepto del monto con un guion CORTO («Gasto: Chocolate - $6»): fuera el segundo dos puntos de la 1.3.459, y el guion largo sigue retirado.
 - El eco respira, por orden y proporción (la ley de envoltorio): una línea en blanco entre la cabecera «Esto es lo que entendí:» y lo entendido, y otra antes de la pregunta de confirmación.
 - Espécimen permanente del formato en relato.test.ts con la frase de la caza (pollo y licuadora en C$). Suite 3.856/3.856; typecheck con los 3 errores de base.
+
+## 1.3.463 · SIN REPETIR (fallo de Oscar, 2026-11-26)
+- El eco de confirmación ya no repite lo que las tarjetitas de borrador muestran: queda la cabecera y la pregunta. Cada tarjetita lleva arribita su palabra (Gasto, Ingreso, Mover) y adentro, como detalle, lo que no es repetición: la fecha cuando no es hoy y la cuenta de origen o destino. La línea proyectada de E2 viaja en su propio campo y se lee bajo las tarjetas.
+- La tarjeta de programar sigue la misma forma: su palabra arriba y la cadencia como detalle dentro de cada tarjetita (programaCadenceText).
+- Segunda enmienda del mismo fallo, sobre la foto de Oscar: la pregunta cierra en su propia línea, ABAJO de las tarjetitas y antes de los botones, como estaba — no agrupada arriba.
+- Especímenes del eco enmendados con acta en relato.test.ts (el eco exacto, los hechos en los borradores). Suite 3.856/3.856; typecheck con los 3 errores de base.
