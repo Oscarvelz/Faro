@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.484",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El pago de vuelta abona el préstamo", en: "The payment back pays down the loan" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Si alguien te debe y le cuentas al Asesor «me pagó Alvin 30», ese ingreso ya no queda suelto: abona el préstamo de Alvin, y su tarjetita declara lo que queda pendiente, o que con esto queda saldado.",
+        "El espejo también: si tú le debes a alguien y cuentas «le pagué 30 a Alvin», el gasto abona tu deuda con él.",
+        "Si el pago se pasa de lo que se debe, o hay dos préstamos vivos con la misma persona, el Asesor pregunta antes de asentar y no toca nada. Y en inglés el pago que entra ya se oye bien: «Alvin paid me 50» es un ingreso que abona, no un gasto.",
+      ],
+      en: [
+        "If someone owes you and you tell the Advisor “Alvin paid me 30”, that income no longer floats loose: it pays toward Alvin's loan, and its little card states what is left, or that this settles it in full.",
+        "The mirror too: if you owe someone and you tell it “I paid Alvin 30”, the spend pays toward your debt with him.",
+        "If the payment exceeds what is owed, or there are two live loans with the same person, the Advisor asks before posting and touches nothing. And in English the incoming payment is now heard right: “Alvin paid me 50” is income that pays down a loan, not a spend.",
+      ],
+    },
+  },
+  {
     version: "1.3.483",
     date: "2026-11-26",
     level: "menor",

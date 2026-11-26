@@ -32,11 +32,13 @@
  */
 import { readAdvisor } from "./advisor.ts";
 import { cardsOf } from "./cards.ts";
+import { lentOf, lentState, personKey } from "./debts.ts";
+import { loansOf, loanState } from "./loans.ts";
 import { duesWindow } from "./dues.ts";
 import { lineDate, normalizeEs, parseWordNumber, repairAgentText } from "./ask2.ts";
 import type { makeNamer } from "./defaults.ts";
 import { foldQ } from "./lexicon.ts";
-import { formatMoney } from "./money.ts";
+import { convertMinor, formatMoney } from "./money.ts";
 import type { CreditCard, Currency, Lang, LedgerState, Line } from "./types.ts";
 
 type Namer = ReturnType<typeof makeNamer>;
@@ -65,11 +67,22 @@ export type RelatoDraft = {
    *  costura llama addLoan) o «me-deben» (yo presté: addLent). El
    *  concepto del borrador es la persona. */
   debtSide?: "debo" | "me-deben";
+  /** El pago de vuelta: el préstamo vivo que este ingreso abona
+   *  (la costura lo asienta con payLent: línea de ingreso con
+   *  lentId, que es como el motor baja el registro). */
+  lentId?: string;
+  /** El espejo: la deuda viva que este gasto abona (la costura
+   *  lo asienta con payLoan: línea con loanId). */
+  loanId?: string;
+  /** Lo que queda del préstamo tras este abono, en la moneda
+   *  del préstamo (debtCurrency): la tarjetita lo declara. */
+  debtLeftMinor?: number;
+  debtCurrency?: Currency;
 };
 export type FiguraKind = "estado-bajo" | "cantidad-grande";
 export type RelatoResult =
   | { kind: "drafts"; drafts: RelatoDraft[]; echo: string; figures: FiguraKind[]; projected: string | null }
-  | { kind: "ask"; question: string; missing: "monto" | "origen" | "destino" | "concepto" | "tarjeta" }
+  | { kind: "ask"; question: string; missing: "monto" | "origen" | "destino" | "concepto" | "tarjeta" | "exceso" | "prestamo" }
   | { kind: "unknown"; figures: FiguraKind[] };
 
 const L = (lang: Lang, es: string, en: string) => (lang === "es" ? es : en);
@@ -183,6 +196,13 @@ function verbOf(toks: string[]): Verb | null {
    * honesto del par DIR-A1. */
   for (let i = 0; i + 1 < toks.length; i++) {
     if (toks[i] === "me" && (toks[i + 1] === "pago" || toks[i + 1] === "abono" || toks[i + 1] === "deposito" || toks[i + 1] === "ingreso" || toks[i + 1] === "dio" || toks[i + 1] === "transfirio")) return "ingreso";
+    /* El espejo inglés del mismo bigrama: «Alvin paid me 50»
+     * lleva el clítico DESPUÉS del verbo; sin esta línea, el
+     * «paid» del conjunto de gasto lo asentaba como gasto y el
+     * pago de vuelta nunca abonaba el préstamo (medido por la
+     * cerca de liquidación, 2026-11-26). Los demás espejos
+     * (gave me, sent me) esperan su espécimen. */
+    if ((toks[i] === "paid" || toks[i] === "pays") && toks[i + 1] === "me") return "ingreso";
   }
   for (const t of toks) {
     if (MOVER.has(t)) return "mover";
@@ -923,6 +943,7 @@ function simpleClause(
 
 function findDuplicate(state: LedgerState, d: RelatoDraft): string | null {
   if (d.op === "mover" || d.op === "abono" || d.op === "prestamo") return null; // frontera E1: mover, el abono y el préstamo se deduplican en la costura del asiento (no son líneas de flujo del mes)
+  if (d.lentId || d.loanId) return null; // el abono a un préstamo vivo también se deduplica en la costura (su línea lleva lentId/loanId, no el concepto de la persona)
   const monthKey = d.date.slice(0, 7);
   for (const l of state.months[monthKey]?.lines ?? []) {
     if (!l.active) continue;
@@ -996,6 +1017,69 @@ function agentFold(state: LedgerState, lang: Lang, names: Namer, raw: string): s
   const repaired = repairAgentText(foldQ(raw), agentProtect(state, names), lang);
   const folded = lang === "es" ? normalizeEs(repaired) : repaired;
   return folded.replace(/\b(por favor|please)\b/g, " ");
+}
+
+/* EL PAGO DE VUELTA Y SU ESPEJO (acuerdo de los tres
+ * revisores, 2026-11-26; el espejo medido por sonda el mismo
+ * día). El relato no consultaba el registro de deudas en
+ * ninguna dirección: «me pagó Alvin los 50» salía como
+ * ingreso genérico aunque Alvin tuviera un préstamo vivo, y
+ * «le pagué 30 a Alvin» como gasto genérico aunque hubiera
+ * una deuda viva con él — el libro quedaba con la deuda
+ * viva y el mes sin su vínculo. La doctrina del motor: el
+ * abono ES una línea normal (ingreso con lentId, gasto con
+ * loanId); lo que faltaba era la etiqueta que baja el
+ * registro. La regla acordada: se consulta primero el
+ * registro; con UN préstamo vivo de esa persona y monto que
+ * no pasa del saldo, el borrador lleva la etiqueta y la
+ * tarjetita declara el abono con lo que queda (si era otra
+ * cosa, el usuario lo frena en la confirmación); si el monto
+ * se pasa del saldo, o hay DOS préstamos vivos con la
+ * persona, se pregunta y no se asienta nada. Solo corre
+ * sobre borradores sin archivar (categoryId vacío): un
+ * concepto ubicado en la estructura no es una persona del
+ * registro. */
+function settleDrafts(state: LedgerState, drafts: RelatoDraft[], lang: Lang, today: string): { ask: RelatoResult } | null {
+  const rate = state.settings.rateE4;
+  for (const d of drafts) {
+    if (d.op !== "ingreso" && d.op !== "gasto") continue;
+    if (!d.amountMinor || d.categoryId) continue;
+    const key = personKey(d.concept);
+    if (!key) continue;
+    const name = d.concept;
+    if (d.op === "ingreso") {
+      const live = lentOf(state).filter((l) => !l.archived && personKey(l.person) === key)
+        .map((l) => ({ l, left: lentState(state, l, today).left })).filter((x) => x.left > 0);
+      if (!live.length) continue;
+      if (live.length > 1) {
+        const lista = live.map((x) => `${formatMoney(x.l.amountMinor, x.l.currency, lang)} ${L(lang, "desde el", "since")} ${x.l.startedOn}`).join(" y ");
+        return { ask: { kind: "ask", missing: "prestamo", question: L(lang, `Tienes dos préstamos vivos con ${name}: ${lista}. ¿A cuál va este abono? Sin saberlo no lo asiento.`, `You have two live loans with ${name}: ${lista}. Which one is this payment for? Without knowing, I won't post it.`) } };
+      }
+      const { l, left } = live[0];
+      const amt = convertMinor(d.amountMinor, d.currency, l.currency, rate);
+      if (amt > left) {
+        const resto = d.amountMinor - convertMinor(left, l.currency, d.currency, rate);
+        return { ask: { kind: "ask", missing: "exceso", question: L(lang, `${name} te debe ${formatMoney(left, l.currency, lang)} y me dices que te pagó ${formatMoney(d.amountMinor, d.currency, lang)}. No lo asiento sin saber: ¿abono ${formatMoney(left, l.currency, lang)} al préstamo y los ${formatMoney(resto, d.currency, lang)} restantes entran como ingreso, o era otro pago?`, `${name} owes you ${formatMoney(left, l.currency, lang)} and you say they paid you ${formatMoney(d.amountMinor, d.currency, lang)}. I won't post it without knowing: shall I put ${formatMoney(left, l.currency, lang)} toward the loan and the remaining ${formatMoney(resto, d.currency, lang)} as income, or was it a different payment?`) } };
+      }
+      d.lentId = l.id; d.debtLeftMinor = left - amt; d.debtCurrency = l.currency;
+    } else {
+      const live = loansOf(state).filter((l) => !l.archived && personKey(l.lender) === key)
+        .map((l) => ({ l, left: loanState(state, l, today).left })).filter((x) => x.left > 0);
+      if (!live.length) continue;
+      if (live.length > 1) {
+        const lista = live.map((x) => `${formatMoney(x.l.amountMinor, x.l.currency, lang)} ${L(lang, "desde el", "since")} ${x.l.takenOn}`).join(" y ");
+        return { ask: { kind: "ask", missing: "prestamo", question: L(lang, `Tienes dos deudas vivas con ${name}: ${lista}. ¿A cuál va este pago? Sin saberlo no lo asiento.`, `You have two live debts with ${name}: ${lista}. Which one is this payment for? Without knowing, I won't post it.`) } };
+      }
+      const { l, left } = live[0];
+      const amt = convertMinor(d.amountMinor, d.currency, l.currency, rate);
+      if (amt > left) {
+        const resto = d.amountMinor - convertMinor(left, l.currency, d.currency, rate);
+        return { ask: { kind: "ask", missing: "exceso", question: L(lang, `Le debes ${formatMoney(left, l.currency, lang)} a ${name} y me dices que le pagaste ${formatMoney(d.amountMinor, d.currency, lang)}. No lo asiento sin saber: ¿abono ${formatMoney(left, l.currency, lang)} a tu deuda y los ${formatMoney(resto, d.currency, lang)} restantes son un gasto aparte, o era otro pago?`, `You owe ${name} ${formatMoney(left, l.currency, lang)} and you say you paid them ${formatMoney(d.amountMinor, d.currency, lang)}. I won't post it without knowing: shall I put ${formatMoney(left, l.currency, lang)} toward your debt and the remaining ${formatMoney(resto, d.currency, lang)} as a separate expense, or was it a different payment?`) } };
+      }
+      d.loanId = l.id; d.debtLeftMinor = left - amt; d.debtCurrency = l.currency;
+    }
+  }
+  return null;
 }
 
 /* ---------------- la entrada ---------------- */
@@ -1125,6 +1209,11 @@ export function parseRelato(
     }
     return { kind: "unknown", figures };
   }
+  // El pago de vuelta y su espejo: con los borradores ya
+  // formados, cada ingreso/gasto sin archivar consulta el
+  // registro de deudas vivas antes de cerrarse.
+  const settleAsk = settleDrafts(state, drafts, lang, today);
+  if (settleAsk) return settleAsk.ask;
   for (const d of drafts) d.duplicate = findDuplicate(state, d);
   // E2 · si el relato trajo una figura de estado («quedé palmado»), el
   // eco la responde con el número — sin desmentirla: lo que quedaría

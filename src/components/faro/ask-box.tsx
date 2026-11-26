@@ -522,7 +522,7 @@ export function AskBox() {
   // del usuario, con su ortografía.
   const crearOffer = (() => {
     if (!session || !relato || relato.kind !== "drafts" || crear) return null;
-    const cand = relato.drafts.find((d) => !d.duplicate && !d.categoryId && d.op !== "mover" && d.op !== "abono" && d.op !== "prestamo");
+    const cand = relato.drafts.find((d) => !d.duplicate && !d.categoryId && d.op !== "mover" && d.op !== "abono" && d.op !== "prestamo" && !d.lentId && !d.loanId);
     if (!cand) return null;
     const step = crearDesdeRelato(session.ledger, lang, names, cand, rawNameFor(relatoRaw, cand.concept) ?? undefined);
     return step ? { step, draft: cand } : null;
@@ -701,6 +701,16 @@ export function AskBox() {
               if (d.op === "gasto" && d.from) det.push(`${L("desde", "from")} ${d.from.label}`);
               if (d.op === "ingreso" && d.to) det.push(`${L("a", "to")} ${d.to.label}`);
               if (d.op === "abono" && d.from) det.push(`${L("desde", "from")} ${d.from.label}`);
+              // 1.3.484 · EL PAGO DE VUELTA SE DECLARA EN LA TARJETITA:
+              // el abono a un préstamo vivo dice lo que queda (o que
+              // con esto queda saldado), para que el usuario lo vea
+              // y lo frene en la confirmación si era otra cosa.
+              if (d.lentId) det.push((d.debtLeftMinor ?? 0) <= 0
+                ? L("abono a su préstamo: con esto queda saldado", "payment toward their loan: this settles it in full")
+                : L(`abono a su préstamo: quedan ${formatMoney(d.debtLeftMinor ?? 0, d.debtCurrency ?? d.currency, lang)} pendientes`, `payment toward their loan: ${formatMoney(d.debtLeftMinor ?? 0, d.debtCurrency ?? d.currency, lang)} left`));
+              if (d.loanId) det.push((d.debtLeftMinor ?? 0) <= 0
+                ? L("abono a tu deuda: con esto queda saldada", "payment toward your debt: this settles it in full")
+                : L(`abono a tu deuda: quedan ${formatMoney(d.debtLeftMinor ?? 0, d.debtCurrency ?? d.currency, lang)} pendientes`, `payment toward your debt: ${formatMoney(d.debtLeftMinor ?? 0, d.debtCurrency ?? d.currency, lang)} left`));
               return (
                 <div key={i} className="ask-relato-item">
                   <span className="ask-relato-kind">{d.op === "mover" ? L("Mover", "Move") : d.op === "gasto" ? L("Gasto", "Expense") : d.op === "abono" ? L("Abono", "Payment") : d.op === "prestamo" ? (d.debtSide === "debo" ? L("Debo", "I owe") : L("Me deben", "Owed to me")) : L("Ingreso", "Income")}</span>

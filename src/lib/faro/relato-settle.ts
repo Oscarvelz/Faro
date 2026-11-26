@@ -27,6 +27,10 @@
  *              de la deuda en su lado — «debo» cuando me prestaron,
  *              «me-deben» cuando yo presté; no es una línea de
  *              flujo del mes, es el nacimiento de la deuda.
+ *   el pago de vuelta (1.3.484): un ingreso con lentId se asienta
+ *              con payLent y un gasto con loanId con payLoan — la
+ *              línea normal que baja el registro de la deuda, en
+ *              la moneda del préstamo.
  *
  * LA CERCA DEL DUPLICADO: un borrador marcado `duplicate` por el
  * relato YA está asentado en el libro — asentarlo otra vez sería el
@@ -34,8 +38,8 @@
  * siempre, lo diga quien lo diga.
  */
 import { cardsOf, payCard } from "./cards.ts";
-import { addLent } from "./debts.ts";
-import { addLoan } from "./loans.ts";
+import { addLent, payLent } from "./debts.ts";
+import { addLoan, payLoan } from "./loans.ts";
 import { convertMinor, uid } from "./money.ts";
 import type { RelatoDraft } from "./relato.ts";
 import type { Lang, LedgerState, Line } from "./types.ts";
@@ -66,6 +70,7 @@ export function relatoLines(state: LedgerState, drafts: RelatoDraft[], lang: Lan
     if (d.duplicate) continue; // ya asentado: jamás dos veces
     if (d.op === "abono") continue; // el abono no es una línea de flujo: lo asienta settleRelatoDrafts con payCard
     if (d.op === "prestamo") continue; // el préstamo tampoco: nace como registro de deuda en settleRelatoDrafts
+    if (d.lentId || d.loanId) continue; // el pago de vuelta: lo asienta settleRelatoDrafts con payLent/payLoan (la línea lleva la etiqueta)
     if (d.op === "gasto") {
       const line = baseLine(d, "expense-variable");
       Object.assign(line, located(state, d));
@@ -136,6 +141,23 @@ export function settleRelatoDrafts(state: LedgerState, drafts: RelatoDraft[], la
       s = addLoan(s, { id: uid(), lender: d.concept, who: "person", kind: "plain", amountMinor: d.amountMinor, currency: d.currency, aprBps: 0, takenOn: d.date, book: "fixed", note: "" });
     } else {
       s = addLent(s, { id: uid(), person: d.concept, kind: "plain", amountMinor: d.amountMinor, currency: d.currency, aprBps: 0, startedOn: d.date, dueOn: "", note: "" });
+    }
+  }
+  // EL PAGO DE VUELTA Y SU ESPEJO (puerto 1.3.484): el borrador
+  // etiquetado por el relato (lentId/loanId) se asienta con
+  // payLent/payLoan del motor — la línea normal que baja el
+  // registro — convirtiendo el monto a la moneda del préstamo
+  // con la tasa del libro, como hace la costura del abono.
+  const payLabel = lang === "es" ? "Abono" : "Payment";
+  const loanLabel = lang === "es" ? "Préstamo" : "Loan";
+  for (const d of drafts) {
+    if (d.duplicate) continue;
+    if (d.lentId) {
+      const minor = d.debtCurrency && d.currency !== d.debtCurrency ? convertMinor(d.amountMinor, d.currency, d.debtCurrency, s.settings.rateE4) : d.amountMinor;
+      s = payLent(s, d.lentId, minor, d.date, uid(), payLabel);
+    } else if (d.loanId) {
+      const minor = d.debtCurrency && d.currency !== d.debtCurrency ? convertMinor(d.amountMinor, d.currency, d.debtCurrency, s.settings.rateE4) : d.amountMinor;
+      s = payLoan(s, d.loanId, minor, d.date, uid(), loanLabel);
     }
   }
   const lines = relatoLines(s, drafts, lang);
