@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.472",
+    date: "2026-11-26",
+    level: "grande",
+    title: { es: "La frontera, dicha en voz alta", en: "The frontier, said out loud" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Hay preguntas que tu Asesor no falla: en qué invertir, qué deducir de tus impuestos, si te pueden embargar, cómo subir tu puntaje, si rentar o comprar. Ahora lo dice en voz alta, explica por qué el límite te protege, y te da lo que tu libro sí responde del mismo tema, con su cifra.",
+        "Para invertir, por ejemplo, no te da un consejo: te da la materia prima de tu libro, cuánto tienes apartado hoy y cuánto te queda libre este mes, para que decidas tú.",
+        "Y las definiciones ya no van en el aire: «¿qué es el APR?» se define en palabras llanas y se ata a tus propias tarjetas, con lo que ese porcentaje te sale al mes sobre tu saldo de hoy. Si tu tarjeta no trae la tasa anotada, lo dice y no inventa ninguna.",
+      ],
+      en: [
+        "Some questions your Advisor won't call: what to invest in, what to deduct from your taxes, whether they can garnish you, how to raise your score, whether to rent or buy. Now it says so out loud, explains why the limit protects you, and gives you what your book does answer on the same topic, with its figure.",
+        "For investing, for example, it gives you no advice: it gives you the raw material from your book, how much you have set aside today and how much is left free this month, so the decision stays yours.",
+        "And definitions no longer float: “what is APR?” is defined in plain words and tied to your own cards, with what that percent comes to per month on today's balance. If your card carries no rate recorded, it says so and invents none.",
+      ],
+    },
+  },
+  {
     version: "1.3.471",
     date: "2026-11-26",
     level: "menor",

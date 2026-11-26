@@ -1390,7 +1390,13 @@ describe("banco · las trampas y los silencios", () => {
   });
 
   it("la opinión y lo desconocido siguen en silencio honesto", () => {
-    assert.equal(ask(ledger, "¿Debería invertir mi dinero?").kind, "unknown");
+    // ENMIENDA OLA 73: «¿Debería invertir mi dinero?» ya no exige
+    // silencio — ese silencio era justamente lo que la ola vino a
+    // cambiar: la frontera lo responde diciendo el límite en voz
+    // alta. Lo desconocido de verdad sigue en silencio.
+    const inv = ask(ledger, "¿Debería invertir mi dinero?");
+    assert.equal(inv.kind, "answer");
+    if (inv.kind === "answer") assert.equal(inv.family, "frontera");
     assert.equal(ask(ledger, "¿Cuál es el sentido de la vida?").kind, "unknown");
     assert.equal(ask(ledger, "¿Y en tiendas?").kind, "unknown");
   });
@@ -5548,3 +5554,105 @@ describe("banco · ola 72C: la premisa con «tengo» (el frente ambiguo, clase 1
     assert.equal(classifyBankQuestion("Si tengo 300 en mi cuenta y gasto 100, ¿cuánto me queda?").family, "hipotetico");
   });
 });
+describe("banco · ola 73: la frontera, dicha en voz alta", () => {
+  const libroFrontera73 = (): LedgerState => {
+    const l = fixture();
+    l.cards = [{ id: "card1", name: "Visa", issuer: "Banco", mark: "", color: "", last4: "1234", currency: "USD", limitMinor: 300000, dueDay: 2, aprBps: 2499, autopay: null, rewards: "", snaps: [{ on: "2026-10-01", at: "2026-10-01T00:00:00.000Z", balanceMinor: 120000, src: "manual" }] } as never];
+    return l;
+  };
+
+  it("el APR se define y se ata a la tarjeta del usuario, con su costo al mes", () => {
+    const r = ask(libroFrontera73(), "¿Qué es el APR?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "frontera");
+    assert.ok(r.verdict.includes("El APR es el costo anual de deber"), r.verdict);
+    assert.ok(r.verdict.includes("«Visa» trae 24.99% anual"), r.verdict);
+    assert.ok(r.verdict.includes("$24.99 al mes en interés"), r.verdict);
+    const b = ask(libroFrontera73(), "¿Cuál es el APR de mi tarjeta?");
+    if (b.kind !== "answer") assert.fail("debió responder");
+    assert.equal(b.family, "frontera");
+    assert.ok(b.verdict.includes("24.99%"), b.verdict);
+    const en = ask(libroFrontera73(), "What is APR?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.equal(en.family, "frontera");
+    assert.ok(en.verdict.includes("24.99%"), en.verdict);
+  });
+
+  it("sin tasa anotada, la definición nombra el dato que falta y no inventa ninguna", () => {
+    const r = ask(fixture(), "¿Qué es el APR?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "frontera");
+    assert.ok(r.verdict.includes("no trae tarjetas") || r.verdict.includes("no traen el APR anotado"), r.verdict);
+    const t = ask(libroFrontera73(), "¿Qué es una tasa de interés?");
+    if (t.kind !== "answer") assert.fail("debió responder");
+    assert.equal(t.family, "frontera");
+    assert.ok(t.verdict.includes("el precio de deber dinero"), t.verdict);
+    assert.ok(t.verdict.includes("«Visa»: 24.99% anual"), t.verdict);
+  });
+
+  it("invertir: el límite dicho, con la materia prima del libro y sin disfraz de consejo", () => {
+    const r = ask(fixture(), "¿Debería invertir mis ahorros?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "frontera");
+    assert.ok(r.verdict.includes("consejo de inversión"), r.verdict);
+    assert.ok(r.verdict.includes("$1,299.00 apartado"), r.verdict);
+    assert.ok(!r.verdict.startsWith("En ahorros tienes"), r.verdict);
+    const b = ask(fixture(), "¿En qué me conviene invertir mi dinero?");
+    if (b.kind !== "answer") assert.fail("debió responder");
+    assert.equal(b.family, "frontera");
+    const en = ask(fixture(), "Should I invest my savings?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.equal(en.family, "frontera");
+  });
+
+  it("impuestos: el consejo no se da; lo pagado y anotado, sí", () => {
+    const l = fixture();
+    l.months[KEY].lines.push(line({ id: "tax1", kind: "expense-flex" as LineKind, concept: "Impuestos", amountMinor: 45000, categoryId: "f-casa", bookedOn: "2026-10-09" }));
+    const r = ask(l, "¿Cómo puedo pagar menos impuestos?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "frontera");
+    assert.ok(r.verdict.includes("no es mi oficio"), r.verdict);
+    assert.ok(r.verdict.includes("$450.00 pagados en impuestos"), r.verdict);
+    const d = ask(l, "¿Puedo deducir la renta de mis impuestos?");
+    if (d.kind !== "answer") assert.fail("debió responder");
+    assert.equal(d.family, "frontera");
+    // guardián: lo pagado como historia sigue siendo historia, no frontera
+    const h = ask(l, "¿Cuánto pagué de impuestos este año?");
+    if (h.kind !== "answer") assert.fail("debió responder");
+    assert.notEqual(h.family, "frontera");
+  });
+
+  it("lo legal y el puntaje: el límite con la cifra del libro, y nada de promesas", () => {
+    const r = ask(libroFrontera73(), "¿Me pueden embargar la cuenta si no pago la tarjeta?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "frontera");
+    assert.ok(r.verdict.includes("yo no soy abogado"), r.verdict);
+    assert.ok(r.verdict.includes("en tarjetas debes $1,200.00"), r.verdict);
+    const p = ask(libroFrontera73(), "¿Cómo subo mi puntaje de crédito?");
+    if (p.kind !== "answer") assert.fail("debió responder");
+    assert.equal(p.family, "frontera");
+    assert.ok(p.verdict.includes("los burós"), p.verdict);
+    assert.ok(!p.verdict.includes("Importas en Importar"), p.verdict);
+  });
+
+  it("rentar o comprar: no se falla, y el libro da sus dos cifras", () => {
+    const l = fixture();
+    l.months[KEY].lines.push(line({ id: "renta1", kind: "expense-fixed" as LineKind, concept: "Renta", amountMinor: 80000, categoryId: "f-casa", bookedOn: "2026-10-03" }));
+    const r = ask(l, "¿Me conviene rentar o comprar una casa?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "frontera");
+    assert.ok(r.verdict.includes("no lo fallo yo"), r.verdict);
+    assert.ok(r.verdict.includes("$800.00 este mes"), r.verdict);
+    assert.ok(r.verdict.includes("$1,299.00 apartado"), r.verdict);
+  });
+
+  it("los guardianes: la tasa de ahorro no es frontera, y clasificar nombra la familia", () => {
+    const t = ask(fixture(), "¿Cuál es mi tasa de ahorro?");
+    if (t.kind !== "answer") assert.fail("debió responder");
+    assert.equal(t.family, "tasa");
+    assert.equal(classifyBankQuestion("¿Debería invertir mis ahorros?").family, "frontera");
+    assert.equal(classifyBankQuestion("¿Qué es el APR?").family, "frontera");
+    assert.equal(classifyBankQuestion("¿Cómo subo mi puntaje de crédito?").family, "frontera");
+  });
+});
+

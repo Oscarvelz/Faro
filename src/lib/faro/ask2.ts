@@ -84,7 +84,7 @@ export type BankFamilyId =
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
   | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
-  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion" | "seguro" | "cargo" | "tasa";
+  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion" | "seguro" | "cargo" | "tasa" | "frontera";
 
 export type BankPiece = { label: string; minor: number };
 /* OLA 27 · EL GRAFO QUE EXPLICA (investigación II, mecanismos #1 y
@@ -7768,6 +7768,131 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
  * anotados), nunca sobre el mes en curso disfrazado, y las partes
  * se dicen en frecuencias naturales, con su denominador nombrado
  * («de cada $100 que ganas…»), como manda la batería de utilidad. */
+/* OLA 73 · LA FRONTERA, DICHA EN VOZ ALTA: hay preguntas que el
+ * Asesor no debe responder CON EL CONTENIDO que piden (en qué
+ * invertir, qué deducir, si te pueden embargar, cómo subir el
+ * puntaje, rentar o comprar) — pero callarlas en seco también
+ * falla, y peor fallaba lo medido: «¿debería invertir mis
+ * ahorros?» recibía el saldo de ahorros como si fuera un consejo,
+ * «¿cómo subo mi puntaje?» recibía las instrucciones de importar,
+ * «¿cómo puedo pagar menos impuestos?» pedía un monto. La forma
+ * honesta de la frontera: decir el límite en llano, decir por qué
+ * el límite protege, y dar lo que el libro SÍ responde del mismo
+ * tema, con su cifra cuando el libro la trae. Y su mitad
+ * construible (el dominio 8 del censo): las definiciones atadas
+ * a la cifra del propio usuario — el APR no se define en el aire,
+ * se ata a SUS tarjetas con su costo al mes, con la misma
+ * aritmética del interés de la Ola 40 (saldo × tasa ÷ 12). */
+function fronteraAnswer(c: Ctx, folded: string): BankResult | null {
+  const money = c.money;
+  const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 2)}%`;
+  // LAS DEFINICIONES ATADAS A LA CIFRA.
+  if (/\bapr\b/.test(folded) && /(que es|que significa|cual es|cuanto es|de mi|de mis|de la|significa|what is|what does|how much is|my card|mis tarjetas|la tarjeta|the card)/.test(folded)) {
+    const cards = planDebts(c.state, c.today).filter((d) => d.card);
+    const withApr = cards.filter((d) => d.aprBps > 0);
+    const def = L(c.lang, "El APR es el costo anual de deber, en porcentaje: la tasa de todo el año, no la del mes. Sobre un saldo que no baja, un APR de 24% sale a cerca de un 2% del saldo en interés cada mes.", "APR is the yearly cost of owing, in percent: the rate for the whole year, not the month's. On a balance that doesn't fall, a 24% APR comes to about 2% of the balance in interest each month.");
+    if (withApr.length) {
+      const parts = withApr.map((d) => L(c.lang, `«${d.name}» trae ${pct(d.aprBps)} anual${d.left > 0 ? ` y sobre su saldo de hoy (${money(d.left)}) eso sale a unos ${money(d.monthlyInterest)} al mes en interés` : " y hoy no trae saldo"}`, `"${d.name}" carries ${pct(d.aprBps)} a year${d.left > 0 ? ` and on today's balance (${money(d.left)}) that comes to about ${money(d.monthlyInterest)} a month in interest` : " and carries no balance today"}`)).join("; ");
+      return {
+        kind: "answer", family: "frontera",
+        verdict: `${def} ${L(c.lang, `En tu libro: ${parts}.`, `In your book: ${parts}.`)}`,
+        pieces: withApr.map((d) => ({ label: `${d.name} · APR ${pct(d.aprBps)}`, minor: d.monthlyInterest })),
+        note: L(c.lang, "El interés del mes es saldo × tasa ÷ 12, calculado de tu libro con la misma cuenta del interés de tus deudas: no es una línea anotada.", "The month's interest is balance × rate ÷ 12, figured from your book with the same math as your debts' interest: it isn't a recorded line."),
+        source: ["cobros.tarjetas"], lines: 0,
+        actions: reportDoor(c, "cobros.tarjetas", "Verlo en Cobros · Tarjetas", "See it in Payments · Cards"),
+      };
+    }
+    return {
+      kind: "answer", family: "frontera",
+      verdict: `${def} ${cards.length
+        ? L(c.lang, "Tus tarjetas no traen el APR anotado: sin ese dato no hay costo tuyo que atar a la definición. Anótalo en la tarjeta y te lo ato.", "Your cards carry no APR recorded: without that fact there's no cost of yours to tie to the definition. Record it on the card and I'll tie it.")
+        : L(c.lang, "Tu libro no trae tarjetas: no hay un APR tuyo que atar a la definición.", "Your book carries no cards: there's no APR of yours to tie to the definition.")}`,
+      pieces: cards.map((d) => ({ label: d.name, minor: d.left })),
+      note: null, source: ["cobros.tarjetas"], lines: 0,
+    };
+  }
+  if (/(que es|que significa|cual es|cuanto es|what is|what does|how much is)/.test(folded) && /(tasa de interes|interest rate)/.test(folded) && !/(ahorro|savings)/.test(folded)) {
+    const withRate = planDebts(c.state, c.today).filter((d) => d.aprBps > 0).sort((a, b) => b.aprBps - a.aprBps);
+    const top = withRate[0];
+    return {
+      kind: "answer", family: "frontera",
+      verdict: L(c.lang, `Una tasa de interés es el precio de deber dinero (o la paga por prestarlo), en porcentaje del monto por año.${top
+        ? ` En tu libro, la tasa más alta anotada es la de «${top.name}»: ${pct(top.aprBps)} anual${top.left > 0 ? `, unos ${money(top.monthlyInterest)} al mes sobre su saldo de hoy (${money(top.left)})` : ""}.`
+        : " Tu libro no trae ninguna tasa anotada: sin ese dato, la definición queda en el aire y no hay cifra tuya que atar."}`, `An interest rate is the price of owing money (or the pay for lending it), in percent of the amount per year.${top
+        ? ` In your book, the highest recorded rate is "${top.name}"'s: ${pct(top.aprBps)} a year${top.left > 0 ? `, about ${money(top.monthlyInterest)} a month on today's balance (${money(top.left)})` : ""}.`
+        : " Your book carries no recorded rate: without that fact the definition stays in the air, with no figure of yours to tie to it."}`),
+      pieces: top ? [{ label: `${top.name} · ${pct(top.aprBps)}`, minor: top.monthlyInterest }] : [],
+      note: null, source: ["cobros.tarjetas", "cobros.debo"], lines: 0,
+    };
+  }
+  // LA FRONTERA DEL CONSEJO, TEMA POR TEMA.
+  const stock = savingsStock(c.state, c.key);
+  const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  const cardDebts = planDebts(c.state, c.today).filter((d) => d.card);
+  const cardDebt = cardDebts.reduce((a, d) => a + d.left, 0);
+  if (/(invertir|invierto|inversion|acciones|bolsa|cripto|bitcoin|bonos|fondos mutuos|invest|investing|stocks|crypto|mutual funds)/.test(folded)
+    && /(deberia|debo|conviene|recomiendas|recomienda|donde|en que|que hago|should|worth|buena idea|good idea|me conviene)/.test(folded)) {
+    const leftText = reading.left < 0
+      ? L(c.lang, `y este mes tu queda ya va en negativo (${money(reading.left)}: salió más de lo que entró)`, `and this month your left already runs negative (${money(reading.left)}: more went out than came in)`)
+      : L(c.lang, `y te quedan ${money(reading.left)} libres este mes`, `and you have ${money(reading.left)} free this month`);
+    return {
+      kind: "answer", family: "frontera",
+      verdict: L(c.lang, `Eso no lo fallo yo: decirte en qué invertir, o si te conviene hacerlo, es consejo de inversión, y mi oficio es tu libro, no el mercado. Lo que sí te doy es la materia prima, de tu libro: hoy tienes ${money(stock.total)} apartado ${leftText}. Con esas dos cifras claras, la decisión de invertir es tuya.`, `That one I don't call: telling you what to invest in, or whether you should, is investment advice, and my trade is your book, not the market. What I do give you is the raw material, from your book: today you have ${money(stock.total)} set aside ${leftText}. With those two figures clear, the investing decision is yours.`),
+      pieces: [
+        { label: L(c.lang, "Apartado hoy", "Set aside today"), minor: stock.total },
+        { label: L(c.lang, "Tu queda de este mes", "Your left this month"), minor: reading.left },
+      ],
+      note: L(c.lang, "El límite, dicho: un consejo de inversión sin conocer tu riesgo ni tu plazo sería una adivinanza con tu dinero. Tu libro sí te dice cuánto hay y cuánto queda: eso es lo que sé hacer bien.", "The limit, stated: investment advice without knowing your risk or your horizon would be a guess with your money. Your book does tell you how much there is and how much is left: that's what I do well."),
+      source: ["ahorros.stock", "central.queda"], lines: 0,
+      actions: reportDoor(c, "ahorros.stock", "Verlo en Ahorros", "See it in Savings"),
+    };
+  }
+  if (/(impuestos|impuesto|taxes|\btax\b)/.test(folded)
+    && /(menos|ahorrar|reducir|deduc|declar|evitar|deduct|reduce|less|file|filing|ahorro en)/.test(folded)) {
+    const year = c.key.slice(0, 4);
+    const taxLines = allLines(c).filter((l) => l.active && isOut(l) && l.monthKey <= c.key && l.monthKey.startsWith(year) && /(impuest|tax)/.test(foldQ(l.concept)));
+    const taxTotal = taxLines.reduce((a, l) => a + view(c, l), 0);
+    return {
+      kind: "answer", family: "frontera",
+      verdict: taxTotal > 0
+        ? L(c.lang, `Preparar impuestos o decirte qué deducir no es mi oficio: eso lo hace un contador con tu caso entero, porque una deducción mal tomada sale cara. Lo que sí te digo de tu libro: este año traes ${money(taxTotal)} pagados en impuestos, en ${taxLines.length} ${taxLines.length === 1 ? "línea anotada" : "líneas anotadas"}: esa cifra, lista, es lo que tu libro le puede dar a quien te los prepare.`, `Preparing taxes or telling you what to deduct isn't my trade: an accountant with your whole case does that, because a wrongly taken deduction gets expensive. What I do tell you from your book: this year you have ${money(taxTotal)} paid in taxes, across ${taxLines.length} recorded ${taxLines.length === 1 ? "line" : "lines"}: that figure, ready, is what your book can hand to whoever prepares them.`)
+        : L(c.lang, `Preparar impuestos o decirte qué deducir no es mi oficio: eso lo hace un contador con tu caso entero, porque una deducción mal tomada sale cara. Y de tu libro: no traes pagos de impuestos anotados este año. Si los anotas cuando los pagas, la cifra queda lista para quien te los prepare.`, `Preparing taxes or telling you what to deduct isn't my trade: an accountant with your whole case does that, because a wrongly taken deduction gets expensive. And from your book: you have no tax payments recorded this year. If you record them as you pay them, the figure stays ready for whoever prepares them.`),
+      pieces: taxTotal > 0 ? [{ label: L(c.lang, "Impuestos pagados este año", "Taxes paid this year"), minor: taxTotal }] : [],
+      note: null, source: ["libros.lineas"], lines: taxLines.length,
+    };
+  }
+  if (/(embarg|demanda|demandado|abogad|es legal|legalmente|garnish|lawsuit|lawyer|legally|\bsue\b|mis derechos|my rights)/.test(folded)
+    || /(me pueden|pueden|can they).{0,20}(embargar|quitar|demandar|cobrar|garnish|take|seize)/.test(folded)) {
+    return {
+      kind: "answer", family: "frontera",
+      verdict: L(c.lang, `Eso es una pregunta legal y yo no soy abogado: lo que un acreedor puede o no puede hacer depende de tu estado y de tu contrato, y un error ahí sale caro, así que no lo adivino. Lo que sí te digo de tu libro${cardDebt > 0 ? `: en tarjetas debes ${money(cardDebt)} hoy, anotado y al día en tu libro` : ": tu libro no trae deuda en tarjetas anotada"}. Con la cifra clara, la pregunta legal la responde quien conoce tu caso.`, `That's a legal question and I'm not a lawyer: what a creditor can or can't do depends on your state and your contract, and a mistake there gets expensive, so I won't guess it. What I do tell you from your book${cardDebt > 0 ? `: on cards you owe ${money(cardDebt)} today, recorded in your book` : ": your book carries no recorded card debt"}. With the figure clear, the legal question goes to whoever knows your case.`),
+      pieces: cardDebt > 0 ? [{ label: L(c.lang, "Deuda en tarjetas hoy", "Card debt today"), minor: cardDebt }] : [],
+      note: null, source: ["cobros.tarjetas", "cobros.debo"], lines: 0,
+    };
+  }
+  if (/(puntaje|credit score|score)/.test(folded) && /(subir|subo|mejorar|mejoro|aumentar|raise|improve|boost|increase|build)/.test(folded)) {
+    return {
+      kind: "answer", family: "frontera",
+      verdict: L(c.lang, `Tu puntaje lo calculan los burós con su fórmula, que no es pública entera: yo no lo veo, no lo muevo y no te prometo subirlo, porque prometerlo sería inventar. Lo que sí está en tu libro, y sí pesa en cualquier fórmula: tus saldos y tus pagos.${cardDebt > 0 ? ` En tarjetas debes ${money(cardDebt)} hoy.` : " Tu libro no trae tarjetas anotadas."} Eso es lo que yo te puedo mantener claro y al día.`, `Your score is figured by the bureaus with their formula, which isn't fully public: I don't see it, I don't move it and I won't promise to raise it, because promising would be inventing. What is in your book, and does weigh in any formula: your balances and your payments.${cardDebt > 0 ? ` On cards you owe ${money(cardDebt)} today.` : " Your book carries no recorded cards."} That's what I can keep clear and current for you.`),
+      pieces: cardDebt > 0 ? [{ label: L(c.lang, "Deuda en tarjetas hoy", "Card debt today"), minor: cardDebt }] : [],
+      note: null, source: ["cobros.tarjetas"], lines: 0,
+    };
+  }
+  if (/(rentar|alquilar|alquiler).{0,40}(comprar|compra)|(comprar|compra).{0,40}(rentar|alquilar)|rent or buy/.test(folded)) {
+    const housing = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && /(renta|alquiler|rent|hipoteca|mortgage)/.test(foldQ(l.concept))).reduce((a, l) => a + view(c, l), 0);
+    return {
+      kind: "answer", family: "frontera",
+      verdict: L(c.lang, `Rentar o comprar no lo fallo yo: en esa decisión pesa tu vida entera (cuánto tiempo te quedas, tu trabajo, tu familia), no solo tu libro. Lo que sí te doy de tu libro: ${housing > 0 ? `tu vivienda anotada te cuesta ${money(housing)} este mes` : "tu libro no trae la vivienda anotada con el nombre de renta o alquiler"}, y tienes ${money(stock.total)} apartado hoy. Esas dos cifras son mi parte; la decisión es tuya.`, `Renting or buying isn't mine to call: that decision weighs your whole life (how long you'll stay, your work, your family), not just your book. What I do give you from your book: ${housing > 0 ? `your recorded housing costs you ${money(housing)} this month` : "your book carries no housing recorded under rent"}, and you have ${money(stock.total)} set aside today. Those two figures are my part; the decision is yours.`),
+      pieces: [
+        ...(housing > 0 ? [{ label: L(c.lang, "Vivienda anotada este mes", "Recorded housing this month"), minor: housing }] : []),
+        { label: L(c.lang, "Apartado hoy", "Set aside today"), minor: stock.total },
+      ],
+      note: null, source: ["libros.lineas", "ahorros.stock"], lines: 0,
+    };
+  }
+  return null;
+}
+
 /** OLA 69 · LA TASA CONTRA LA REFERENCIA (el plan de los grandes,
  * confirmado por el estudio académico: el ahorro es dominio con
  * evidencia y su juicio pide una vara): la tasa de ahorro (lo
@@ -10321,6 +10446,18 @@ const GATE_WORDS: string[] = [
    * suficiente?») y tampoco estaba — «suficente» y «sufisiente»
    * caían en silencio. La onda hostil la cazó el día del estreno. */
   "suficiente", "suficientes",
+  /* OLA 73: las palabras de la frontera sostienen sus puertas:
+   * una errata en «invertir» o «puntaje» no puede caer en
+   * silencio ni deformarse a otra palabra («apr» a «par»). */
+  "apr", "invertir", "invierto", "inversion", "inversiones", "acciones", "cripto", "impuesto", "impuestos",
+  "deducir", "deduccion", "deducciones", "embargar", "embargo", "demanda", "abogado", "puntaje",
+  "rentar", "alquilar", "alquiler", "legalmente",
+  /* OLA 73, la caza de su propia combinada: la tanda nació solo
+   * en español y la mutación inglesa de «garnish» («garish»,
+   * «granish») caía en silencio: la frontera es bilingüe y su
+   * vocabulario de puertas también. */
+  "garnish", "garnished", "lawyer", "lawsuit", "legally", "invest", "investing", "investment", "investments",
+  "deduct", "deduction", "deductions", "taxes",
   /* OLA 72: las palabras de las tareas de la casa sostienen las
    * puertas del «cómo se hace» y tampoco estaban: sin ellas, una
    * errata en «idioma» o «sincronizo» caía en silencio, y una
@@ -11226,6 +11363,16 @@ function answerSingle(
   const cap = capacidadAnswer(c, folded, rawR);
   if (cap) return cap;
 
+  // 0a1a · OLA 73 · LA FRONTERA: el consejo que no se da y las
+  // definiciones atadas a la cifra se juzgan tras la capacidad y
+  // antes de la tasa — la tasa de ahorro NO es frontera (su
+  // guardián lo clava) y la frontera no toca ninguna cifra que
+  // otra familia ya responda.
+  {
+    const fr = fronteraAnswer(c, folded);
+    if (fr) return fr;
+  }
+
   // 0a1 · LA TASA (ola 69): la tasa de ahorro y su juicio se juzgan
   // antes que el costo de vida — «¿qué porcentaje de mi ingreso
   // ahorro?» es la tasa preguntada por su nombre técnico, y el
@@ -12003,6 +12150,14 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
   // OLA 72C: la premisa con «tengo» también se clasifica sin «si»:
   // tener + gastar + preguntar por lo que queda es la misma casa.
   if (/\b(tengo|tuviera|tuviese|tendria)\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b/.test(folded) && /(queda|quedaria|quedaba|sobra|sobraria|left)/.test(folded)) return { isQuestion, family: "hipotetico" };
+  // OLA 73: la frontera y sus definiciones se nombran en el índice
+  if (/\bapr\b/.test(folded) && /(que es|que significa|cual es|cuanto es|what is|what does|how much is)/.test(folded)) return { isQuestion, family: "frontera" };
+  if (/(que es|que significa|cual es|what is|what does)/.test(folded) && /(tasa de interes|interest rate)/.test(folded)) return { isQuestion, family: "frontera" };
+  if (/(invertir|inversion|invest|investing)/.test(folded) && /(deberia|debo|conviene|recomiendas|should|worth|en que|donde)/.test(folded)) return { isQuestion, family: "frontera" };
+  if (/(impuestos|impuesto|taxes|\btax\b)/.test(folded) && /(menos|deduc|declar|deduct|reduce|less|file)/.test(folded)) return { isQuestion, family: "frontera" };
+  if (/(embarg|demanda|abogad|es legal|legalmente|garnish|lawsuit|lawyer|legally)/.test(folded)) return { isQuestion, family: "frontera" };
+  if (/(puntaje|credit score)/.test(folded) && /(subir|subo|mejorar|aumentar|raise|improve|boost)/.test(folded)) return { isQuestion, family: "frontera" };
+  if (/(rentar|alquilar).{0,40}(comprar|compra)|(comprar|compra).{0,40}(rentar|alquilar)|rent or buy/.test(folded)) return { isQuestion, family: "frontera" };
   if (hasDigit && /(mas|\+|suma|total|resta|menos|divid|repart|por ciento|porcentaje|percent|%|entre \d|partes iguales)/.test(folded)) return { isQuestion, family: "calculadora" };
   for (const [re, fam] of G) if (re.test(folded)) return { isQuestion, family: fam };
   return { isQuestion, family: null };

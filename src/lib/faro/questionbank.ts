@@ -746,7 +746,7 @@ export const QUESTION_BANK: BankFamily[] = [
     },
     answerShape: "La cifra del motor de proyección (payoffPlan, ritmo de apartado) CON el supuesto en la misma respuesta (R7): presupuesto usado o ritmo real, y qué lo movería.",
     contradiction: "Sin plan ni ritmo (ningún abono en 90 días), no hay proyección: se dice qué falta para poder proyectar.",
-    silences: ["«¿Debería invertir?» NO es futuro: es opinión, fuera del núcleo dinero/app — silencio honesto hasta que Oscar diga otra cosa."],
+    silences: ["«¿Debería invertir?» NO es futuro: es opinión, fuera del núcleo dinero/app — desde la Ola 73 la responde la familia frontera diciendo el límite en voz alta; aquí sigue sin ser futuro."],
   },
   {
     // OLA 26 (Familia 6, E26-2): EL CAMINO ENTRA EN EL INVENTARIO. La
@@ -841,6 +841,21 @@ export const QUESTION_BANK: BankFamily[] = [
     answerShape: "OLA 69 (el plan de los grandes, con el respaldo del estudio académico): la tasa es lo apartado entre lo que entró, con su derivación en piezas, y se juzga contra dos referencias en orden: primero la propia (el promedio medido del usuario) y después la referencia de la guía, nombrada como referencia y nunca como sentencia. La tendencia contra el mes anterior se dice cuando existe. «¿Cuánto debería ahorrar?» sigue siendo de ahorros: su vara es la meta de colchón de Ajustes, no la tasa. ADJUDICACIÓN DE CANON (1.3.464): la segunda referencia se lee de la guía del libro (guideOf) — con guía propia, la referencia es la suya, nombrada como suya; la regla publicada 50·30·20 solo nombra la referencia cuando el libro no trae guía propia.",
     contradiction: "La regla publicada no manda sobre la vara del usuario: si las dos referencias discrepan, la respuesta las presenta en su orden y la que manda es la propia.",
     silences: ["Sin ingreso anotado en ningún mes no hay tasa: se dice, sin dividir entre nada.", "La tasa es del apartado anotado, no del residuo del mes: lo que el mes dejó libre sin apartar no cuenta como ahorro."],
+  },
+  {
+    id: "frontera",
+    name: { es: "La frontera, dicha en voz alta: el consejo que no doy y las definiciones atadas a tu cifra", en: "The frontier, said out loud: the advice I don't give and the definitions tied to your figures" },
+    cap: { es: "el consejo que no doy, dicho en voz alta, y las definiciones atadas a tus cifras — en Completo", en: "the advice I don't give, said out loud, and the definitions tied to your figures — in Complete" },
+    status: "viva",
+    source: ["ahorros.stock", "central.queda", "cobros.tarjetas", "cobros.debo", "libros.lineas"],
+    axes: ["el tema (invertir × impuestos × lo legal × el puntaje como consejo × rentar o comprar) × la definición (APR × tasa de interés) × la cifra del libro que sí responde"],
+    canonical: {
+      es: ["¿Debería invertir mis ahorros?", "¿En qué me conviene invertir mi dinero?", "¿Cómo puedo pagar menos impuestos?", "¿Puedo deducir la renta de mis impuestos?", "¿Me pueden embargar la cuenta si no pago la tarjeta?", "¿Cómo subo mi puntaje de crédito?", "¿Me conviene rentar o comprar una casa?", "¿Qué es el APR?", "¿Cuál es el APR de mi tarjeta?", "¿Qué es una tasa de interés?"],
+      en: ["Should I invest my savings?", "How can I pay less tax?", "Can they garnish my account?", "How do I raise my credit score?", "What is APR?", "What is an interest rate?"],
+    },
+    answerShape: "OLA 73 (la frontera del plan de los grandes y del censo de dominios): el Asesor no falla el consejo (en qué invertir, qué deducir, si te pueden embargar, cómo subir el puntaje, rentar o comprar), pero tampoco lo calla en seco ni lo disfraza de otra respuesta: dice el límite en llano, dice por qué el límite protege, y da lo que el libro SÍ responde del mismo tema con su cifra (el apartado y la queda para invertir; lo pagado de impuestos en el año para impuestos; la deuda en tarjetas para lo legal y el puntaje; la vivienda anotada y el apartado para rentar o comprar). Y las definiciones no van en el aire: el APR y la tasa de interés se definen en palabras llanas y se ATAN a las tarjetas del propio usuario con su costo al mes (saldo × tasa ÷ 12, la aritmética de la Ola 40); sin tasa anotada, la respuesta nombra el dato que falta. Medido antes de la ola: «¿debería invertir mis ahorros?» recibía el saldo como si fuera consejo, «¿cómo subo mi puntaje?» recibía las instrucciones de importar, «¿cómo puedo pagar menos impuestos?» pedía un monto, y «¿qué es el APR?» caía en silencio: la frontera existía como silencio declarado, pero el motor ni siquiera lo honraba.",
+    contradiction: "El límite no se disfraza: ninguna respuesta de esta familia recomienda, deduce, determina derechos ni promete puntaje; lo que ofrece del libro es un hecho medido, no un consejo con otro nombre.",
+    silences: ["El número del puntaje sigue siendo de la familia falta: vive en los burós, no en el libro; aquí solo entra el consejo de cómo subirlo.", "«¿Cuánto pagué de impuestos?» es historia, no frontera: lo anotado se suma sin opinar.", "Una definición sin cifra que atar se da con su ausencia nombrada; jamás se inventa una tasa para una tarjeta que no la trae."],
   },
   {
     id: "seguimiento",
