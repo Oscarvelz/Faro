@@ -475,7 +475,11 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // tarjeta con putCard cuando el abono la precede a su lectura): la
   // receta sigue siendo la de aterrizaje del mismo toque confirmado,
   // con la misma razón.
-  "components/faro/ask-box.tsx|commit|settleRelatoDrafts|settleRelatoDrafts+payCard+putCard": ["aterrizaje", 1],
+  // 1.3.483 (el préstamo): la cadena crece otra vez — la misma
+  // costura ahora también da de alta la deuda con addLoan/addLent
+  // cuando el relato contó un préstamo; la receta sigue siendo la
+  // de aterrizaje del mismo toque confirmado, con la misma razón.
+  "components/faro/ask-box.tsx|commit|settleRelatoDrafts|settleRelatoDrafts+payCard+putCard+addLoan+addLent": ["aterrizaje", 1],
   // 1.3.446 (puerto de la Rama Agente, E3): «Dejarlo programado» de la
   // tarjeta de programación comete por la misma receta de aterrizaje —
   // el toque confirmado del usuario sobre su propio libro: programa

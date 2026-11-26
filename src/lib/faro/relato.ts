@@ -41,7 +41,7 @@ import type { CreditCard, Currency, Lang, LedgerState, Line } from "./types.ts";
 
 type Namer = ReturnType<typeof makeNamer>;
 
-export type RelatoOp = "gasto" | "ingreso" | "mover" | "abono";
+export type RelatoOp = "gasto" | "ingreso" | "mover" | "abono" | "prestamo";
 export type RelatoPlace = { id: string; kind: "acct" | "bolsillo"; label: string };
 export type RelatoDraft = {
   op: RelatoOp;
@@ -61,6 +61,10 @@ export type RelatoDraft = {
   /** abono: la tarjeta que se liquida (su id en cardsOf); la costura
    *  la asienta con payCard, nunca como gasto. */
   cardId?: string;
+  /** prestamo: el lado de la deuda — «debo» (me prestaron: la
+   *  costura llama addLoan) o «me-deben» (yo presté: addLent). El
+   *  concepto del borrador es la persona. */
+  debtSide?: "debo" | "me-deben";
 };
 export type FiguraKind = "estado-bajo" | "cantidad-grande";
 export type RelatoResult =
@@ -744,6 +748,67 @@ function cardClause(
   return { drafts: [{ op: "abono", amountMinor: s.minor, currency: s.currency, concept: card.name, categoryId: "", subId: "", from, to: null, date, clause, duplicate: null, cardId: card.id }] };
 }
 
+/* EL PRÉSTAMO EN LAS DOS DIRECCIONES (prioridad de Hark,
+ * 2026-11-26): «le presté 50 a Alvin» y «Alvin me prestó 50»
+ * caían en silencio simétrico (la cerca DIR-A1 de la Ola 74 lo
+ * fijaba como diseño: el relato no tenía casa para préstamos).
+ * El servicio falta justo en Debo y Me deben, y un error de
+ * dirección pone la deuda del lado equivocado, así que la casa
+ * se construye con el lado declarado en el borrador: «debo»
+ * cuando me prestaron (la costura llama addLoan) y «me-deben»
+ * cuando yo presté (addLent). El sustantivo «préstamo» NO entra:
+ * «pagué el préstamo» es pagar una deuda existente, otro acto
+ * que esta puerta no toca. Sin monto o sin persona se pregunta
+ * nombrando el préstamo; nunca se asienta a medias. */
+const PREST_TOK = new Set(["preste", "presto", "prestar", "prestaron", "prestaste", "lent", "loaned", "borrowed"]);
+const PERSON_DROP = new Set(["le", "les", "mi", "mis", "my", "from", "de", "del"]);
+
+function prestClause(
+  toks: string[], clause: string, date: string, dayTok: ReadonlySet<number>,
+  lang: Lang, def: Currency = "USD",
+): ClauseOut | undefined {
+  const vi = toks.findIndex((t) => PREST_TOK.has(t));
+  if (vi < 0) return undefined;
+  const vt = toks[vi];
+  const debo = (vi > 0 && toks[vi - 1] === "me") || vt === "borrowed" || ((vt === "lent" || vt === "loaned") && toks[vi + 1] === "me");
+  const spans = amountSpans(toks, dayTok, def);
+  const used = new Set<number>();
+  spans.forEach((s) => { for (let i = s.start; i < s.end; i++) used.add(i); });
+  used.add(vi);
+  if (toks[vi - 1] === "me") used.add(vi - 1);
+  if ((vt === "lent" || vt === "loaned") && toks[vi + 1] === "me") used.add(vi + 1);
+  toks.forEach((t, i) => { if (FRAME.has(t) || CUR_WORDS.has(t) || dayTok.has(i)) used.add(i); });
+  // La persona: en «yo presté» manda lo que sigue a «a/to»; en
+  // «me prestaron» es el sujeto que queda en el residuo.
+  let person = "";
+  if (!debo) {
+    const ai = toks.findIndex((t, i) => i > vi && (t === "a" || t === "to"));
+    if (ai >= 0) {
+      const words: string[] = [];
+      for (let i = ai + 1; i < toks.length && !used.has(i); i++) if (!STOP.has(toks[i]) && !PERSON_DROP.has(toks[i])) words.push(toks[i]);
+      person = words.join(" ");
+      for (let i = ai; i < toks.length; i++) used.add(i);
+    }
+  }
+  if (!person) {
+    person = toks.filter((t, i) => !used.has(i) && !STOP.has(t) && !PERSON_DROP.has(t)).join(" ");
+  }
+  person = person.trim();
+  const personName = person ? person.charAt(0).toUpperCase() + person.slice(1) : "";
+  if (!personName) {
+    return { ask: { kind: "ask", missing: "concepto", question: debo
+      ? L(lang, "¿Quién te prestó? Sin el nombre no lo asiento.", "Who lent you the money? Without the name I won't post it.")
+      : L(lang, "¿A quién le prestaste? Sin el nombre no lo asiento.", "Who did you lend it to? Without the name I won't post it.") } };
+  }
+  if (!spans.length) {
+    return { ask: { kind: "ask", missing: "monto", question: debo
+      ? L(lang, `Me falta el monto del préstamo de ${personName}. ¿De cuánto fue? Sin el monto no lo asiento.`, `I'm missing the amount of the loan from ${personName}. How much was it? Without the amount I won't post it.`)
+      : L(lang, `Me falta el monto del préstamo a ${personName}. ¿De cuánto fue? Sin el monto no lo asiento.`, `I'm missing the amount of the loan to ${personName}. How much was it? Without the amount I won't post it.`) } };
+  }
+  const s = spans[0];
+  return { drafts: [{ op: "prestamo", debtSide: debo ? "debo" : "me-deben", amountMinor: s.minor, currency: s.currency, concept: personName, categoryId: "", subId: "", from: null, to: null, date, clause, duplicate: null }] };
+}
+
 function simpleClause(
   toks: string[], clause: string, verb: Verb, date: string, dayTok: ReadonlySet<number>,
   places: RelatoPlace[], idx: Map<string, Filing>, lang: Lang,
@@ -857,7 +922,7 @@ function simpleClause(
 /* ---------------- deduplicación y eco ---------------- */
 
 function findDuplicate(state: LedgerState, d: RelatoDraft): string | null {
-  if (d.op === "mover" || d.op === "abono") return null; // frontera E1: mover y el abono se deduplican en la costura del asiento (no son líneas de flujo del mes)
+  if (d.op === "mover" || d.op === "abono" || d.op === "prestamo") return null; // frontera E1: mover, el abono y el préstamo se deduplican en la costura del asiento (no son líneas de flujo del mes)
   const monthKey = d.date.slice(0, 7);
   for (const l of state.months[monthKey]?.lines ?? []) {
     if (!l.active) continue;
@@ -1016,6 +1081,16 @@ export function parseRelato(
     const comida = toks.some((t) => FOOD.has(t));
     if (precio || comida) sawPriceOrFood = true;
     const verb: Verb | null = ownVerb ?? (precio || (comida && spans.length > 0) ? "gasto" : null) ?? inherited;
+    // EL PRÉSTAMO corre antes que la salida sin verbo: sus formas
+    // no viven en ningún conjunto de verbos del relato.
+    const prestOut = prestClause(toks, clauseText, date, timeToks, lang, defCur);
+    if (prestOut !== undefined) {
+      if (!prestOut) continue;
+      if ("ask" in prestOut) return prestOut.ask;
+      drafts.push(...prestOut.drafts);
+      if (timeToks.size === 0 && dayTok < 0 && prestOut.drafts.length) lastUnanchored = drafts.length - 1;
+      continue;
+    }
     if (!verb) {
       // Sin verbo: la cláusula puede nombrar LA COSA que una cláusula
       // de precio completa después. Una cláusula que era solo figura
@@ -1058,8 +1133,8 @@ export function parseRelato(
   let projectedLine: string | null = null;
   if (figures.includes("estado-bajo")) {
     const disp = state.settings.display;
-    const fresh = drafts.filter((d) => !d.duplicate && d.op !== "mover" && d.op !== "abono");
-    if (fresh.length && drafts.every((d) => d.op === "mover" || d.op === "abono" || d.currency === disp)) {
+    const fresh = drafts.filter((d) => !d.duplicate && d.op !== "mover" && d.op !== "abono" && d.op !== "prestamo");
+    if (fresh.length && drafts.every((d) => d.op === "mover" || d.op === "abono" || d.op === "prestamo" || d.currency === disp)) {
       const reading = readAdvisor(state, key, lang, names, { today: new Date(`${today}T12:00:00`) });
       let projected = reading.left;
       for (const d of fresh) projected += d.op === "ingreso" ? d.amountMinor : -d.amountMinor;

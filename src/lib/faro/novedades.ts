@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.483",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Prestar también se cuenta", en: "Lending is told too" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Ahora el Asesor también oye los préstamos cuando se los cuentas: «le presté 50 a Alvin» nace en Me deben, y «Alvin me prestó 50» nace en Debo, cada deuda en su lado.",
+        "Prestar no es gastar y que te presten no es un ingreso: el flujo de tu mes no se mueve, solo nace el registro de la deuda.",
+        "Sin el monto o sin el nombre, el Asesor pregunta por ese dato antes de asentar; y «pagué el préstamo» sigue siendo lo que era, pagar una deuda que ya existe.",
+      ],
+      en: [
+        "Now the Advisor also hears loans when you tell them: “I lent Alvin 50” is born in Owed to me, and “Alvin lent me 50” is born in I owe, each debt on its own side.",
+        "Lending is not spending and being lent to is not income: your month's flow does not move, only the debt record is born.",
+        "With no amount or no name, the Advisor asks for that fact before posting; and “I paid the loan” stays what it was, paying a debt that already exists.",
+      ],
+    },
+  },
+  {
     version: "1.3.482",
     date: "2026-11-26",
     level: "menor",

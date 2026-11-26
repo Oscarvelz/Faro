@@ -522,7 +522,7 @@ export function AskBox() {
   // del usuario, con su ortografía.
   const crearOffer = (() => {
     if (!session || !relato || relato.kind !== "drafts" || crear) return null;
-    const cand = relato.drafts.find((d) => !d.duplicate && !d.categoryId && d.op !== "mover" && d.op !== "abono");
+    const cand = relato.drafts.find((d) => !d.duplicate && !d.categoryId && d.op !== "mover" && d.op !== "abono" && d.op !== "prestamo");
     if (!cand) return null;
     const step = crearDesdeRelato(session.ledger, lang, names, cand, rawNameFor(relatoRaw, cand.concept) ?? undefined);
     return step ? { step, draft: cand } : null;
@@ -703,7 +703,7 @@ export function AskBox() {
               if (d.op === "abono" && d.from) det.push(`${L("desde", "from")} ${d.from.label}`);
               return (
                 <div key={i} className="ask-relato-item">
-                  <span className="ask-relato-kind">{d.op === "mover" ? L("Mover", "Move") : d.op === "gasto" ? L("Gasto", "Expense") : d.op === "abono" ? L("Abono", "Payment") : L("Ingreso", "Income")}</span>
+                  <span className="ask-relato-kind">{d.op === "mover" ? L("Mover", "Move") : d.op === "gasto" ? L("Gasto", "Expense") : d.op === "abono" ? L("Abono", "Payment") : d.op === "prestamo" ? (d.debtSide === "debo" ? L("Debo", "I owe") : L("Me deben", "Owed to me")) : L("Ingreso", "Income")}</span>
                   <div className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
                     <span className="ask-relato-main">
                       <span>{d.op === "mover"

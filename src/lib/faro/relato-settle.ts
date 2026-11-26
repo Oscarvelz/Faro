@@ -23,6 +23,10 @@
  *              inactiva hacia la tarjeta, en la moneda de la
  *              tarjeta — pagar la tarjeta liquida la deuda, no es
  *              un gasto (el gasto ya contó al comprar).
+ *   prestamo → addLoan / addLent del motor (1.3.483): el registro
+ *              de la deuda en su lado — «debo» cuando me prestaron,
+ *              «me-deben» cuando yo presté; no es una línea de
+ *              flujo del mes, es el nacimiento de la deuda.
  *
  * LA CERCA DEL DUPLICADO: un borrador marcado `duplicate` por el
  * relato YA está asentado en el libro — asentarlo otra vez sería el
@@ -30,6 +34,8 @@
  * siempre, lo diga quien lo diga.
  */
 import { cardsOf, payCard } from "./cards.ts";
+import { addLent } from "./debts.ts";
+import { addLoan } from "./loans.ts";
 import { convertMinor, uid } from "./money.ts";
 import type { RelatoDraft } from "./relato.ts";
 import type { Lang, LedgerState, Line } from "./types.ts";
@@ -59,6 +65,7 @@ export function relatoLines(state: LedgerState, drafts: RelatoDraft[], lang: Lan
   for (const d of drafts) {
     if (d.duplicate) continue; // ya asentado: jamás dos veces
     if (d.op === "abono") continue; // el abono no es una línea de flujo: lo asienta settleRelatoDrafts con payCard
+    if (d.op === "prestamo") continue; // el préstamo tampoco: nace como registro de deuda en settleRelatoDrafts
     if (d.op === "gasto") {
       const line = baseLine(d, "expense-variable");
       Object.assign(line, located(state, d));
@@ -117,6 +124,19 @@ export function settleRelatoDrafts(state: LedgerState, drafts: RelatoDraft[], la
     if (!card) continue;
     const minor = d.currency === card.currency ? d.amountMinor : convertMinor(d.amountMinor, d.currency, card.currency, s.settings.rateE4);
     s = payCard(s, card.id, minor, d.date, uid(), abonoLabel);
+  }
+  // EL PRÉSTAMO (puerto 1.3.483): el borrador trae el lado
+  // declarado — «debo» nace con addLoan (me prestaron; el
+  // concepto es quien prestó) y «me-deben» con addLent (yo
+  // presté; el concepto es la persona). Sin interés declarado:
+  // el relato no oyó tasa y la casa no inventa ninguna.
+  for (const d of drafts) {
+    if (d.duplicate || d.op !== "prestamo") continue;
+    if (d.debtSide === "debo") {
+      s = addLoan(s, { id: uid(), lender: d.concept, who: "person", kind: "plain", amountMinor: d.amountMinor, currency: d.currency, aprBps: 0, takenOn: d.date, book: "fixed", note: "" });
+    } else {
+      s = addLent(s, { id: uid(), person: d.concept, kind: "plain", amountMinor: d.amountMinor, currency: d.currency, aprBps: 0, startedOn: d.date, dueOn: "", note: "" });
+    }
   }
   const lines = relatoLines(s, drafts, lang);
   if (!lines.length) return s;

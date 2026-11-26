@@ -5,10 +5,11 @@
  * el fallo crítico de un par es producir el mismo borrador con el
  * mismo signo para las dos direcciones.
  *
- * DIR-A1 (el préstamo): el relato no tiene casa para asentar
- * préstamos en ninguna dirección — el resultado correcto del par
- * es el silencio SIMÉTRICO (ninguna dirección se asienta como la
- * otra disfrazada). DIR-A3 (el pago de lo debido): las dos
+ * DIR-A1 (el préstamo): la Ola 74 lo fijó en silencio simétrico
+ * (el relato no tenía casa para préstamos); el 2026-11-26 Hark
+ * ordenó construir la casa — Debo y Me deben con el lado
+ * declarado en el borrador — y esta cerca quedó reescrita con
+ * su razón. DIR-A3 (el pago de lo debido): las dos
  * direcciones asientan, cada una en su lado, con el concepto
  * limpio. DIR-C1 (el movimiento): el borrador invierte origen y
  * destino al invertir la frase.
@@ -46,12 +47,33 @@ function relato(l: LedgerState, raw: string) {
   return parseRelato(l, KEY, "es", makeNamer(l.structure, "es"), raw, TODAY);
 }
 
-describe("rama · ola 74 · DIR-A1 el préstamo, silencio simétrico", () => {
-  it("ninguna dirección se asienta: prestar no es gastar ni recibir es ingreso", () => {
+describe("rama · ola 74 · DIR-A1 el préstamo (SUPERADO el 2026-11-26 por orden de Hark: el servicio se construye, con el lado declarado)", () => {
+  it("las dos direcciones se asientan, cada una en su lado: prestar no es gastar ni recibir es ingreso", () => {
     const l = libro();
-    assert.equal(relato(l, "Le presté 50 a Juan").kind, "unknown");
-    assert.equal(relato(l, "Juan me prestó 50").kind, "unknown");
-    assert.equal(relato(l, "Mi hermano me prestó 200").kind, "unknown");
+    const preste = relato(l, "Le presté 50 a Juan");
+    assert.equal(preste.kind, "drafts");
+    if (preste.kind === "drafts") {
+      assert.equal(preste.drafts[0].op, "prestamo");
+      assert.equal(preste.drafts[0].debtSide, "me-deben");
+      assert.equal(preste.drafts[0].concept, "Juan");
+      assert.equal(preste.drafts[0].amountMinor, 5000);
+    }
+    const mePrestaron = relato(l, "Juan me prestó 50");
+    assert.equal(mePrestaron.kind, "drafts");
+    if (mePrestaron.kind === "drafts") {
+      assert.equal(mePrestaron.drafts[0].op, "prestamo");
+      assert.equal(mePrestaron.drafts[0].debtSide, "debo");
+      assert.equal(mePrestaron.drafts[0].concept, "Juan");
+      assert.equal(mePrestaron.drafts[0].amountMinor, 5000);
+    }
+    const hermano = relato(l, "Mi hermano me prestó 200");
+    assert.equal(hermano.kind, "drafts");
+    if (hermano.kind === "drafts") {
+      assert.equal(hermano.drafts[0].op, "prestamo");
+      assert.equal(hermano.drafts[0].debtSide, "debo");
+      assert.equal(hermano.drafts[0].concept, "Hermano");
+      assert.equal(hermano.drafts[0].amountMinor, 20000);
+    }
   });
 });
 
