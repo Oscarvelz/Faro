@@ -4360,3 +4360,11 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - «Este mes» se lee por la fecha del cobro, no por la cubeta donde quedó archivado.
 - Especímenes: los 4 de la copia en banco.test.ts. Suite 3.873/3.873; typecheck con los 3 errores de base.
 - Fuente: `b54024e5`. Publicación: lotes y cola `e3996314`; treediff DIFFER vacío y EXTRA 0. Verificación en vivo de primera mano: sw `faro-1.3.466`, el índice vivo apunta a `index-CtUPMoUf.js` + `index-BMZ8Mg31.css`, barrido del precache **28/28**. Snapshot: `~/workspace/faro-466-dist-snapshot`. Sigue en la cola: la Ola 71 del banco (el reparto, la otra mitad).
+
+## 1.3.467 · EL REPARTO, LA OTRA MITAD (Ola 71 del banco, 2026-11-26)
+- «¿Cuánto puso cada uno en la cena?» ya no cae en silencio ni inventa partes: entra por la familia «falta», junto a la tanda, con repartoLibroAnswer. Si lo nombrado existe en el libro, dice su total bruto del mes («eso salió de tu mano, entero»), nombra la marca ausente (compartida, entre cuántos, con quién) y lo que desbloquearía; sin nombre, dice que ninguna línea lleva la marca.
+- La puerta exige voz de reparto sobre el libro: «cuánto me toca» solo entra con compañía de grupo (éramos, entre, repartir) — «¿cuánto me toca del aguinaldo?» no es reparto y no entra.
+- Adjudicación de canon escrita en el código: el citizenByName se llama en la forma de tres argumentos de canon; el abrazo bilingüe (otherNamer) llega con la sonda del code-switching, que actualizará también esta llamada y la de la Ola 68.
+- El censo de modos-ola12 ganó el asiento de repartoLibroAnswer como agregador propio (clase gasto, con su razón).
+- Especímenes: los 4 de la copia en banco.test.ts. Suite 3.877/3.877; typecheck con los 3 errores de base.
+- Fuente: `a1a6cbeb`. Publicación: lotes y cola `ea82cf1c`; treediff DIFFER vacío y EXTRA 0. Verificación en vivo de primera mano: sw `faro-1.3.467`, el índice vivo apunta a `index-D8EUhBEe.js` + `index-BMZ8Mg31.css`, barrido del precache **28/28**. Snapshot: `~/workspace/faro-467-dist-snapshot`. Sigue en la cola: la Ola 72 del banco (las preguntas de la casa).
