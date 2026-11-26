@@ -4516,3 +4516,11 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Registro: «total» reescribió su silencio con la razón y ganó la forma desnuda en sus canónicas; «conversor» ganó el párrafo y las formas desnudas; «historia» ganó el párrafo de la declaración.
 - Especímenes permanentes: describe «banco · ola P4» (3 tests). Enfocado 744/744, 0 saltados (con los especímenes de la 66 y la 458 y los guardianes de clase). Suite 3.954/3.954, 0 saltados; typecheck con los 3 errores de base.
 - Fuente: `64fca9f1`. Publicación: lotes y cola `26816ccf`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-480-dist-snapshot`. Sigue en la cola: la Ola P5 (la puerta inglesa y el veredicto de la campaña).
+
+## 1.3.481 — La puerta inglesa (Ola P5) · CIERRE DE LA CAMPAÑA DE PREJUICIO
+
+La última ola de la campaña: el Asesor oye el inglés de las remesas, de lo ya pagado y del cero con filtro. (1) La puerta de remesas oye el «send» del «did» además del participio, y el puente de parentesco resuelve «Mom» a la persona anotada como «Mamá» — responde con su nombre anotado y su cifra («You've sent Mamá $170.00»). Adjudicación de canon con acta: el puente entró en el resolvedor DESPUÉS de la cadena de ramas, porque intercalarlo rompía la rama de nombres de dos letras de la Ola 30 (medido). (2) «How much did I pay in rent?» confirma la renta pagada con cifra y fecha: el pajar de lo ya pagado trae los nombres en los dos idiomas y el ciudadano resuelto por el marco manda cuando la palabra no casa. (3) El cero con filtro nombra su ciudadano en la nota, también en inglés. Registro: «remesas», «ya-pague» e «historia» ganan su párrafo de la Ola P5; la cabecera de la sonda cierra los restos (b) y (c) — solo queda abierto el ancla malformada de la clase 4.
+
+VEREDICTO DE LA CAMPAÑA DE PREJUICIO (P1–P5, olas 477–481): el examen sellado de 29 piezas corre 29 de 29 afirmadas contra el canon publicado. Las cinco olas curaron lo que el examen cazó sin tocar lo que ya respondía bien: anclas de un día, stock contra flujo, el hilo sin veneno, los tres frentes declarados y la puerta inglesa. La campaña queda CERRADA.
+
+Suite completa 3.957/3.957, typecheck en su base de 3. En vivo verificado a mano: sw faro-1.3.481, paquetes index-DK6dNj_C.js + index-CxDPwsXA.css, precache 28/28.
