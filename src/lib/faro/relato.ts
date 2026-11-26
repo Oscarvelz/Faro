@@ -740,25 +740,32 @@ function findDuplicate(state: LedgerState, d: RelatoDraft): string | null {
 /* EL FORMATO DEL ECO (fallo de Oscar, 2026-11-25, desde su
  * teléfono; puerto 1.3.459): cada cosa en su línea propia, como
  * las tarjetas de borrador de abajo, y SIN guiones largos cosiendo
- * el texto: el monto se separa con dos puntos. Un eco corrido en
- * un solo párrafo se lee confuso aunque cada cifra esté bien. Esta
- * ley cubre todos los ecos de los escalones (relato, programa,
- * órdenes, crear). */
+ * el texto. Un eco corrido en un solo párrafo se lee confuso
+ * aunque cada cifra esté bien. Esta ley cubre todos los ecos de
+ * los escalones (relato, programa, órdenes, crear).
+ * ENMIENDA (fallo de Oscar, 2026-11-26, desde su teléfono; ola
+ * 1.3.462): el monto NO se separa con un segundo dos puntos
+ * («Gasto: Chocolate: $6» se lee mal) — se separa con un guion
+ * CORTO («Gasto: Chocolate - $6»), que no es el guion largo
+ * retirado en la 459. Y el eco respira con su orden y su
+ * proporción (la ley de envoltorio): una línea en blanco entre
+ * la cabecera y lo entendido, y otra antes de la pregunta de
+ * confirmación. */
 function buildEcho(lang: Lang, drafts: RelatoDraft[], today: string, projectedLine: string | null = null): string {
   const money = (d: RelatoDraft) => formatMoney(d.amountMinor, d.currency, lang);
   const when = (d: RelatoDraft) => (d.date === today ? "" : ` · ${d.date}`);
   const lines = drafts.map((d) => {
     const dup = d.duplicate ? L(lang, " · ya estaba asentado, no lo duplico", " · already posted, I won't duplicate it") : "";
     if (d.op === "mover") return `• ${L(lang, "Mover", "Move")} ${money(d)} ${L(lang, "de", "from")} ${d.from?.label} ${L(lang, "a", "to")} ${d.to?.label}${when(d)}${dup}`;
-    if (d.op === "gasto") return `• ${L(lang, "Gasto", "Expense")}: ${d.concept}: ${money(d)}${d.from ? ` ${L(lang, "desde", "from")} ${d.from.label}` : ""}${when(d)}${dup}`;
-    return `• ${L(lang, "Ingreso", "Income")}: ${d.concept}: ${money(d)}${d.to ? ` ${L(lang, "a", "to")} ${d.to.label}` : ""}${when(d)}${dup}`;
+    if (d.op === "gasto") return `• ${L(lang, "Gasto", "Expense")}: ${d.concept} - ${money(d)}${d.from ? ` ${L(lang, "desde", "from")} ${d.from.label}` : ""}${when(d)}${dup}`;
+    return `• ${L(lang, "Ingreso", "Income")}: ${d.concept} - ${money(d)}${d.to ? ` ${L(lang, "a", "to")} ${d.to.label}` : ""}${when(d)}${dup}`;
   });
   const fresh = drafts.some((d) => !d.duplicate);
   const head = L(lang, "Esto es lo que entendí:", "Here's what I understood:");
   const foot = fresh
     ? L(lang, "¿Lo asiento así?", "Shall I post it like this?")
     : L(lang, "No hay nada nuevo que asentar.", "There's nothing new to post.");
-  return [head, ...lines, ...(projectedLine ? [projectedLine] : []), foot].join("\n");
+  return [head, "", ...lines, ...(projectedLine ? [projectedLine] : []), "", foot].join("\n");
 }
 
 /* LA CAMPAÑA DE MUTACIONES DE LA RAMA (puerto 1.3.457) · LA
@@ -1106,12 +1113,14 @@ export function parsePrograma(
       ? formatMoney(d.amountMinor, d.currency, lang)
       : L(lang, "sin monto fijo (solo recordatorio)", "no fixed amount (reminder only)");
     const dupTxt = d.duplicate ? L(lang, ` · ojo: ya tienes «${d.duplicate}» programado igual; no lo duplico`, ` · note: you already have "${d.duplicate}" scheduled the same way; I won't duplicate it`) : "";
-    return `• ${d.concept}: ${amtTxt}, ${cadTxt}${dupTxt}`;
+    return `• ${d.concept} - ${amtTxt}, ${cadTxt}${dupTxt}`;
   });
   const fresh = drafts.some((d) => !d.duplicate);
   const echo = [
     L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
+    "",
     ...lines,
+    "",
     fresh ? L(lang, "¿Lo dejo programado así?", "Shall I schedule it like this?") : L(lang, "No hay nada nuevo que programar.", "There's nothing new to schedule."),
   ].join("\n");
   return { kind: "schedules", drafts, echo };

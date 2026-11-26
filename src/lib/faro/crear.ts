@@ -105,7 +105,9 @@ function aDraft(lang: Lang, names: Namer, p: CrearPropuesta): CrearStep {
     kind: "draft", draft,
     echo: [
       L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
+      "",
       `• ${L(lang, "Crear", "Create")} «${draft.nombre}», ${tipoTxt}, ${dondeTxt}`,
+      "",
       L(lang, "¿La creo así?", "Shall I create it like this?"),
     ].join("\n"),
   };

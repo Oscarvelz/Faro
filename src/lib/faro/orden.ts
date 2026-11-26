@@ -187,7 +187,9 @@ export function parseOrden(
       ? L(lang, `«${l.concept}» ya está archivado; no hay nada que hacer.`, `"${l.concept}" is already archived; there's nothing to do.`)
       : [
           L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
-          `• ${L(lang, "Archivar", "Archive")} «${l.concept}»: ${money(l.amountMinor, l.currency)}${order.date ? `, ${fmtDay(order.date, lang)}` : ""}`,
+          "",
+          `• ${L(lang, "Archivar", "Archive")} «${l.concept}» - ${money(l.amountMinor, l.currency)}${order.date ? `, ${fmtDay(order.date, lang)}` : ""}`,
+          "",
           L(lang, "¿Lo hago así?", "Shall I do it like this?"),
         ].join("\n");
     return { kind: "order", order, echo };
@@ -213,7 +215,9 @@ export function parseOrden(
       const draft: OrdenDraft = { op: "ajuste", setting, value, fromText, toText };
       const echo = [
         L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
+        "",
         `• ${L(lang, "Cambiar", "Change")} ${name}: ${fromText} → ${toText}`,
+        "",
         L(lang, "¿Lo hago así?", "Shall I do it like this?"),
       ].join("\n");
       return { kind: "order", order: draft, echo };
@@ -296,7 +300,9 @@ export function parseOrden(
       };
       const echo = [
         L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
+        "",
         `• ${L(lang, "Corregir", "Correct")} «${l.concept}»: ${money(l.amountMinor, l.currency)} → ${money(to.minor, l.currency)}`,
+        "",
         L(lang, "¿Lo hago así?", "Shall I do it like this?"),
       ].join("\n");
       return { kind: "order", order, echo };
@@ -308,7 +314,9 @@ export function parseOrden(
       const order: OrdenDraft = { op: "corregir-fecha", lineId: l.id, monthKey: found.monthKey, concept: l.concept, fromDate: from, toDate };
       const echo = [
         L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
+        "",
         `• ${L(lang, "Mover la fecha de", "Move the date of")} «${l.concept}»: ${fmtDay(from, lang)} → ${fmtDay(toDate, lang)}`,
+        "",
         L(lang, "¿Lo hago así?", "Shall I do it like this?"),
       ].join("\n");
       return { kind: "order", order, echo };

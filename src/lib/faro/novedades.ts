@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.462",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El eco, con su aire", en: "The echo, with room to breathe" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "El eco de confirmación respira mejor: una línea de por medio tras «Esto es lo que entendí:» y otra antes de la pregunta, y el monto se separa con un guion corto — «Gasto: Chocolate - $6» — en vez del segundo dos puntos.",
+      ],
+      en: [
+        "The confirmation echo breathes better: a blank line after “Here's what I understood:” and another before the question, and the amount is set off with a short dash — “Expense: Chocolate - $6” — instead of the second colon.",
+      ],
+    },
+  },
+  {
     version: "1.3.461",
     date: "2026-11-25",
     level: "grande",

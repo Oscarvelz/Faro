@@ -623,3 +623,20 @@ describe("relato · las cazas del teléfono de Oscar (2026-11-25): el marco, la 
     assert.equal(depUna.drafts[0].to?.label, "Banco");
   });
 });
+
+describe("relato · el formato del eco (fallo de Oscar, 2026-11-26)", () => {
+  it("el monto se separa con guion corto y el eco respira: aire tras la cabecera y antes de la pregunta", () => {
+    const r = relato(fixture(), "compré un pollo por 20 pesos y una licuadora por 300, añádelos a mi cuenta");
+    assert.equal(r.kind, "drafts");
+    if (r.kind !== "drafts") return;
+    // El guion corto separa concepto y monto — nunca el segundo dos puntos.
+    assert.ok(r.echo.includes("Gasto: Pollo - C$20.00"), r.echo);
+    assert.ok(r.echo.includes("Gasto: Licuadora - C$300.00"), r.echo);
+    assert.ok(!r.echo.includes("Pollo: C$"), r.echo);
+    assert.ok(!r.echo.includes("—"), r.echo); // el guion largo sigue retirado
+    // El aire de la ley de envoltorio: línea en blanco tras la
+    // cabecera y línea en blanco antes de la pregunta.
+    assert.ok(r.echo.startsWith("Esto es lo que entendí:\n\n• "), r.echo);
+    assert.ok(r.echo.includes("\n\n¿Lo asiento así?"), r.echo);
+  });
+});
