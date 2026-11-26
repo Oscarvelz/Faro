@@ -2810,16 +2810,27 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
     });
   })() : null;
   const partsText = partData ? partData.map((d) => `${d.display} ${c.money(d.sum)}`).join(", ") : "";
+  /* OLA P4 · LA UNIÓN CON EL MEDIO SE DECLARA: «¿cuánto gasté en
+   * comida o en efectivo?» unía un ciudadano con un MEDIO, y la
+   * respuesta daba solo el ciudadano en silencio — una respuesta
+   * parcial disfrazada de completa (el frente F6, medido por la
+   * sonda y observado por el examen sellado). El libro no anota
+   * el medio de cada línea: esa parte no se puede medir, y la
+   * respuesta lo dice en vez de callarlo. */
+  const medioWord = !useUnion && effFilter ? /\b(efectivo|tarjeta|cash|card)\b/.exec(foldedClean)?.[1] : undefined;
+  const medioText = medioWord && /\b(o|or)\b/.test(foldedClean)
+    ? L(c.lang, ` Lo de «${medioWord}» no lo sumé: tu libro no anota el medio de cada línea, así que esa parte no se puede medir.`, ` I didn't add the "${medioWord}" part: your book doesn't record each line's payment method, so that side can't be measured.`)
+    : "";
   return {
     kind: "answer", family: "historia",
     verdict: partData
       ? (income
-        ? L(c.lang, `En ${p.label} entraron ${c.money(total)} por ese filtro: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `${c.money(total)} came in ${p.label} under that filter: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`)
-        : L(c.lang, `En ${p.label} gastaste ${c.money(total)} en eso: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `In ${p.label} you spent ${c.money(total)} on that: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`))
+        ? L(c.lang, `En ${p.label} entraron ${c.money(total)} por ese filtro: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `${c.money(total)} came in ${p.label} under that filter: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`)
+        : L(c.lang, `En ${p.label} gastaste ${c.money(total)} en eso: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)} on that: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`))
       : income
       // OLA 26 (U4): la frase concuerda — «de 1 línea», no «de 1 líneas».
-      ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filter ? " por ese filtro" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `${c.money(total)} came in ${p.label}${filter ? " under that filter" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`)
-      : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`),
+      ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filter ? " por ese filtro" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `${c.money(total)} came in ${p.label}${filter ? " under that filter" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`)
+      : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`),
     pieces: [{ label: p.label, minor: total }, ...(partData ? partData.map((d) => ({ label: d.display, minor: d.sum })) : []), ...exclList.map((e, i) => ({ label: L(c.lang, `Fuera de la cuenta: ${e.display}`, `Left out: ${e.display}`), minor: -exclSums[i] })), ...(excAsExcl ? [{ label: L(c.lang, `Fuera de la cuenta: ${excAsExcl.display}`, `Left out: ${excAsExcl.display}`), minor: -excAsExclSum }] : [])],
     note: pool.length === 0
       ? L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.")
@@ -4931,7 +4942,13 @@ function guestNoRateResult(state: LedgerState, lang: Lang, code: string): Extrac
 }
 
 function conversorAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
-  if (!/(cuanto (es|son|seria|vale)|convertir|convierte|a cuanto|en (dolares|cordobas|pesos)|how much is|convert)/.test(folded) && !guestIn(folded)) return null;
+  // OLA P4: la conversión DESNUDA («100 dólares a córdobas», sin
+  // voz de pregunta) es la misma operación dicha como orden de
+  // mostrador; su forma es el par de monedas con su puente, y las
+  // cercas de siempre (un solo monto, ninguna operación rival)
+  // la guardan igual que a la preguntada. La costura de la moneda
+  // invitada de canon (444) queda como estaba.
+  if (!/(cuanto (es|son|seria|vale)|convertir|convierte|a cuanto|en (dolares|cordobas|pesos)|\b(a|to)\s+(cordobas|dolares|pesos|dollars)\b|how much is|convert)/.test(folded) && !guestIn(folded)) return null;
   const amounts = amountsIn(raw, c.display);
   // OLA 9 (CAZA-TRAMPAS clase 2): el conversor solo convierte cuando
   // convertir es LA operación de la pregunta — exactamente un monto y
@@ -8131,7 +8148,13 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
   const moneyHow = /(cuanto (dinero|billete|efectivo) tengo|cuanto (dinero|billete|efectivo) hay|cuanto tengo en total|todo mi dinero|how much (money|cash) do i have|how much (money|cash) is there|how much do i have in total)/.test(folded);
   const bareMoney = /^(y )?(no )?(tengo|tenes|me queda|hay) (dinero|billete|efectivo)( para (gastar|comprar|pagar|salir|comer|eso|esto))?$/.test(bare)
     || /^(do i have|have i got) (any )?(money|cash)$/.test(bare);
-  if (classNamed || (!moneyHow && !bareMoney)) return null;
+  // OLA P4 · EL «¿CUÁNTO TENGO?» A SECAS: la forma más corta de la
+  // familia callaba entera (medido por la sonda y el examen
+  // sellado, F8). Es forma EXACTA, sin cola: cualquier continuación
+  // («en ahorros», «para gastar», «que hacer») es de otra familia,
+  // y la clase nombrada ya cerró esta puerta arriba.
+  const bareHave = /^(cuanto tengo|cuanto dinero tengo|how much do i have|how much money do i have)$/.test(bare);
+  if (classNamed || (!moneyHow && !bareMoney && !bareHave)) return null;
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
   const stock = savingsStock(c.state, c.key);
   const nb = netBalance(c.state, c.today);
@@ -11982,7 +12005,7 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b|\btengo\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b|\btuviera\b|\btuviese\b|\b\d+\s+(por|x|entre|menos|times)\s+\d+\b|\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(por|entre|times)\s+(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b|\btengo\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b|\btuviera\b|\btuviese\b|\b\d+\s+(por|x|entre|menos|times)\s+\d+\b|\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(por|entre|times)\s+(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b|\b(a|to)\s+(cordobas|dolares|pesos|dollars)\b/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, rawR, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo
@@ -12701,7 +12724,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(de que cuenta (saco|pago|tomo)|cual cuenta (uso|conviene)|de donde saco)/, "cuenta-origen"],
     [/(50.?30.?20|la regla|the rule|deberia gastar en|cuanto deberia (gastar|ahorrar))/, "regla"],
     [/(cuanto necesito (al mes|para vivir)|necesito para vivir|cuanto (me )?cuesta vivir|que (porcentaje|parte) de (lo que gano|mi sueldo|mi salario)|cuanto (me |nos )?(cuesta|cuestan) .{1,30} al mes|cuanto gastamos en|me alcanza con lo que gano|alcanza mi sueldo|how much do i need to live|what (percentage|share) of my income|how much does .{1,30} cost)/, "promedio"],
-    [/(cuanto (dinero )?tengo en total|cuanto (dinero|billete|efectivo) hay|todo mi dinero|how much money do i have in total|how much (money|cash) is there)/, "total"],
+    [/(cuanto (dinero )?tengo en total|cuanto (dinero|billete|efectivo) hay|todo mi dinero|^cuanto tengo$|^how much do i have$|how much money do i have in total|how much (money|cash) is there)/, "total"],
     [/(promedio|gasto fijo|cuanto puedo gastar hoy|seguro gastar)/, "promedio"],
     [/(gustos|antojos|puedo gastar|darme el gusto|capricho)/, "gustos"],
     // OLA 25: la verificación nombra «promedio» en el oído — DESPUÉS

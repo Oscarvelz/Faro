@@ -3300,7 +3300,14 @@ describe("banco · ola 46 — el total de todo y lo que me deben en total (F1 + 
 
   it("guardianes: la queda a secas no es el total, y el libro vacío lo dice", () => {
     const book = libroTotal46();
-    const q = ask(book, "¿Cuánto tengo?");
+    // OLA P4 (2026-11-25): este guardián codificaba la doctrina
+    // vieja («¿cuánto tengo?» es de la queda del delegado). Medido
+    // por la sonda y el examen sellado, no lo respondía nadie: el
+    // frente F8 lo declaró hueco y la P4 le dio casa en el total,
+    // cuya respuesta trae la queda como primera bolsa. El guardián
+    // se re-apunta a la frontera que sí sigue viva: la QUEDA
+    // («¿cuánto me queda?») no es el total.
+    const q = ask(book, "¿Cuánto me queda?");
     if (q.kind === "answer") assert.notEqual(q.family, "total");
     const empty = createInitial("es", "oscuro");
     empty.settings.display = "USD";
@@ -5830,6 +5837,41 @@ describe("banco · ola P2 (prejuicio) — el stock no es el flujo", () => {
     const r = ask(l, "¿Cuánto gasté en guardia este mes?");
     if (r.kind !== "answer") assert.fail("debió responder");
     assert.equal(r.family, "historia");
+  });
+});
+
+describe("banco · ola P4 (prejuicio) — los tres frentes declarados", () => {
+  it("F8 · «¿cuánto tengo?» a secas tiene casa: el total, con la queda nombrada", () => {
+    const l = fixture();
+    const r = ask(l, "¿Cuánto tengo?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "total");
+    assert.ok(r.verdict.includes("En total tienes"), r.verdict);
+    const en = ask(l, "How much do I have?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.equal(en.family, "total");
+    const guard = ask(l, "¿Cuánto tengo en ahorros?");
+    if (guard.kind !== "answer") assert.fail("debió responder");
+    assert.equal(guard.family, "ahorros");
+  });
+  it("F7 · la conversión desnuda convierte, en los dos idiomas", () => {
+    const l = fixture();
+    const r = ask(l, "100 dólares a córdobas");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "conversor");
+    assert.ok(r.verdict.includes("C$3,662.43"), r.verdict);
+    const en = ask(l, "100 dollars to cordobas", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.equal(en.family, "conversor");
+  });
+  it("F6 · la unión con el medio declara la parte que no se puede medir", () => {
+    const l = fixture();
+    const r = ask(l, "¿Cuánto gasté en zapatos o en efectivo?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "historia");
+    assert.ok(r.verdict.includes("$80.00"), r.verdict);
+    assert.ok(r.verdict.includes("no lo sumé"), r.verdict);
+    assert.ok(r.verdict.includes("no anota el medio"), r.verdict);
   });
 });
 

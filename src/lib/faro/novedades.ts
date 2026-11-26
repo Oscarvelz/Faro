@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.480",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Los tres frentes declarados, cerrados", en: "The three declared fronts, closed" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«¿Cuánto tengo?», a secas, ya tiene respuesta: el total de tu libro, con la queda de hoy como primera bolsa, nombrada. Antes callaba entero en los dos idiomas: nadie lo respondía.",
+        "La conversión desnuda también convierte: «100 dólares a córdobas», dicho como orden de mostrador y sin voz de pregunta, usa la tasa de tu Mesa de cambio, con las cercas de siempre.",
+        "Y si preguntas «¿cuánto gasté en comida o en efectivo?», la respuesta suma la comida y declara lo otro: tu libro no anota el medio de cada línea, así que esa parte no se puede medir — dicho, no callado.",
+      ],
+      en: [
+        "“How much do I have?”, bare, now has an answer: your book's total, with today's left as its first bag, named. Before, it was wholly silent in both languages: nobody answered it.",
+        "The bare conversion converts too: “100 dollars to cordobas”, said as a counter order with no question voice, uses your Exchange desk's rate, with the usual fences.",
+        "And if you ask “how much did I spend on food or in cash?”, the answer adds up the food and declares the rest: your book doesn't record each line's payment method, so that side can't be measured — said, not silenced.",
+      ],
+    },
+  },
+  {
     version: "1.3.479",
     date: "2026-11-26",
     level: "menor",
