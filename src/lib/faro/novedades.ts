@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.465",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Los botones de la confirmación, con su forma", en: "The confirmation buttons, in their shape" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Cuando el Asesor te ofrece crear algo en tu estructura, ese botón ya es un botón único, a lo ancho de la tarjeta y con aire sobre la pregunta, no un chip más.",
+        "«Asentarlo así» y las demás confirmaciones ahora son botones llenos con el color de tu tema, y «Ahora no» un botón tranquilo a su lado.",
+        "La forma sigue a tu tema: en Cyberpunk los botones se cuadran, como sus ventanas.",
+      ],
+      en: [
+        "When the Advisor offers to create something in your structure, that button is now a unique button, across the card and with air above the question, not one more chip.",
+        "“Post it like this” and the other confirmations are now filled buttons in your theme's color, with “Not now” as a quiet button beside them.",
+        "The shape follows your theme: in Cyberpunk the buttons square up, like its windows.",
+      ],
+    },
+  },
+  {
     version: "1.3.464",
     date: "2026-11-26",
     level: "grande",

@@ -568,3 +568,11 @@ html:root[data-theme="cyberpunk"] .stat-fold .pp-bars .pp-bar-name { font-weight
 @media (prefers-reduced-motion: reduce) {
   html:root[data-theme="cyberpunk"] :is(.pano-pillar-track b, .stat-fold .share .bar-fill, .stat-fold .pp-bars i) { animation: cp-fade-a .3s ease both; }
 }
+
+/* ---------- Los botones de la confirmación del Asesor (1.3.465) ----------
+   Fallo de Oscar, con su foto: los botones heredan la forma del tema.
+   En Cyberpunk las ventanas son cuadradas: fuera la píldora de la
+   base — los chips de confirmación se cuadran y el botón único de
+   crear lleva el corte de la casa, como las barras del HUD. */
+html:root[data-theme="cyberpunk"] .ask-chip { border-radius: 0; }
+html:root[data-theme="cyberpunk"] .ask-create-btn { border-radius: 0; clip-path: var(--cp-cut-sm); }

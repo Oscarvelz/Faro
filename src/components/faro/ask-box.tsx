@@ -723,8 +723,11 @@ export function AskBox() {
               tarjetitas y antes de los botones — como estaba. */}
           <p className="ask-verdict">{relato.echo.split("\n\n")[1] ?? ""}</p>
           {crearOffer ? (
-            <div className="ask-chips">
-              <button type="button" className="ask-chip" data-anchor="ask-crear-start" onClick={() => startCrear(crearOffer.step, crearOffer.draft)}>{L(`Crear «${crearOffer.draft.concept}» en tu estructura`, `Create "${crearOffer.draft.concept}" in your structure`)}</button>
+            <div className="ask-offer">
+              <button type="button" className="ask-create-btn" data-anchor="ask-crear-start" onClick={() => startCrear(crearOffer.step, crearOffer.draft)}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                {L(`Crear «${crearOffer.draft.concept}» en tu estructura`, `Create "${crearOffer.draft.concept}" in your structure`)}
+              </button>
             </div>
           ) : null}
           <div className="ask-chips">
