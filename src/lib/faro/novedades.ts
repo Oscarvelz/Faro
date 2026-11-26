@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.468",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Las preguntas de la casa: el cómo se hace", en: "Questions about the house: how things are done" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "El Asesor ahora responde el cómo se hace dentro de Faro: cómo anotas a mano, cómo importas, cómo das de alta una tarjeta, cómo creas una meta, cómo armas el plan de pagos, cada respuesta con su pantalla y su puerta.",
+        "El idioma se cambia en Ajustes y ya no se confunde con la Mesa de cambio: preguntarlo por su nombre lleva a su casa.",
+        "Y la casa dice su verdad negativa: marcar un gasto como compartido todavía no se puede, y te dice lo más cercano que hoy sí existe.",
+      ],
+      en: [
+        "The Advisor now answers how things are done inside Faro: how you write by hand, how you import, how you register a card, how you create a goal, how you build the payoff plan, each answer with its screen and its door.",
+        "The language is changed in Settings and is no longer confused with the Exchange desk: asking for it by name leads to its home.",
+        "And the house states its negative truth: marking an expense as shared can't be done yet, and it tells you the closest thing that exists today.",
+      ],
+    },
+  },
+  {
     version: "1.3.467",
     date: "2026-11-26",
     level: "menor",

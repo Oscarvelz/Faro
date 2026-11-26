@@ -5380,3 +5380,75 @@ describe("banco · ola 71: el reparto sobre lo anotado (la marca que falta)", ()
     assert.ok(t.verdict.includes("turno compartido"), t.verdict);
   });
 });
+
+describe("banco · ola 72: las preguntas de la casa (el cómo se hace, por su puerta)", () => {
+  it("las tareas núcleo llegan a su pantalla: tarjeta, anotar, importar, sincronizar", () => {
+    const cases: Array<[string, string]> = [
+      ["¿Cómo añado una tarjeta?", "Cobros → Debo → Tarjetas"],
+      ["¿Cómo anoto un gasto?", "Hoja de Captura"],
+      ["¿Cómo importo un estado de cuenta?", "mapa de columnas"],
+      ["¿Cómo sincronizo mi libro?", "Ajustes → Cuenta"],
+      ["¿Cómo cambio la tasa de cambio?", "Mesa de cambio"],
+      ["¿Cómo cambio el modo?", "Estructura · Modo"],
+    ];
+    for (const [q, frag] of cases) {
+      const r = ask(fixture(), q);
+      if (r.kind !== "answer") assert.fail(`debió responder: ${q}`);
+      assert.equal(r.family, "faro-mismo", q);
+      assert.ok(r.verdict.includes(frag), `${q} → ${r.verdict}`);
+    }
+    const en = ask(fixture(), "How do I add a card?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.equal(en.family, "faro-mismo");
+    assert.ok(en.verdict.includes("Collections → I owe → Cards"), en.verdict);
+  });
+
+  it("la meta ya no se roba: crearla es de la casa, su saldo sigue siendo de ahorros", () => {
+    const r = ask(fixture(), "¿Cómo creo una meta de ahorro?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "faro-mismo");
+    assert.ok(r.verdict.includes("La meta nace en Ahorros"), r.verdict);
+    const m = ask(fixture(), "¿Cuánto tengo en mi meta de ahorro?");
+    if (m.kind !== "answer") assert.fail("debió responder");
+    assert.equal(m.family, "ahorros");
+  });
+
+  it("el idioma vive en Ajustes, no en la mesa de cambio (la cura de las llaves sueltas)", () => {
+    for (const q of ["¿Cómo cambio el idioma?", "¿Dónde cambio el idioma?"]) {
+      const r = ask(fixture(), q);
+      if (r.kind !== "answer") assert.fail(`debió responder: ${q}`);
+      assert.equal(r.family, "faro-mismo", q);
+      assert.ok(r.verdict.includes("Ajustes"), r.verdict);
+      assert.ok(!r.verdict.includes("píldora de moneda"), r.verdict);
+    }
+  });
+
+  it("la verdad negativa: marcar compartido todavía no se puede, y se dice", () => {
+    const r = ask(fixture(), "¿Cómo marco un gasto como compartido?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "faro-mismo");
+    assert.ok(r.verdict.includes("Todavía no se puede"), r.verdict);
+    assert.ok(r.verdict.includes("nota de la línea"), r.verdict);
+  });
+
+  it("la reparación falsa de la propia ola: «ganado» jamás se repara a «anado»", () => {
+    const g = ask(fixture(), "¿Cuánto he ganado este mes?");
+    assert.equal(g.kind, "answer");
+    if (g.kind === "answer") assert.ok(!g.verdict.includes("gastaste"), g.verdict);
+    const t = ask(fixture(), "¿Cómo anado una tarjeta?");
+    if (t.kind !== "answer") assert.fail("debió responder");
+    assert.equal(t.family, "faro-mismo");
+  });
+
+  it("los guardianes: pagar la tarjeta y ahorrar más no son tareas de la casa; las erratas sí llegan", () => {
+    const p = ask(fixture(), "¿Cómo pago mi tarjeta?");
+    assert.notEqual(p.kind === "answer" ? p.family : "unknown", "faro-mismo");
+    const a = ask(fixture(), "¿Cómo puedo ahorrar más?");
+    assert.notEqual(a.kind === "answer" ? a.family : "unknown", "faro-mismo");
+    for (const q of ["¿Como sincroniso mi libro?", "¿Cómo anado una tarjeta?"]) {
+      const r = ask(fixture(), q);
+      if (r.kind !== "answer") assert.fail(`debió responder: ${q}`);
+      assert.equal(r.family, "faro-mismo", q);
+    }
+  });
+});

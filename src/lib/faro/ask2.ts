@@ -8633,6 +8633,91 @@ function limitesAnswer(c: Ctx): BankResult {
 }
 
 /* ------------------------------------------------------------------ */
+/* OLA 72 · LAS PREGUNTAS DE LA CASA — el «cómo se hace» de la app    */
+/* misma: una tabla CERRADA de tareas (verbo+objeto inconfundibles),  */
+/* leída del mapa vivo de la casa. Se juzga temprano (asiento 0a1b,    */
+/* tras la tasa) para que ninguna familia de dinero robe el objeto     */
+/* como cifra. Lo que no está en la tabla no se improvisa.             */
+/* ------------------------------------------------------------------ */
+function casaHowTo72(c: Ctx, folded: string): BankResult | null {
+  const marker = /(como|how|quiero|necesito|donde|can i|se puede)/.test(folded)
+    || /(anado|agreg\w*|creo|marco|anoto|apunto|registro|registr\w*|sincronizo|importo)\b/.test(folded);
+  if (!marker) return null;
+  const entry = (id: string) => FARO_FUNCTION_MAP.find((x) => x.id === id)!;
+  const casa = (id: string, verdict: string, note: string, door?: [string, string]): BankResult => {
+    const f = entry(id);
+    if (f.minMode && !askReachesFloor(c.mode, f.minMode)) {
+      return { kind: "answer", family: "faro-mismo", verdict: L(c.lang, `Eso es «${f.name.es}», en el área de ${f.area.es} (${f.screen.es}). Vive en ${modeWord(c.lang, f.minMode)}: en ${modeWord(c.lang, c.mode)} no ves esa pantalla.`, `That's "${f.name.en}", in the ${f.area.en} area (${f.screen.en}). It lives in ${modeWord(c.lang, f.minMode)}: in ${modeWord(c.lang, c.mode)} you don't see that screen.`), pieces: [], note: L(c.lang, `Su tema en el Manual es «${f.name.es}».`, `Its Manual topic is "${f.name.en}".`), source: [id], lines: 0 };
+    }
+    return { kind: "answer", family: "faro-mismo", verdict, pieces: [], note, source: [id], lines: 0, ...(door ? { actions: reportDoor(c, id, door[0], door[1]) } : {}) };
+  };
+  // 1 · la verdad negativa: la marca de compartido no existe todavía.
+  if (/(marc\w*|mark|senal\w*).{0,30}(compartid|shared)/.test(folded) || /(fue|es) compartid/.test(folded) && /(como|how)/.test(folded)) {
+    return casa("libros.lineas",
+      L(c.lang, "Todavía no se puede: Faro no tiene la marca de gasto compartido (quedó especificada y en construcción). Hoy lo más cercano es escribirlo en la nota de la línea, en Libros: la línea queda tuya entera en los totales, y si me preguntas cuánto puso cada uno, te digo su total y que la marca falta.", "It can't be done yet: Faro doesn't have the shared-expense mark (it's specified and being built). Today's closest step is writing it in the line's note, in Books: the line stays wholly yours in the totals, and if you ask me how much each person put in, I'll tell you its total and that the mark is missing."),
+      L(c.lang, "La marca, cuando exista, vivirá en la línea misma: compartida, entre cuántas personas y con quién.", "The mark, when it exists, will live on the line itself: shared, among how many people, and with whom."),
+      ["Ver las líneas en Libros", "See the lines in Books"]);
+  }
+  // 2 · el idioma manda sobre la tasa: «cambio» no es siempre moneda.
+  if (/(cambi\w*|change|switch).{0,20}(idioma|language|lengua)/.test(folded)) {
+    return casa("ajustes.estructura",
+      L(c.lang, "El idioma vive en Ajustes: ahí lo cambias y toda la app, el Asesor incluido, te sigue en el idioma nuevo.", "The language lives in Settings: change it there and the whole app, the Advisor included, follows you in the new language."),
+      L(c.lang, "El idioma es del libro entero, no de una pantalla: por eso vive con la estructura, en Ajustes.", "The language belongs to the whole book, not to one screen: that's why it lives with the structure, in Settings."));
+  }
+  // 3 · el modo.
+  if (/(cambi\w*|change|switch|paso|pongo).{0,20}\b(modo|mode)\b/.test(folded) || /(como|how).{0,14}(esencial|ritmo|completo)\b/.test(folded)) {
+    return casa("ajustes.estructura",
+      L(c.lang, "El modo se cambia en Ajustes → Estructura · Modo: Esencial, Ritmo o Completo. El modo gobierna lo que se gestiona en pantalla, nunca lo que existe: lo que un modo no muestra, ese modo no lo toca al guardar.", "The mode is changed in Settings → Structure · Mode: Essential, Rhythm or Complete. The mode governs what's managed on screen, never what exists: what a mode doesn't show, that mode doesn't touch on save."),
+      L(c.lang, "Las respuestas del Asesor no cambian con el modo: contesta igual en los tres.", "The Advisor's answers don't change with the mode: it answers the same in all three."));
+  }
+  // 4 · la tasa y la moneda.
+  if (/(cambi\w*|ajust\w*|edit\w*|change|set).{0,24}(tasa|moneda|rate|currency)/.test(folded)) {
+    return casa("cambio.mesa",
+      L(c.lang, "La tasa se cambia en la Mesa de cambio, en su píldora de moneda: ahí fijas tu tasa y añades la moneda invitada. Tu tasa manual manda sobre la traída de la red, y la de la red siempre dice su fecha y su fuente.", "The rate is changed at the Exchange desk, on its currency pill: there you set your rate and add the guest currency. Your manual rate rules over the one fetched from the network, and the fetched one always states its date and source."),
+      L(c.lang, "Hay una sola casa de tasas en Faro: toda conversión del libro sale de esa mesa.", "There's a single home for rates in Faro: every conversion in the book comes from that desk."));
+  }
+  // 5 · dar de alta una tarjeta.
+  if (/(anad\w*|agreg\w*|nueva|crear|creo|add|new).{0,20}(tarjeta|card)\b/.test(folded)) {
+    return casa("cobros.tarjetas",
+      L(c.lang, "Una tarjeta nueva nace en Cobros → Debo → Tarjetas: ahí la das de alta con su límite y su día de pago. Sus cifras viven en sus lecturas: la última lectura es la que manda.", "A new card is born in Collections → I owe → Cards: there you register it with its limit and its payment day. Its figures live in its snapshots: the latest snapshot rules."),
+      L(c.lang, "Pagar la tarjeta, cuando llegue, es transferencia: baja el saldo sin contarse como gasto, porque el gasto ya contó al comprar.", "Paying the card, when the time comes, is a transfer: it lowers the balance without counting as spending, because the spending already counted at purchase."),
+      ["Verlo en Cobros · Tarjetas", "See it in Collections · Cards"]);
+  }
+  // 6 · importar.
+  if (/(import\w*|subo|subir).{0,28}(estado|recibo|banco|excel|archivo|statement|receipt|bank|file)/.test(folded) || /(como|how).{0,10}(import|subo|importo)\b/.test(folded)) {
+    return casa("captura.importar",
+      L(c.lang, "Importas en Importar del banco, en su hoja de Importar: primero te muestra el mapa de columnas para que lo confirmes (Faro no adivina una columna en silencio), y todo lo importado pasa por la mesa de revisión antes de ser línea.", "You import in Import from your bank, on its Import sheet: first it shows you the column map to confirm (Faro never guesses a column silently), and everything imported passes through the review table before becoming a line."),
+      L(c.lang, "Nada importado es dinero hasta que lo guardas en la mesa: antes es borrador.", "Nothing imported is money until you save it at the table: before that it's a draft."));
+  }
+  // 7 · anotar a mano.
+  if (/(anot\w*|apunt\w*|registr\w*|escrib\w*|add|log|write).{0,24}(gasto|ingreso|compra|pago|expense|income|purchase)/.test(folded) || /(como|how).{0,10}(anoto|apunto|registro|escribo|add|log)\b/.test(folded)) {
+    return casa("captura.escribir",
+      L(c.lang, "Anotas en la Hoja de Captura, con el + o el −: escribes el monto y el concepto en tus palabras, también pegando una lista o escaneando. Lo que escribes nace como borrador y solo al guardarlo en la mesa se vuelve línea.", "You write it on the Capture sheet, with + or −: you write the amount and the concept in your own words, also by pasting a list or scanning. What you write is born as a draft and only becomes a line when you save it at the table."),
+      L(c.lang, "Lo que la hoja no entienda no se descarta: cae en la mesa con su herramienta manual.", "What the sheet doesn't understand isn't discarded: it lands on the table with its manual tool."));
+  }
+  // 8 · crear la meta o el apartado.
+  if (/(cre\w*|nueva|nuevo|hago|abro|create|open|new|set).{0,24}(meta|apartado|bolsillo|goal|pocket)/.test(folded)) {
+    return casa("ahorros.stock",
+      L(c.lang, "La meta nace en Ahorros: es una de las clases de tu ahorro, junto a la cuenta, el retiro y la emergencia. Ahí la creas con su monto, y desde entonces el Asesor cuenta lo que te falta contra ella.", "The goal is born in Savings: it's one of the classes of your savings, alongside the account, retirement and emergency. There you create it with its amount, and from then on the Advisor counts what you're missing against it."),
+      L(c.lang, "Las clases del ahorro suman exactamente tu total: la meta es una parte con nombre, no un dinero aparte.", "The savings classes add up exactly to your total: the goal is a named part, not separate money."));
+  }
+  // 9 · sincronizar y respaldar.
+  if (/(sincron\w*|respald\w*|sync|back ?up)/.test(folded)) {
+    return casa("cuenta.sync",
+      L(c.lang, "La sincronía se ve en la barra de arriba, en su punto, y vive en Ajustes → Cuenta. Faro entra sin internet, trabaja y guarda en tu aparato, y sincroniza solo cuando vuelve la conexión: no tienes que hacer nada para respaldar lo local.", "Sync shows in the top bar, on its dot, and lives in Settings → Account. Faro opens offline, works and saves on your device, and syncs on its own when the connection returns: you don't have to do anything to back up what's local."),
+      L(c.lang, "Ninguna respuesta del Asesor depende de la red: el libro vive en tu aparato.", "No Advisor answer depends on the network: the book lives on your device."));
+  }
+  // 10 · armar el plan de pagos.
+  if (/(hago|crear|creo|arm\w*|make|create|set up).{0,22}(plan de pago|payoff plan|debt plan)/.test(folded)) {
+    return casa("cobros.plan",
+      L(c.lang, "El plan de pago vive en Cobros → Plan de pago: ahí eliges tu presupuesto mensual y el orden de ataque, avalancha o bola de nieve, y el plan simula mes a mes hasta dejarte libre.", "The payoff plan lives in Collections → Payoff plan: there you choose your monthly budget and the attack order, avalanche or snowball, and the plan simulates month by month until you're free."),
+      L(c.lang, "Si no fijas presupuesto, el plan usa tu ritmo real de abonos de 90 días, y la respuesta te dice cuál de los dos usó.", "If you don't set a budget, the plan uses your real 90-day payment pace, and the answer tells you which of the two it used."),
+      ["Verlo en Cobros · Plan", "See it in Collections · Plan"]);
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
 /* FARO MISMO — la respuesta sale del mapa, con su pantalla.          */
 /* ------------------------------------------------------------------ */
 function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
@@ -8680,7 +8765,14 @@ function faroMismoAnswer(c: Ctx, folded: string): BankResult | null {
   const compartido = /(donde cae lo que comparto|lo que comparto desde|comparto desde otra|lo que me comparten)/.test(folded)
     ? FARO_FUNCTION_MAP.find((x) => x.id === "inbox.link") ?? null
     : null;
-  const f = propia ?? proyectado ?? precios ?? compartido ?? functionOfQuestion(folded);
+  // OLA 72: el idioma no es la mesa de cambio. Las llaves sueltas
+  // del mapa («cambio») leían «¿dónde cambio el idioma?» como la
+  // tasa: el idioma vive en Ajustes y se nombra antes de puntuar,
+  // a la cabeza de las precedencias de patrón de esta familia.
+  const idioma72 = /(idioma|language|lengua)/.test(folded)
+    ? FARO_FUNCTION_MAP.find((x) => x.id === "ajustes.estructura") ?? null
+    : null;
+  const f = idioma72 ?? propia ?? proyectado ?? precios ?? compartido ?? functionOfQuestion(folded);
   if (!f) return null;
   // OLA 26 (Familia 5, Q26-2 de Cara): LA GUARDA DE OBJETO DEL
   // COMPARTIR. «¿Cómo comparto mi libro?» casaba con inbox.link por
@@ -10971,6 +11063,16 @@ function answerSingle(
     if (ts) return ts;
   }
 
+  // 0a1b · OLA 72 · LAS PREGUNTAS DE LA CASA: el «cómo se hace»
+  // de la app misma se juzga aquí, temprano: su tabla es cerrada
+  // (verbo+objeto de tarea) y si se juzgara en su asiento tardío
+  // de faro-mismo, las familias de dinero robarían el objeto como
+  // cifra («¿cómo creo una meta?» recibía el saldo de la meta).
+  {
+    const cs = casaHowTo72(c, folded);
+    if (cs) return cs;
+  }
+
   // 0a2 · OLA 42 · EL COSTO DE VIDA Y LAS PROPORCIONES: voces
   // estrechas y cercadas (vivir, la parte de lo que gano, cuánto
   // cuesta X al mes, ¿me alcanza con lo que gano?) — antes que
@@ -11661,6 +11763,8 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month|puedo (ir a|salir)|cuesta.{0,30}cordobas)/, "factibilidad"],
     [/(algo (cambio|raro|nuevo)|que cambio|deberia saber|what changed|anything (unusual|off|new|change|changed))/, "deriva"],
     [/\b(tanda|rosca)\b/, "falta"],
+    [/(marc\w*|mark).{0,30}(compartid|shared)/, "faro-mismo"],
+    [/((como|how|quiero|can i).{0,30}(anad|agreg|import|sincron|idioma|tarjeta|meta|modo|tasa|anot|apunt|registr)|how do i (add|import|change|create|sync))/, "faro-mismo"],
     [/(cuanto puso cada (uno|quien)|gastos? compartidos?|pague (yo )?por todos|how much did each|shared expenses|my share of)/, "falta"],
     [/(cuanto (interes|rendimiento).{0,40}(ahorr|ganado)|interes ganado|interest have i earned|earned on my savings)/, "falta"],
     [/(cuanto pague de|cuanto he pagado de|how much tax did i pay|how much did i pay in (taxes|tax))/, "historia"],
