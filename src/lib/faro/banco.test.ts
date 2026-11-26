@@ -5452,3 +5452,40 @@ describe("banco · ola 72: las preguntas de la casa (el cómo se hace, por su pu
     }
   });
 });
+
+describe("banco · ola 72B: el hipotético cerrado (la caza del teléfono de Oscar)", () => {
+  it("el espécimen exacto: 200 pesos tenidos y gastados quedan en cero, en su moneda y sin libro", () => {
+    const r = ask(fixture(), "¿Si tengo 200 pesos y los gasto, cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "hipotetico");
+    assert.equal(r.verdict, "Te quedan C$0.00: tienes C$200.00 y gastas C$200.00.");
+    assert.ok((r.note ?? "").includes("tu libro no entra en este cálculo"), r.note ?? "");
+  });
+
+  it("las dos mitades y el sobregasto: la aritmética de la pregunta, no la del libro", () => {
+    const a = ask(fixture(), "Si tengo 500 y gasto 200, ¿cuánto me queda?");
+    if (a.kind !== "answer") assert.fail("debió responder");
+    assert.equal(a.verdict, "Te quedan $300.00: tienes $500.00 y gastas $200.00.");
+    const b = ask(fixture(), "Si tuviera 1000 y gastara 250, ¿cuánto me quedaría?");
+    if (b.kind !== "answer") assert.fail("debió responder");
+    assert.equal(b.verdict, "Te quedan $750.00: tienes $1,000.00 y gastas $250.00.");
+    const c = ask(fixture(), "Si tengo 200 y gasto 250, ¿cuánto me queda?");
+    if (c.kind !== "answer") assert.fail("debió responder");
+    assert.ok(c.verdict.includes("-$50.00"), c.verdict);
+    assert.ok(c.verdict.includes("más de los $200.00 que tienes"), c.verdict);
+    const d = ask(fixture(), "Si tengo doscientos pesos y los gasto, ¿cuánto me queda?");
+    if (d.kind !== "answer") assert.fail("debió responder");
+    assert.equal(d.verdict, "Te quedan C$0.00: tienes C$200.00 y gastas C$200.00.");
+  });
+
+  it("los guardianes: sin «tengo» manda el libro, y la cuenta nombrada no se cierra", () => {
+    const r = ask(fixture(), "¿Si gasto 200 pesos, cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "hipotetico");
+    assert.ok(r.verdict.includes("Si gastaras eso"), r.verdict);
+    assert.ok(!r.verdict.startsWith("Te quedan"), r.verdict);
+    const p = ask(fixture(), "Tengo 200 en PayPal, ¿cuánto me queda si gasto 50?");
+    if (p.kind !== "answer") assert.fail("debió responder");
+    assert.ok(!(p.note ?? "").includes("tu libro no entra en este cálculo"), p.verdict);
+  });
+});

@@ -3873,6 +3873,53 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   // «Monto N» solo como último recurso, nunca como primera opción.
   const amountLabel = (a: FoundAmount, i: number): string => a.label
     || (a.currency !== c.display ? formatMoney(a.minor, a.currency, c.lang) : L(c.lang, `Monto ${i + 1}`, `Amount ${i + 1}`));
+  // OLA 72B · EL HIPOTÉTICO CERRADO (caza de Oscar en su teléfono,
+  // 2026-11-25): «¿si tengo 200 pesos y los gasto, cuánto me
+  // queda?» trae su propio punto de partida — el mundo de la
+  // pregunta son esos 200, no el libro. El camino general sumaba
+  // TODOS los montos como gasto contra la queda real («si tengo
+  // 500 y gasto 200» restaba 700 y daba un cero por accidente, con
+  // la derivación equivocada entera). La forma cerrada se reconoce
+  // por su anatomía: un monto gobernado por TENER (el punto de
+  // partida), un gasto (otro monto tras un verbo de gastar, o el
+  // mismo monto retomado con «los/lo» — «y los gasto»), y la
+  // pregunta por lo que queda. La respuesta es la aritmética de
+  // la pregunta, en la moneda de la pregunta, sin libro y sin
+  // viaje de conversión: sencilla, porque la pregunta lo es. Si el
+  // punto de partida vive en una cuenta nombrada («tengo 200 en
+  // PayPal»), no es cerrado: es del libro y lo juzgan las ramas de
+  // cuenta de más abajo.
+  {
+    const asksLeft = /(cuanto|que) (me |te )?(queda|quedaria|quedara|sobra|sobraria)|what('s| is| would be) (left|remaining)|how much (is|would be|do i have) left/.test(folded);
+    const onNamedAccount = /(tengo|hay|tuviera|tuviese).{0,30}\b(en|de) (mi )?(cuenta|paypal|banco|tarjeta|ahorros?)\b/.test(folded);
+    if (asksLeft && !onNamedAccount && verbAll.list.length >= 1) {
+      const toks = verbAll.toks;
+      const tenerIdx = toks.findIndex((t) => /^(tengo|tuviera|tuviese|tendria|have|had)$/.test(t));
+      const startVA = tenerIdx >= 0 ? verbAll.list.find((v) => v.start > tenerIdx && !toks.slice(tenerIdx + 1, v.start).some((t) => /^(gast\w*|spend|spent|compr\w*|buy|bought)$/.test(t))) : undefined;
+      if (startVA) {
+        const after = verbAll.list.filter((v) => v.start >= startVA.end);
+        const spendVA = after.find((v) => toks.slice(startVA.end, v.start).some((t) => /^(gast\w*|spend|spent)$/.test(t)));
+        const tail = toks.slice(startVA.end).join(" ");
+        const anaphora = !spendVA && /(gast\w*|spend|spent)\s+(los|lo|las|la|todo|eso|it|them|all)\b|(los|lo|las|la|todo|eso)\s+(gast\w*|gasto|gastara|gastaria|spend)/.test(tail);
+        const spendA: FoundAmount | null = spendVA ? spendVA.a : (anaphora ? startVA.a : null);
+        if (spendA) {
+          const startCur = startVA.a.currency;
+          const spendInStart = convertMinor(spendA.minor, spendA.currency, startCur, c.rateE4);
+          const rest = startVA.a.minor - spendInStart;
+          const fmt = (m: number) => formatMoney(m, startCur, c.lang);
+          return {
+            kind: "answer", family: "hipotetico",
+            verdict: rest >= 0
+              ? L(c.lang, `Te quedan ${fmt(rest)}: tienes ${fmt(startVA.a.minor)} y gastas ${fmt(spendInStart)}.`, `You'd have ${fmt(rest)} left: you have ${fmt(startVA.a.minor)} and you spend ${fmt(spendInStart)}.`)
+              : L(c.lang, `Te quedarían ${fmt(rest)}: gastarías ${fmt(-rest)} más de los ${fmt(startVA.a.minor)} que tienes.`, `You'd be at ${fmt(rest)}: you'd spend ${fmt(-rest)} more than the ${fmt(startVA.a.minor)} you have.`),
+            pieces: [{ label: L(c.lang, "Lo que tienes", "What you have"), minor: disp(startVA.a) }, { label: L(c.lang, "Lo que gastas", "What you spend"), minor: -disp(spendA) }, { label: L(c.lang, "Lo que queda", "What's left"), minor: disp(startVA.a) - disp(spendA) }],
+            note: L(c.lang, "Es la cuenta tal como la trajiste: tu libro no entra en este cálculo.", "It's the sum exactly as you brought it: your book isn't part of this calculation."),
+            source: ["asesor.lectura"], lines: 0,
+          };
+        }
+      }
+    }
+  }
   // OLA 18 (batería II): la premisa sin «si» — «me entraron 200 más,
   // ¿cuánto tengo en ahorros ahora?» trae el escenario como un hecho
   // dicho, no como hipótesis. La respuesta separa los dos tiempos sin

@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.469",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El hipotético cerrado: la cuenta de la pregunta misma", en: "The closed hypothetical: the question's own sum" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«Si tengo 200 pesos y los gasto, ¿cuánto me queda?» ya se responde con la aritmética de la pregunta: te quedan C$0.00, en la moneda de la pregunta y sin tocar tu libro.",
+        "El sobregasto se dice en llano: si gastas más de lo que traes, la respuesta dice cuánto más gastarías.",
+        "Si el punto de partida vive en una cuenta nombrada, la forma no se cierra: esa pregunta es de tu libro y la juzgan sus ramas.",
+      ],
+      en: [
+        "\"If I have 200 pesos and I spend them, how much is left?\" is now answered with the question's own arithmetic: you'd have C$0.00 left, in the question's currency and without touching your book.",
+        "Overspending is said plainly: if you spend more than you bring, the answer says how much more you'd spend.",
+        "If the starting point lives in a named account, the form doesn't close: that question belongs to your book and its branches judge it.",
+      ],
+    },
+  },
+  {
     version: "1.3.468",
     date: "2026-11-26",
     level: "menor",
