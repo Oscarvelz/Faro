@@ -4507,3 +4507,12 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Contra el examen sellado (medido en la copia): el hilo corre exacto (22800 / 19000 / silencio / 9000) y el examen queda en 29 DE 29 afirmados.
 - Enfocado 745/745, 0 saltados. Suite 3.951/3.951, 0 saltados; typecheck con los 3 errores de base.
 - Fuente: `abb66cbc`. Publicación: lotes y cola `1d107ba7`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-479-dist-snapshot`. Sigue en la cola: la Ola P4 (los tres frentes declarados).
+
+## 1.3.480 — Ola P4: los tres frentes declarados
+
+- F8 · EL «¿CUÁNTO TENGO?» A SECAS: callaba entero en los dos idiomas (la doctrina vieja lo dejaba a la queda del delegado, pero medido no lo respondía nadie). Casa nueva en la familia total con forma EXACTA y sin cola; cualquier continuación sigue siendo de otra familia y la clase nombrada sigue cerrando la puerta. La respuesta trae la queda como primera bolsa. El guardián de la Ola 46 que codificaba la doctrina vieja se re-apuntó, con su acta en el test, a la frontera que sigue viva: «¿cuánto me queda?» no es el total. (La forma la resolvió la línea del banco — queda primero — sujeta a la palabra de Oscar si la quiere otra.)
+- F7 · LA CONVERSIÓN DESNUDA: «100 dólares a córdobas» / «100 dollars to cordobas» convierten con la tasa del libro; la puerta del conversor y el bloque de herramientas ganaron el par de monedas con su puente («a», «to»), guardado por las cercas de siempre (un solo monto, ninguna operación rival). La costura de la moneda invitada de canon quedó como estaba.
+- F6 · LA UNIÓN CON EL MEDIO, DECLARADA: «¿cuánto gasté en comida o en efectivo?» daba solo el ciudadano, en silencio; la respuesta de historia ahora declara la parte que no se puede medir («Lo de «efectivo» no lo sumé: tu libro no anota el medio de cada línea, así que esa parte no se puede medir»).
+- Registro: «total» reescribió su silencio con la razón y ganó la forma desnuda en sus canónicas; «conversor» ganó el párrafo y las formas desnudas; «historia» ganó el párrafo de la declaración.
+- Especímenes permanentes: describe «banco · ola P4» (3 tests). Enfocado 744/744, 0 saltados (con los especímenes de la 66 y la 458 y los guardianes de clase). Suite 3.954/3.954, 0 saltados; typecheck con los 3 errores de base.
+- Fuente: `64fca9f1`. Publicación: lotes y cola `26816ccf`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-480-dist-snapshot`. Sigue en la cola: la Ola P5 (la puerta inglesa y el veredicto de la campaña).
