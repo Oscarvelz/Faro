@@ -4327,3 +4327,8 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Adjudicaciones del puerto: el escaneo de ciudadano usa el citizenByName de canon (tres argumentos) — el abrazo bilingüe otherNamer llega con la sonda del code-switching; la entrada del registro trae su «cap» escrita en canon (la copia no la lleva); el asiento de CAP_GROUPS es «Tus movimientos», junto a identidad.
 - Excepción declarada: «Which chage is the one from Amazon?» entra a MUTACIONES_EXCEPCION con su acta — «chage» empata con «change» y «charge», dos palabras verdaderas que en canon conviven (colisión solo de canon, la misma de la 1.3.457); la reparación no adivina.
 - Suite 3.855/3.855; typecheck con los 3 errores de base de siempre.
+
+## 1.3.462 · EL ECO, CON SU AIRE (fallo de Oscar, 2026-11-26)
+- El eco de confirmación (relato, programa, órdenes, crear) separa el concepto del monto con un guion CORTO («Gasto: Chocolate - $6»): fuera el segundo dos puntos de la 1.3.459, y el guion largo sigue retirado.
+- El eco respira, por orden y proporción (la ley de envoltorio): una línea en blanco entre la cabecera «Esto es lo que entendí:» y lo entendido, y otra antes de la pregunta de confirmación.
+- Espécimen permanente del formato en relato.test.ts con la frase de la caza (pollo y licuadora en C$). Suite 3.856/3.856; typecheck con los 3 errores de base.
