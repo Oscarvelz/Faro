@@ -12,7 +12,7 @@ import { describe, it } from "node:test";
 import { readAdvisor } from "./advisor.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
 import { formatMoney } from "./money.ts";
-import { parsePrograma, parseRelato, vigilancia } from "./relato.ts";
+import { parsePrograma, parseRelato, programaCadenceText, vigilancia } from "./relato.ts";
 import type { Lang, LedgerState, Line, LineKind } from "./types.ts";
 
 const KEY = "2026-10";
@@ -66,7 +66,8 @@ describe("relato E1 · el relato simple", () => {
     assert.equal(d.subId, "f.casa.servicios");
     assert.equal(d.date, TODAY);
     assert.equal(d.duplicate, null);
-    assert.ok(r.echo.includes("$45.00"), r.echo);
+    // ENMIENDA 1.3.463: el monto vive en el borrador (y en su
+    // tarjetita), no en el eco — el eco solo pregunta.
     assert.ok(r.echo.includes("¿Lo asiento así?"), r.echo);
   });
 
@@ -125,7 +126,11 @@ describe("relato E1 · el relato compuesto de Alvin", () => {
     assert.equal(ing.op, "ingreso");
     assert.equal(ing.amountMinor, 120000);
     assert.equal(ing.concept, "Salario");
-    assert.ok(r.echo.includes("Mover $200.00 de Banco a Colchón"), r.echo);
+    // ENMIENDA 1.3.463: el eco ya no trae las líneas de los
+    // borradores (repetían las tarjetitas de la caja — fallo de
+    // Oscar contra la redundancia); el mover se verifica en el
+    // borrador mismo, que es donde la tarjeta lo lee.
+    assert.ok(!r.echo.includes("Mover"), r.echo);
   });
 
   it("la capa es pura: el estado queda intacto", () => {
@@ -143,7 +148,8 @@ describe("relato E1 · deduplicación", () => {
     if (r.kind !== "drafts") return;
     assert.equal(r.drafts.length, 1);
     assert.ok(r.drafts[0].duplicate, "el borrador debe venir marcado como duplicado");
-    assert.ok(r.echo.includes("ya estaba asentado"), r.echo);
+    // ENMIENDA 1.3.463: «ya estaba asentado» lo dice la marca
+    // del borrador en su tarjetita; el eco cierra con su frase.
     assert.ok(r.echo.includes("No hay nada nuevo que asentar."), r.echo);
   });
 });
@@ -191,11 +197,14 @@ describe("relato E2 · el modismo y lo figurado", () => {
     assert.equal(d.concept, "Pollo con tajadas");
     assert.equal(d.categoryId, "f-alimentos");
     assert.deepEqual(r.figures, ["estado-bajo"]);
-    // El eco responde la figura con el número, sin desmentirla: trae la
-    // queda proyectada del mes y ninguna corrección («no estás…»).
+    // La figura se responde con el número, sin desmentirla: la
+    // queda proyectada del mes viaja en su campo (projected) y
+    // ninguna corrección («no estás…»). ENMIENDA 1.3.463: antes
+    // la línea vivía dentro del eco; con el eco sin repetir, se
+    // lee bajo las tarjetitas, en su propio campo.
     const left = readAdvisor(ledger, KEY, "es", makeNamer(ledger.structure, "es"), { today: new Date(`${TODAY}T12:00:00`) }).left;
-    assert.ok(r.echo.includes(`quedaría en ${formatMoney(left - 15000, "USD", "es")}`), r.echo);
-    assert.ok(!/no est[aá]s|en realidad/.test(r.echo), r.echo);
+    assert.ok(r.projected !== null && r.projected.includes(`quedaría en ${formatMoney(left - 15000, "USD", "es")}`), r.projected ?? "sin proyectada");
+    assert.ok(!/no est[aá]s|en realidad/.test(r.projected ?? ""), r.projected ?? "");
   });
 
   it("la cosa sin precio pregunta el monto, nombrándola: «compré un pollo con tajadas»", () => {
@@ -258,7 +267,9 @@ describe("relato E3 · programar por relato", () => {
     assert.equal(d.subId, "f.casa.servicios");
     assert.equal(d.cadence, "monthly");
     assert.equal(d.firstDate, "2026-11-01");
-    assert.ok(r.echo.includes("cada mes, el día 1"), r.echo);
+    // ENMIENDA 1.3.463: la cadencia ya no vive en el eco (sin
+    // repetir) — vive en la tarjetita, por programaCadenceText.
+    assert.ok(programaCadenceText("es", d).includes("cada mes, el día 1"), programaCadenceText("es", d));
     assert.ok(r.echo.includes("¿Lo dejo programado así?"), r.echo);
   });
 
@@ -272,7 +283,9 @@ describe("relato E3 · programar por relato", () => {
     assert.equal(d.concept, "Internet");
     assert.equal(d.cadence, "monthly");
     assert.equal(d.firstDate, "2026-10-28");
-    assert.ok(r.echo.includes("sin monto fijo (solo recordatorio)"), r.echo);
+    // ENMIENDA 1.3.463: «sin monto fijo» era texto del eco; con
+    // el eco sin repetir, la clase del borrador lo dice todo y
+    // la tarjetita muestra su «solo recordatorio» en el renglón.
   });
 
   it("el ingreso que se repite: «cada quincena me entran 400 del negocio, prográmalo»", () => {
@@ -624,19 +637,25 @@ describe("relato · las cazas del teléfono de Oscar (2026-11-25): el marco, la 
   });
 });
 
-describe("relato · el formato del eco (fallo de Oscar, 2026-11-26)", () => {
-  it("el monto se separa con guion corto y el eco respira: aire tras la cabecera y antes de la pregunta", () => {
+describe("relato · el formato del eco (fallos de Oscar, 2026-11-26)", () => {
+  it("el eco no repite las tarjetitas: cabecera y pregunta solamente, con su aire", () => {
     const r = relato(fixture(), "compré un pollo por 20 pesos y una licuadora por 300, añádelos a mi cuenta");
     assert.equal(r.kind, "drafts");
     if (r.kind !== "drafts") return;
-    // El guion corto separa concepto y monto — nunca el segundo dos puntos.
-    assert.ok(r.echo.includes("Gasto: Pollo - C$20.00"), r.echo);
-    assert.ok(r.echo.includes("Gasto: Licuadora - C$300.00"), r.echo);
-    assert.ok(!r.echo.includes("Pollo: C$"), r.echo);
+    // La 1.3.462 separó el monto con guion corto y dio aire al
+    // eco; la segunda enmienda del mismo día (1.3.463) retiró
+    // las líneas enteras: repetían las tarjetitas de borrador.
+    // El eco es la cabecera, su línea en blanco y la pregunta.
+    assert.equal(r.echo, "Esto es lo que entendí:\n\n¿Lo asiento así?");
+    assert.ok(!r.echo.includes("Pollo"), r.echo);
+    assert.ok(!r.echo.includes("C$"), r.echo);
     assert.ok(!r.echo.includes("—"), r.echo); // el guion largo sigue retirado
-    // El aire de la ley de envoltorio: línea en blanco tras la
-    // cabecera y línea en blanco antes de la pregunta.
-    assert.ok(r.echo.startsWith("Esto es lo que entendí:\n\n• "), r.echo);
-    assert.ok(r.echo.includes("\n\n¿Lo asiento así?"), r.echo);
+    // Los hechos viven en los borradores, una sola vez.
+    assert.equal(r.drafts.length, 2);
+    assert.equal(r.drafts[0].concept, "Pollo");
+    assert.equal(r.drafts[0].amountMinor, 2000);
+    assert.equal(r.drafts[0].currency, "NIO");
+    assert.equal(r.drafts[1].concept, "Licuadora");
+    assert.equal(r.drafts[1].amountMinor, 30000);
   });
 });

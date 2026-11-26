@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.463",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Sin repetir: la palabra corona la tarjeta", en: "No repeats: the word crowns the card" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "La confirmación ya no repite lo mismo dos veces: el eco dice «Esto es lo que entendí» y su pregunta, y cada tarjetita lleva arribita su palabra — Gasto, Ingreso o Mover — con su fecha y su cuenta adentro cuando hacen falta.",
+      ],
+      en: [
+        "Confirmation no longer says the same thing twice: the echo gives “Here's what I understood” and its question, and each little card wears its word on top — Expense, Income or Move — with its date and account inside when they're needed.",
+      ],
+    },
+  },
+  {
     version: "1.3.462",
     date: "2026-11-26",
     level: "menor",

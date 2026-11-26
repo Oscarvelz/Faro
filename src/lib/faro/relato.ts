@@ -60,7 +60,7 @@ export type RelatoDraft = {
 };
 export type FiguraKind = "estado-bajo" | "cantidad-grande";
 export type RelatoResult =
-  | { kind: "drafts"; drafts: RelatoDraft[]; echo: string; figures: FiguraKind[] }
+  | { kind: "drafts"; drafts: RelatoDraft[]; echo: string; figures: FiguraKind[]; projected: string | null }
   | { kind: "ask"; question: string; missing: "monto" | "origen" | "destino" | "concepto" }
   | { kind: "unknown"; figures: FiguraKind[] };
 
@@ -750,22 +750,24 @@ function findDuplicate(state: LedgerState, d: RelatoDraft): string | null {
  * retirado en la 459. Y el eco respira con su orden y su
  * proporción (la ley de envoltorio): una línea en blanco entre
  * la cabecera y lo entendido, y otra antes de la pregunta de
- * confirmación. */
-function buildEcho(lang: Lang, drafts: RelatoDraft[], today: string, projectedLine: string | null = null): string {
-  const money = (d: RelatoDraft) => formatMoney(d.amountMinor, d.currency, lang);
-  const when = (d: RelatoDraft) => (d.date === today ? "" : ` · ${d.date}`);
-  const lines = drafts.map((d) => {
-    const dup = d.duplicate ? L(lang, " · ya estaba asentado, no lo duplico", " · already posted, I won't duplicate it") : "";
-    if (d.op === "mover") return `• ${L(lang, "Mover", "Move")} ${money(d)} ${L(lang, "de", "from")} ${d.from?.label} ${L(lang, "a", "to")} ${d.to?.label}${when(d)}${dup}`;
-    if (d.op === "gasto") return `• ${L(lang, "Gasto", "Expense")}: ${d.concept} - ${money(d)}${d.from ? ` ${L(lang, "desde", "from")} ${d.from.label}` : ""}${when(d)}${dup}`;
-    return `• ${L(lang, "Ingreso", "Income")}: ${d.concept} - ${money(d)}${d.to ? ` ${L(lang, "a", "to")} ${d.to.label}` : ""}${when(d)}${dup}`;
-  });
+ * confirmación.
+ * SEGUNDA ENMIENDA (fallo de Oscar, 2026-11-26, sobre la foto
+ * del banco de la 462; ola 1.3.463): las líneas del eco
+ * REPETÍAN lo que las tarjetitas de borrador de abajo ya
+ * muestran — redundancia, contra el principio 10 de la misma
+ * ley. El eco queda con la cabecera y la pregunta solamente;
+ * cada tarjetita lleva arribita su palabra (Gasto, Ingreso,
+ * Mover) y adentro, como detalle, lo que solo la línea traía
+ * y no es repetición: la fecha cuando no es hoy y la cuenta
+ * de origen o destino. La línea proyectada de E2 viaja ahora
+ * en su propio campo (projected) y se lee bajo las tarjetas. */
+function buildEcho(lang: Lang, drafts: RelatoDraft[]): string {
   const fresh = drafts.some((d) => !d.duplicate);
   const head = L(lang, "Esto es lo que entendí:", "Here's what I understood:");
   const foot = fresh
     ? L(lang, "¿Lo asiento así?", "Shall I post it like this?")
     : L(lang, "No hay nada nuevo que asentar.", "There's nothing new to post.");
-  return [head, "", ...lines, ...(projectedLine ? [projectedLine] : []), "", foot].join("\n");
+  return [head, "", foot].join("\n");
 }
 
 /* LA CAMPAÑA DE MUTACIONES DE LA RAMA (puerto 1.3.457) · LA
@@ -924,7 +926,7 @@ export function parseRelato(
       projectedLine = L(lang, `Con esto asentado, el mes te quedaría en ${formatMoney(projected, disp, lang)}.`, `With this posted, your month would be left at ${formatMoney(projected, disp, lang)}.`);
     }
   }
-  return { kind: "drafts", drafts, echo: buildEcho(lang, drafts, today, projectedLine), figures };
+  return { kind: "drafts", drafts, echo: buildEcho(lang, drafts), figures, projected: projectedLine };
 }
 
 /* ================================================================== */
@@ -1099,31 +1101,31 @@ export function parsePrograma(
     if (ask) return ask;
     return hasProgVerb ? { kind: "ask", missing: "cuando", question: L(lang, "¿Cada cuánto se repite, o es una sola vez? Sin eso no sé cómo programarlo.", "How often does it repeat, or is it just once? Without that I don't know how to schedule it.") } : { kind: "unknown" };
   }
-  const lines = drafts.map((d) => {
-    const cadTxt = d.cadence === "once"
-      ? L(lang, `una sola vez, el ${fmtDay(d.firstDate, lang)}`, `just once, on ${fmtDay(d.firstDate, lang)}`)
-      : d.cadence === "weekly"
-        ? L(lang, `cada semana desde el ${fmtDay(d.firstDate, lang)}`, `every week starting ${fmtDay(d.firstDate, lang)}`)
-        : d.cadence === "biweekly"
-          ? L(lang, `cada quincena desde el ${fmtDay(d.firstDate, lang)}`, `every two weeks starting ${fmtDay(d.firstDate, lang)}`)
-          : d.cadence === "yearly"
-            ? L(lang, `cada año, el ${fmtDay(d.firstDate, lang)}`, `every year on ${fmtDay(d.firstDate, lang)}`)
-            : L(lang, `cada mes, el día ${Number(d.firstDate.split("-")[2])}`, `every month on day ${Number(d.firstDate.split("-")[2])}`);
-    const amtTxt = d.clase === "fijo" && d.amountMinor !== null
-      ? formatMoney(d.amountMinor, d.currency, lang)
-      : L(lang, "sin monto fijo (solo recordatorio)", "no fixed amount (reminder only)");
-    const dupTxt = d.duplicate ? L(lang, ` · ojo: ya tienes «${d.duplicate}» programado igual; no lo duplico`, ` · note: you already have "${d.duplicate}" scheduled the same way; I won't duplicate it`) : "";
-    return `• ${d.concept} - ${amtTxt}, ${cadTxt}${dupTxt}`;
-  });
   const fresh = drafts.some((d) => !d.duplicate);
+  // EL ECO SIN REPETIR (1.3.463, la misma enmienda del relato):
+  // cabecera y pregunta solamente — la cadencia de cada borrador
+  // vive como detalle dentro de su tarjetita (programaCadenceText).
   const echo = [
     L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
-    "",
-    ...lines,
     "",
     fresh ? L(lang, "¿Lo dejo programado así?", "Shall I schedule it like this?") : L(lang, "No hay nada nuevo que programar.", "There's nothing new to schedule."),
   ].join("\n");
   return { kind: "schedules", drafts, echo };
+}
+
+/* LA CADENCIA EN PALABRAS (1.3.463): el texto de la cadencia de
+ * un borrador de programa, para la tarjetita de la caja — antes
+ * vivía solo en la línea del eco que la 463 retiró. */
+export function programaCadenceText(lang: Lang, d: ProgramaDraft): string {
+  return d.cadence === "once"
+    ? L(lang, `una sola vez, el ${fmtDay(d.firstDate, lang)}`, `just once, on ${fmtDay(d.firstDate, lang)}`)
+    : d.cadence === "weekly"
+      ? L(lang, `cada semana desde el ${fmtDay(d.firstDate, lang)}`, `every week starting ${fmtDay(d.firstDate, lang)}`)
+      : d.cadence === "biweekly"
+        ? L(lang, `cada quincena desde el ${fmtDay(d.firstDate, lang)}`, `every two weeks starting ${fmtDay(d.firstDate, lang)}`)
+        : d.cadence === "yearly"
+          ? L(lang, `cada año, el ${fmtDay(d.firstDate, lang)}`, `every year on ${fmtDay(d.firstDate, lang)}`)
+          : L(lang, `cada mes, el día ${Number(d.firstDate.split("-")[2])}`, `every month on day ${Number(d.firstDate.split("-")[2])}`);
 }
 
 function prevKeyOf(key: string): string {

@@ -71,7 +71,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, Compass, Pencil, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, classifyBankQuestion, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
-import { parsePrograma, parseRelato, type ProgramaResult, type RelatoDraft, type RelatoResult } from "@/lib/faro/relato";
+import { parsePrograma, parseRelato, programaCadenceText, type ProgramaResult, type RelatoDraft, type RelatoResult } from "@/lib/faro/relato";
 import { parseOrden, type OrdenResult } from "@/lib/faro/orden";
 import { applyOrdenDraft } from "@/lib/faro/orden-settle";
 import { crearDesdeRelato, crearInicio, crearRespuesta, type CrearPropuesta, type CrearStep } from "@/lib/faro/crear";
@@ -689,18 +689,39 @@ export function AskBox() {
       ) : null}
       {relato?.kind === "drafts" ? (
         <div className="ask-card" data-anchor="ask-relato">
-          <p className="ask-verdict">{relato.echo}</p>
+          <p className="ask-verdict">{relato.echo.split("\n\n")[0]}</p>
           <div className="ask-relato-rows">
-            {relato.drafts.map((d, i) => (
-              <div key={i} className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
-                <span>{d.op === "mover"
-                  ? `${L("Mover", "Move")} · ${d.from?.label ?? ""} → ${d.to?.label ?? ""}`
-                  : d.concept}</span>
-                <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
-                {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba asentado", "already posted")}</span> : null}
-              </div>
-            ))}
+            {relato.drafts.map((d, i) => {
+              // 1.3.463 · SIN REPETIR: cada tarjetita lleva arribita
+              // su palabra (Gasto, Ingreso, Mover) y adentro, como
+              // detalle, lo que no es repetición: la fecha cuando
+              // no es hoy y la cuenta de origen o destino.
+              const det: string[] = [];
+              if (d.date !== todayLocal()) det.push(d.date);
+              if (d.op === "gasto" && d.from) det.push(`${L("desde", "from")} ${d.from.label}`);
+              if (d.op === "ingreso" && d.to) det.push(`${L("a", "to")} ${d.to.label}`);
+              return (
+                <div key={i} className="ask-relato-item">
+                  <span className="ask-relato-kind">{d.op === "mover" ? L("Mover", "Move") : d.op === "gasto" ? L("Gasto", "Expense") : L("Ingreso", "Income")}</span>
+                  <div className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
+                    <span className="ask-relato-main">
+                      <span>{d.op === "mover"
+                        ? `${d.from?.label ?? ""} → ${d.to?.label ?? ""}`
+                        : d.concept}</span>
+                      <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
+                      {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba asentado", "already posted")}</span> : null}
+                    </span>
+                    {det.length ? <span className="ask-relato-det">{det.join(" · ")}</span> : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+          {relato.projected ? <p className="ask-note">{relato.projected}</p> : null}
+          {/* 1.3.463 (segunda enmienda de Oscar, sobre su foto): la
+              pregunta cierra en su propia línea, ABAJO de las
+              tarjetitas y antes de los botones — como estaba. */}
+          <p className="ask-verdict">{relato.echo.split("\n\n")[1] ?? ""}</p>
           {crearOffer ? (
             <div className="ask-chips">
               <button type="button" className="ask-chip" data-anchor="ask-crear-start" onClick={() => startCrear(crearOffer.step, crearOffer.draft)}>{L(`Crear «${crearOffer.draft.concept}» en tu estructura`, `Create "${crearOffer.draft.concept}" in your structure`)}</button>
@@ -725,18 +746,25 @@ export function AskBox() {
       ) : null}
       {programa?.kind === "schedules" ? (
         <div className="ask-card" data-anchor="ask-programa">
-          <p className="ask-verdict">{programa.echo}</p>
+          <p className="ask-verdict">{programa.echo.split("\n\n")[0]}</p>
           <div className="ask-relato-rows">
             {programa.drafts.map((d, i) => (
-              <div key={i} className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
-                <span>{d.concept}</span>
-                {d.clase === "fijo" && d.amountMinor !== null
-                  ? <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
-                  : <span className="ask-relato-dup">{L("solo recordatorio", "reminder only")}</span>}
-                {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba programado", "already scheduled")}</span> : null}
+              <div key={i} className="ask-relato-item">
+                <span className="ask-relato-kind">{d.op === "gasto" ? L("Gasto", "Expense") : L("Ingreso", "Income")}</span>
+                <div className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
+                  <span className="ask-relato-main">
+                    <span>{d.concept}</span>
+                    {d.clase === "fijo" && d.amountMinor !== null
+                      ? <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
+                      : <span className="ask-relato-dup">{L("solo recordatorio", "reminder only")}</span>}
+                    {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba programado", "already scheduled")}</span> : null}
+                  </span>
+                  <span className="ask-relato-det">{programaCadenceText(lang, d)}</span>
+                </div>
               </div>
             ))}
           </div>
+          <p className="ask-verdict">{programa.echo.split("\n\n")[1] ?? ""}</p>
           <div className="ask-chips">
             {programa.drafts.some((d) => !d.duplicate) ? (
               <>
