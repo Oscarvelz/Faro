@@ -18,14 +18,19 @@
  *              apartado, para que el stock de cada bolsillo quede bien;
  *   mover entre cuentas → una línea de traslado (xfer, inactiva:
  *              nunca cuenta en totales, como todo traslado entre
- *              cuentas propias) con su cuenta de origen.
+ *              cuentas propias) con su cuenta de origen;
+ *   abono    → payCard del motor (1.3.482): la transferencia xfer
+ *              inactiva hacia la tarjeta, en la moneda de la
+ *              tarjeta — pagar la tarjeta liquida la deuda, no es
+ *              un gasto (el gasto ya contó al comprar).
  *
  * LA CERCA DEL DUPLICADO: un borrador marcado `duplicate` por el
  * relato YA está asentado en el libro — asentarlo otra vez sería el
  * error crítico de esta capacidad (el doble asiento). Se salta
  * siempre, lo diga quien lo diga.
  */
-import { uid } from "./money.ts";
+import { cardsOf, payCard } from "./cards.ts";
+import { convertMinor, uid } from "./money.ts";
 import type { RelatoDraft } from "./relato.ts";
 import type { Lang, LedgerState, Line } from "./types.ts";
 
@@ -53,6 +58,7 @@ export function relatoLines(state: LedgerState, drafts: RelatoDraft[], lang: Lan
   const transfer = lang === "es" ? "Traslado" : "Transfer";
   for (const d of drafts) {
     if (d.duplicate) continue; // ya asentado: jamás dos veces
+    if (d.op === "abono") continue; // el abono no es una línea de flujo: lo asienta settleRelatoDrafts con payCard
     if (d.op === "gasto") {
       const line = baseLine(d, "expense-variable");
       Object.assign(line, located(state, d));
@@ -98,12 +104,26 @@ export function relatoLines(state: LedgerState, drafts: RelatoDraft[], lang: Lan
 
 /** El estado con los borradores asentados en el mes de cada fecha. */
 export function settleRelatoDrafts(state: LedgerState, drafts: RelatoDraft[], lang: Lang): LedgerState {
-  const lines = relatoLines(state, drafts, lang);
-  if (!lines.length) return state;
-  const months = { ...state.months };
+  // EL ABONO (puerto 1.3.482): pagar la tarjeta liquida la deuda,
+  // no es un gasto — la costura lo asienta con payCard del motor
+  // (transferencia xfer inactiva en la moneda DE LA TARJETA: si el
+  // relato trajo otra moneda, se convierte con la tasa del libro
+  // antes de abonar, para que la cifra que liquida sea la dicha).
+  let s = state;
+  const abonoLabel = lang === "es" ? "Abono" : "Payment";
+  for (const d of drafts) {
+    if (d.duplicate || d.op !== "abono" || !d.cardId) continue;
+    const card = cardsOf(s).find((c) => c.id === d.cardId);
+    if (!card) continue;
+    const minor = d.currency === card.currency ? d.amountMinor : convertMinor(d.amountMinor, d.currency, card.currency, s.settings.rateE4);
+    s = payCard(s, card.id, minor, d.date, uid(), abonoLabel);
+  }
+  const lines = relatoLines(s, drafts, lang);
+  if (!lines.length) return s;
+  const months = { ...s.months };
   for (const line of lines) {
     const bucket = months[line.monthKey] ?? { lines: [] };
     months[line.monthKey] = { lines: [...bucket.lines, line] };
   }
-  return { ...state, months };
+  return { ...s, months };
 }

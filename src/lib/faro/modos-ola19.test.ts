@@ -470,7 +470,12 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // toque confirmado del usuario sobre su propio libro: asienta los
   // borradores oídos por settleRelatoDrafts, que nunca se niega y
   // jamás asienta un duplicado.
-  "components/faro/ask-box.tsx|commit|settleRelatoDrafts|settleRelatoDrafts": ["aterrizaje", 1],
+  // 1.3.482 (el abono): la cadena crece — settleRelatoDrafts ahora
+  // asienta el abono de tarjeta con payCard del motor (que guarda la
+  // tarjeta con putCard cuando el abono la precede a su lectura): la
+  // receta sigue siendo la de aterrizaje del mismo toque confirmado,
+  // con la misma razón.
+  "components/faro/ask-box.tsx|commit|settleRelatoDrafts|settleRelatoDrafts+payCard+putCard": ["aterrizaje", 1],
   // 1.3.446 (puerto de la Rama Agente, E3): «Dejarlo programado» de la
   // tarjeta de programación comete por la misma receta de aterrizaje —
   // el toque confirmado del usuario sobre su propio libro: programa

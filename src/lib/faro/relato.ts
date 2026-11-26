@@ -31,16 +31,17 @@
  * número: lo que quedaría del mes con esto asentado.
  */
 import { readAdvisor } from "./advisor.ts";
+import { cardsOf } from "./cards.ts";
 import { duesWindow } from "./dues.ts";
 import { lineDate, normalizeEs, parseWordNumber, repairAgentText } from "./ask2.ts";
 import type { makeNamer } from "./defaults.ts";
 import { foldQ } from "./lexicon.ts";
 import { formatMoney } from "./money.ts";
-import type { Currency, Lang, LedgerState, Line } from "./types.ts";
+import type { CreditCard, Currency, Lang, LedgerState, Line } from "./types.ts";
 
 type Namer = ReturnType<typeof makeNamer>;
 
-export type RelatoOp = "gasto" | "ingreso" | "mover";
+export type RelatoOp = "gasto" | "ingreso" | "mover" | "abono";
 export type RelatoPlace = { id: string; kind: "acct" | "bolsillo"; label: string };
 export type RelatoDraft = {
   op: RelatoOp;
@@ -57,11 +58,14 @@ export type RelatoDraft = {
   clause: string; // la cláusula oída, ya plegada
   /** La línea ya asentada que este borrador repetiría, si la hay. */
   duplicate: string | null;
+  /** abono: la tarjeta que se liquida (su id en cardsOf); la costura
+   *  la asienta con payCard, nunca como gasto. */
+  cardId?: string;
 };
 export type FiguraKind = "estado-bajo" | "cantidad-grande";
 export type RelatoResult =
   | { kind: "drafts"; drafts: RelatoDraft[]; echo: string; figures: FiguraKind[]; projected: string | null }
-  | { kind: "ask"; question: string; missing: "monto" | "origen" | "destino" | "concepto" }
+  | { kind: "ask"; question: string; missing: "monto" | "origen" | "destino" | "concepto" | "tarjeta" }
   | { kind: "unknown"; figures: FiguraKind[] };
 
 const L = (lang: Lang, es: string, en: string) => (lang === "es" ? es : en);
@@ -593,11 +597,12 @@ function splitSentence(folded: string, today: string): string[] {
 
 type ClauseOut = { drafts: RelatoDraft[]; usedPending?: boolean } | { ask: RelatoResult } | null;
 
-function askResult(lang: Lang, missing: "monto" | "origen" | "destino" | "concepto"): RelatoResult {
+function askResult(lang: Lang, missing: "monto" | "origen" | "destino" | "concepto" | "tarjeta"): RelatoResult {
   const question =
     missing === "monto" ? L(lang, "¿De cuánto fue? Sin el monto no lo asiento.", "How much was it? Without the amount I won't post it.")
     : missing === "origen" ? L(lang, "¿De dónde salió? No quiero adivinar la cuenta.", "Where did it come from? I don't want to guess the account.")
     : missing === "destino" ? L(lang, "¿A dónde fue? No quiero adivinar la cuenta.", "Where did it go? I don't want to guess the account.")
+    : missing === "tarjeta" ? L(lang, "¿Cuál tarjeta? Sin saber cuál no lo asiento.", "Which card? Without knowing which, I won't post it.")
     : L(lang, "¿De qué fue? Sin el concepto no lo asiento.", "What was it for? Without the concept I won't post it.");
   return { kind: "ask", question, missing };
 }
@@ -633,6 +638,110 @@ function moverClause(toks: string[], clause: string, date: string, dayTok: Reado
   }
   const s = spans[0];
   return { drafts: [{ op: "mover", amountMinor: s.minor, currency: s.currency, concept: "", categoryId: "", subId: "", from, to, date, clause, duplicate: null }] };
+}
+
+/* EL PAGO DE LA TARJETA (prioridad de Hark, 2026-11-26): pagar la
+ * tarjeta NO es un gasto — el gasto ya contó al comprar; el pago
+ * liquida la deuda (en el motor: payCard, una transferencia xfer
+ * inactiva que no cuenta en ninguna lectura). El relato lo asentaba
+ * como gasto con concepto «Tarjeta» y el mes contaba dos veces la
+ * misma compra: un error vivo en lo publicado, no un hueco. Esta
+ * puerta corre antes que la cláusula simple cuando el verbo es de
+ * gasto y la cláusula trae un verbo de pagar: si nombra la tarjeta
+ * como OBJETO del pago (no como instrumento: «con la tarjeta»
+ * sigue siendo gasto), el borrador es un abono contra la tarjeta
+ * nombrada o la única del libro. Devuelve undefined cuando no es
+ * un pago de tarjeta (manda la cláusula simple), null cuando lo
+ * es pero el libro no tiene tarjetas (pasa en silencio: asentar
+ * un gasto falso sería peor, y crear la tarjeta es otra puerta). */
+const PAY_TOK = new Set(["pague", "pago", "pagar", "abone", "abono", "abonar", "paid", "pay", "pays"]);
+const CARD_TOK = new Set(["tarjeta", "tarjetas", "card", "cards"]);
+
+function cardClause(
+  state: LedgerState, toks: string[], clause: string, date: string, dayTok: ReadonlySet<number>,
+  places: RelatoPlace[], idx: Map<string, Filing>, lang: Lang, def: Currency = "USD",
+): ClauseOut | undefined {
+  if (!toks.some((t) => PAY_TOK.has(t))) return undefined;
+  const cards = cardsOf(state);
+  const text = toks.join(" ");
+  // La tarjeta nombrada por su nombre, su red o sus últimos 4.
+  // ADJUDICACIÓN DE CANON (puerto 1.3.482): el nombre manda sobre
+  // la red — si exactamente una tarjeta casa por su NOMBRE, es
+  // esa, aunque otras compartan su red (un libro real trae varias
+  // tarjetas de la red Visa: «pagué la Visa» nombra a la que se
+  // llama Visa). La red y los últimos 4 nombran solo cuando
+  // ningún nombre casa. En la copia el empate no existía (sus
+  // tarjetas traían redes distintas) y la regla plana bastaba.
+  let named: CreditCard | null = null;
+  let namedAmb = false;
+  const byName = cards.filter((c) => {
+    const nameWords = foldQ(c.name).split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+    return nameWords.length > 0 && nameWords.every((w) => toks.includes(w));
+  });
+  if (byName.length === 1) named = byName[0];
+  else if (byName.length > 1) namedAmb = true;
+  else {
+    for (const c of cards) {
+      const hit = (c.network != null && c.network !== "" && toks.includes(c.network))
+        || (c.last4 !== "" && toks.includes(c.last4));
+      if (hit) { if (named && named.id !== c.id) namedAmb = true; else named = c; }
+    }
+  }
+  const ti = toks.findIndex((t) => CARD_TOK.has(t));
+  if (ti < 0 && !named) return undefined;
+  // «con la tarjeta» / «with the card»: la tarjeta es el medio con
+  // que se pagó otra cosa, no lo pagado — manda la cláusula simple.
+  if (ti >= 0 && (toks[ti - 1] === "con" || toks[ti - 1] === "with" || toks[ti - 2] === "con" || toks[ti - 2] === "with")) return undefined;
+  const spans = amountSpans(toks, dayTok, def);
+  const used = new Set<number>();
+  spans.forEach((s) => { for (let i = s.start; i < s.end; i++) used.add(i); });
+  toks.forEach((t, i) => { if (isVerbToken(toks, i) || FRAME.has(t) || PRECIO.has(t) || CUR_WORDS.has(t) || dayTok.has(i)) used.add(i); });
+  if (ti >= 0) {
+    used.add(ti);
+    if (["la", "el", "mi", "mis", "my", "the", "on"].includes(toks[ti - 1] ?? "")) used.add(ti - 1);
+    if (toks[ti + 1] === "de" && (toks[ti + 2] === "credito" || toks[ti + 2] === "credit")) { used.add(ti + 1); used.add(ti + 2); }
+    // ADJUDICACIÓN DE CANON (puerto 1.3.482): «credit card» es un
+    // compuesto fijo — el «credit» de antes se consume como el
+    // «de crédito» de después. En la copia este espécimen llegaba
+    // por un efecto lateral de su reparación (credit→credito, y
+    // «credito» no archiva en un libro en inglés); en canon
+    // «credit» es palabra de puerta protegida y el residuo
+    // archivaba a la categoría «Credit», robando el abono. La
+    // regla, no el accidente, es lo que se porta.
+    if (toks[ti - 1] === "credit" || toks[ti - 1] === "credito") used.add(ti - 1);
+  }
+  if (named) for (const w of foldQ(named.name).split(/[^a-z0-9]+/)) toks.forEach((t, i) => { if (t === w) used.add(i); });
+  // El origen nombrado («desde el banco», «from my bank») se
+  // resuelve como lugar y sale del concepto.
+  const fromM = text.match(/(?:desde|from)\s+(.+)$/);
+  let from: RelatoPlace | null = null;
+  let fromAmb = false;
+  if (fromM) {
+    const phraseToks = tokenize(fromM[0]);
+    for (let i = toks.length - phraseToks.length; i < toks.length; i++) if (i >= 0) used.add(i);
+    const r = resolvePlace(fromM[1], places);
+    if (r === "amb") fromAmb = true; else if (r) from = r;
+  }
+  // Lo demás que la cláusula nombra: si archiva a un concepto real
+  // del libro («pagué la luz…»), no es un abono: cláusula simple.
+  const residual = toks.filter((t, i) => !used.has(i) && !STOP.has(t)).join(" ").trim();
+  if (residual) {
+    const f = foldQ(residual);
+    for (const k of idx.keys()) {
+      if (k.length >= 3 && (` ${f} `.includes(` ${k} `) || ` ${k} `.includes(` ${f} `))) return undefined;
+    }
+  }
+  if (!cards.length) return null;
+  const card = namedAmb ? null : (named ?? (cards.length === 1 ? cards[0] : null));
+  if (!card) {
+    return { ask: { kind: "ask", missing: "tarjeta", question: L(lang, `¿Cuál tarjeta? Tienes ${cards.map((c) => c.name).join(" y ")}. Sin saber cuál no lo asiento.`, `Which card? You have ${cards.map((c) => c.name).join(" and ")}. Without knowing which, I won't post it.`) } };
+  }
+  if (fromAmb) return { ask: askResult(lang, "origen") };
+  if (!spans.length) {
+    return { ask: { kind: "ask", missing: "monto", question: L(lang, `Me falta el monto del abono a ${card.name}. ¿De cuánto fue? Sin el monto no lo asiento.`, `I'm missing the amount of the payment to ${card.name}. How much was it? Without the amount I won't post it.`) } };
+  }
+  const s = spans[0];
+  return { drafts: [{ op: "abono", amountMinor: s.minor, currency: s.currency, concept: card.name, categoryId: "", subId: "", from, to: null, date, clause, duplicate: null, cardId: card.id }] };
 }
 
 function simpleClause(
@@ -748,7 +857,7 @@ function simpleClause(
 /* ---------------- deduplicación y eco ---------------- */
 
 function findDuplicate(state: LedgerState, d: RelatoDraft): string | null {
-  if (d.op === "mover") return null; // frontera E1: mover se deduplica en la costura del asiento
+  if (d.op === "mover" || d.op === "abono") return null; // frontera E1: mover y el abono se deduplican en la costura del asiento (no son líneas de flujo del mes)
   const monthKey = d.date.slice(0, 7);
   for (const l of state.months[monthKey]?.lines ?? []) {
     if (!l.active) continue;
@@ -917,9 +1026,14 @@ export function parseRelato(
       }
       continue;
     }
+    const cardOut = ownVerb !== "mover" && verb === "gasto"
+      ? cardClause(state, toks, clauseText, date, timeToks, places, idx, lang, defCur)
+      : undefined;
     const out = ownVerb === "mover"
       ? moverClause(toks, clauseText, date, timeToks, places, lang, defCur)
-      : simpleClause(toks, clauseText, verb, date, timeToks, places, idx, lang, pending, foodCat, defCur);
+      : cardOut !== undefined
+        ? cardOut
+        : simpleClause(toks, clauseText, verb, date, timeToks, places, idx, lang, pending, foodCat, defCur);
     if (!out) continue;
     if ("ask" in out) return out.ask;
     drafts.push(...out.drafts);
@@ -944,8 +1058,8 @@ export function parseRelato(
   let projectedLine: string | null = null;
   if (figures.includes("estado-bajo")) {
     const disp = state.settings.display;
-    const fresh = drafts.filter((d) => !d.duplicate && d.op !== "mover");
-    if (fresh.length && drafts.every((d) => d.op === "mover" || d.currency === disp)) {
+    const fresh = drafts.filter((d) => !d.duplicate && d.op !== "mover" && d.op !== "abono");
+    if (fresh.length && drafts.every((d) => d.op === "mover" || d.op === "abono" || d.currency === disp)) {
       const reading = readAdvisor(state, key, lang, names, { today: new Date(`${today}T12:00:00`) });
       let projected = reading.left;
       for (const d of fresh) projected += d.op === "ingreso" ? d.amountMinor : -d.amountMinor;

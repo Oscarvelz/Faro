@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.482",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Pagar la tarjeta ya no es un gasto", en: "Paying the card is no longer a spend" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Corrección importante: si le contabas al Asesor «pagué 200 de la tarjeta», eso se asentaba como un gasto más, y el mes contaba la compra dos veces. Ya no: ahora nace un abono contra la tarjeta, que liquida su deuda y no suma gasto — el gasto ya contó al comprar.",
+        "La tarjeta queda nombrada en su tarjetita, con su palabra «Abono» arriba y la cuenta de origen como detalle cuando la nombras («desde el banco»).",
+        "Con dos tarjetas y sin nombrar cuál, el Asesor pregunta cuál antes de asentar; y pagar CON la tarjeta sigue siendo gasto, como debe ser: «compré un pollo con la tarjeta» no cambia.",
+      ],
+      en: [
+        "An important fix: if you told the Advisor “I paid 200 to my credit card”, that posted as one more spend, and the month counted the purchase twice. No longer: now a payment against the card is born, which settles its debt and adds no spend — the spend already counted when you bought.",
+        "The card is named on its little card, with its word “Payment” above and the origin account as a detail when you name it (“from my bank”).",
+        "With two cards and none named, the Advisor asks which before posting; and paying WITH the card is still a spend, as it should be: “I bought a chicken with the card” doesn't change.",
+      ],
+    },
+  },
+  {
     version: "1.3.481",
     date: "2026-11-26",
     level: "menor",
