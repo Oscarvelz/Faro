@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.473",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "La calculadora desnuda y el quién con ventana", en: "The bare calculator and the who with a window" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "La calculadora ahora responde también la operación desnuda: «¿cuánto es 5 por 15?» da «5 por 15 es 75.», como número llano, en dígitos o en palabras y en los dos idiomas. La división y la resta entran igual, y dividir entre cero se dice imposible en llano.",
+        "La forma está cercada: la pregunta entera tiene que ser la operación. Una cadena («5 por 15 más 3») no entra y no se finge, y «¿cuánto gasté menos la renta?» sigue siendo tu historia, no una resta.",
+        "Y en remesas, el quién con ventana manda: «¿a quién le envié remesas el mes pasado?» responde la lista de ese período, cada destinatario con su suma y su conteo de envíos. Si en esa ventana no enviaste nada, lo dice y nombra tu último envío real.",
+      ],
+      en: [
+        "The calculator now also answers the bare operation: “how much is 5 times 15?” gives “5 times 15 is 75.”, as a plain number, in digits or words and in both languages. Division and subtraction enter the same way, and dividing by zero is said to be impossible, plainly.",
+        "The form is fenced: the whole question has to be the operation. A chain (“5 times 15 plus 3”) doesn't enter and isn't faked, and “how much did I spend minus the rent?” stays your history, not a subtraction.",
+        "And in remittances, the who with a window rules: “who did I send remittances to last month?” answers with that period's list, each recipient with their sum and send count. If you sent nothing in that window, it says so and names your last real send.",
+      ],
+    },
+  },
+  {
     version: "1.3.472",
     date: "2026-11-26",
     level: "grande",

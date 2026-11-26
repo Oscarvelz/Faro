@@ -2949,6 +2949,44 @@ function remesasAnswer(c: Ctx, folded = ""): BankResult {
       };
     }
   }
+  // CAZA DEL TELÉFONO (Oscar, 2026-11-25): «¿a quién le envié
+  // remesas el mes pasado?» — la pregunta trae DESTINATARIO y
+  // VENTANA, y la familia respondía el patrón de siempre («tu
+  // remesa mayor es...»): ni la ventana ni el quién mandaban. Con
+  // período explícito, la respuesta es la lista de ESE período:
+  // quién recibió y cuánto, sumado dentro de la ventana; la
+  // ventana vacía dice su cero y nombra el último envío real.
+  if (folded && /(a quien|a quienes|quien|quienes|who|whom)/.test(folded)
+    && /(ano|year|mes|month|semana|week|quincena|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december|hace|ago|pasado|pasada|ultimo|ultima|last|este|esta|this)/.test(folded)) {
+    const p = periodOf(c, folded);
+    const inPeriod = (h: { monthKey: string; date: string }) => (p.kind === "month" ? h.monthKey === p.key : p.kind === "year" ? h.monthKey.startsWith(p.year) : h.date >= p.from && h.date <= p.to);
+    const per = withMoney
+      .map((r) => {
+        const hs = remitHistory(c.state, r.id).filter(inPeriod);
+        return { r, hs, sum: hs.reduce((a, h) => a + (c.display === "USD" ? h.usd : h.nio), 0) };
+      })
+      .filter((x) => x.hs.length > 0)
+      .sort((a, b) => b.sum - a.sum);
+    if (per.length) {
+      const parts = per.map((x) => `${x.r.person?.name ?? L(c.lang, "Sin persona", "No person")} ${c.money(x.sum)} (${x.hs.length === 1 ? L(c.lang, "1 envío", "1 send") : L(c.lang, `${x.hs.length} envíos`, `${x.hs.length} sends`)})`);
+      return {
+        kind: "answer", family: "remesas",
+        verdict: L(c.lang, `En ${p.label} le enviaste a: ${parts.join("; ")}.`, `In ${p.label} you sent to: ${parts.join("; ")}.`),
+        pieces: per.map((x) => ({ label: x.r.person?.name ?? L(c.lang, "Sin persona", "No person"), minor: x.sum })),
+        note: L(c.lang, "Es la ventana que trajiste: ningún envío de fuera de ella entra en esta cuenta.", "That's the window you brought: no send outside it enters this count."),
+        source: ["remesas.personas", "asesor.lectura"], lines: per.reduce((a, x) => a + x.hs.length, 0),
+        actions: reportDoor(c, "remesas.personas", "Verlo en Remesas", "See it in Remittances"),
+      };
+    }
+    const latest = [...withMoney].sort((a, b) => (a.last < b.last ? 1 : -1))[0];
+    const lastEntry = latest ? remitHistory(c.state, latest.id)[0] : null;
+    return {
+      kind: "answer", family: "remesas",
+      verdict: L(c.lang, `En ${p.label} no anotaste ningún envío.${lastEntry ? ` Tu último envío anotado fue a ${latest.person?.name ?? "sin persona"} el ${fmtFecha(c, lastEntry.date)} (${c.money(c.display === "USD" ? lastEntry.usd : lastEntry.nio)}).` : ""}`, `In ${p.label} you recorded no sends.${lastEntry ? ` Your last recorded send was to ${latest.person?.name ?? "no person"} on ${fmtFecha(c, lastEntry.date)} (${c.money(c.display === "USD" ? lastEntry.usd : lastEntry.nio)}).` : ""}`),
+      pieces: [], note: null, source: ["remesas.personas", "asesor.lectura"], lines: 0,
+      actions: reportDoor(c, "remesas.personas", "Verlo en Remesas", "See it in Remittances"),
+    };
+  }
   const displayPair = (r: (typeof rows)[number]) => (c.display === "USD" ? r.all.usd : r.all.nio);
   const top = withMoney[0];
   const hist = remitHistory(c.state, top.id);
@@ -3763,6 +3801,81 @@ function calculadoraAnswer(c: Ctx, folded: string, raw: string): BankResult | nu
         note: L(c.lang, "El supuesto, dicho: el año trae 52 semanas y el mes es el año entre 12 — el mismo ritmo que usan las cuotas.", "The assumption, stated: a year holds 52 weeks and a month is the year divided by 12 — the same pace the dues use."),
         source: ["asesor.lectura", "cobros.cuotas"], lines: 0,
       };
+    }
+  }
+  // CAZA DEL TELÉFONO (Oscar, 2026-11-25): «¿Cuánto es 5 por 15?»
+  // — la calculadora oía la suma, el porcentaje, la fracción y el
+  // reparto, pero la multiplicación, la división y la resta
+  // DESNUDAS ni se intentaban, y la app presume de calculadora.
+  // La forma cercada: la pregunta ENTERA es la operación — un
+  // número, el operador, otro número, y alrededor solo palabras de
+  // pregunta. Así «gastos menos la renta» (la exclusión, que trae
+  // una cosa tras el «menos», no dos números) jamás entra aquí.
+  {
+    const toks = folded.split(/[^a-z0-9.,]+/).filter(Boolean);
+    const OPS: Record<string, "mul" | "div" | "sub"> = { por: "mul", x: "mul", times: "mul", entre: "div", menos: "sub", minus: "sub" };
+    const QWORDS = new Set(["cuanto", "es", "son", "que", "da", "dan", "igual", "how", "much", "is", "what", "whats", "does", "equal", "dime", "calcula", "calculate", "el", "la", "de", "cuanto", "seria", "serian", "would", "be"]);
+    const digitAt = (t: string) => (/^\d/.test(t) ? parseNumberToken(t) : null);
+    const readEndingAt = (end: number): { value: number; start: number } | null => {
+      const last = toks[end - 1] ?? "";
+      const dLast = digitAt(last);
+      if (dLast !== null) {
+        const scaleTok = toks[end - 2] ?? "";
+        return { value: dLast, start: end - 1 };
+      }
+      if ((last === "mil" || last === "thousand" || last === "millones" || last === "millon" || last === "millions" || last === "million") && end >= 2) {
+        const dPrev = digitAt(toks[end - 2]);
+        if (dPrev !== null) return { value: dPrev * (last === "mil" || last === "thousand" ? 1_000 : 1_000_000), start: end - 2 };
+      }
+      for (let s = end - 1; s >= 0; s--) {
+        const p = parseWordNumber(toks, s);
+        if (p && p.end === end) return { value: p.value, start: s };
+      }
+      return null;
+    };
+    const readStartingAt = (start: number): { value: number; end: number } | null => {
+      const first = toks[start] ?? "";
+      const d = digitAt(first);
+      if (d !== null) {
+        const scaleTok = toks[start + 1] ?? "";
+        if (scaleTok === "mil" || scaleTok === "thousand") return { value: d * 1_000, end: start + 2 };
+        if (scaleTok === "millones" || scaleTok === "millon" || scaleTok === "millions" || scaleTok === "million") return { value: d * 1_000_000, end: start + 2 };
+        return { value: d, end: start + 1 };
+      }
+      const p = parseWordNumber(toks, start);
+      return p ? { value: p.value, end: p.end } : null;
+    };
+    const opIdxs = toks.map((t, i) => (OPS[t] && !(t === "por" && toks[i + 1] === "ciento") ? i : -1)).filter((i) => i >= 0);
+    if (opIdxs.length === 1) {
+      const opIdx = opIdxs[0];
+      const left = readEndingAt(opIdx);
+      const right = readStartingAt(opIdx + 1);
+      if (left && right && left.value > 0 && right.end <= toks.length) {
+        const outside = [...toks.slice(0, left.start), ...toks.slice(right.end)];
+        if (outside.every((t) => QWORDS.has(t))) {
+          const op = OPS[toks[opIdx]];
+          const fmtN = (v: number) => (Number.isInteger(v) ? Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : (Math.round(v * 100) / 100).toFixed(2));
+          const aTxt = fmtN(left.value);
+          const bTxt = fmtN(right.value);
+          if (op === "div" && right.value === 0) {
+            return {
+              kind: "answer", family: "calculadora",
+              verdict: L(c.lang, `Entre cero no se puede: dividir entre cero no da ningún número, esa cuenta no existe.`, `You can't divide by zero: it gives no number, that math doesn't exist.`),
+              pieces: [], note: L(c.lang, "Es aritmética de tu pregunta: no toqué tu libro.", "That's arithmetic from your question: I didn't touch your book."),
+              source: ["asesor.lectura"], lines: 0,
+            };
+          }
+          const result = op === "mul" ? left.value * right.value : op === "div" ? left.value / right.value : left.value - right.value;
+          const opTxt = op === "mul" ? "×" : op === "div" ? "÷" : "−";
+          const opWord = L(c.lang, op === "mul" ? "por" : op === "div" ? "entre" : "menos", op === "mul" ? "times" : op === "div" ? "divided by" : "minus");
+          return {
+            kind: "answer", family: "calculadora",
+            verdict: L(c.lang, `${aTxt} ${opWord} ${bTxt} es ${fmtN(result)}.`, `${aTxt} ${opWord} ${bTxt} is ${fmtN(result)}.`),
+            pieces: [], note: L(c.lang, `La cuenta, dicha: ${aTxt} ${opTxt} ${bTxt} = ${fmtN(result)}. Es aritmética de tu pregunta: no toqué tu libro.`, `The math, stated: ${aTxt} ${opTxt} ${bTxt} = ${fmtN(result)}. That's arithmetic from your question: I didn't touch your book.`),
+            source: ["asesor.lectura"], lines: 0,
+          };
+        }
+      }
     }
   }
   // SUMA PURA: «si me regalaron 300…, 200… y 150, ¿cuánto sería?»
@@ -10458,6 +10571,10 @@ const GATE_WORDS: string[] = [
    * vocabulario de puertas también. */
   "garnish", "garnished", "lawyer", "lawsuit", "legally", "invest", "investing", "investment", "investments",
   "deduct", "deduction", "deductions", "taxes",
+  /* LA CAZA DEL TELÉFONO (2026-11-25): los operadores de la
+   * operación desnuda («entre», «menos») tampoco estaban: una
+   * errata en ellos caía en silencio. */
+  "entre", "menos",
   /* OLA 72: las palabras de las tareas de la casa sostienen las
    * puertas del «cómo se hace» y tampoco estaban: sin ellas, una
    * errata en «idioma» o «sincronizo» caía en silencio, y una
@@ -11425,7 +11542,7 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b|\btengo\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b|\btuviera\b|\btuviese\b/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b|\btengo\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b|\btuviera\b|\btuviese\b|\b\d+\s+(por|x|entre|menos|times)\s+\d+\b|\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(por|entre|times)\s+(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, rawR, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo

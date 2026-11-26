@@ -5656,3 +5656,72 @@ describe("banco · ola 73: la frontera, dicha en voz alta", () => {
   });
 });
 
+describe("banco · caza del teléfono 2026-11-25: la calculadora desnuda y el quién con ventana", () => {
+  it("la multiplicación, la división y la resta desnudas se responden, en dígitos y en palabras", () => {
+    const casos: Array<[string, string]> = [
+      ["¿Cuánto es 5 por 15?", "5 por 15 es 75."],
+      ["¿Cuánto es 5 x 15?", "5 por 15 es 75."],
+      ["¿Cuánto es cinco por quince?", "5 por 15 es 75."],
+      ["¿Cuánto es 100 entre 4?", "100 entre 4 es 25."],
+      ["¿Cuánto es 20 menos 8?", "20 menos 8 es 12."],
+      ["¿Cuánto es 12 por 12?", "12 por 12 es 144."],
+      ["¿Cuánto es 8 menos 20?", "8 menos 20 es -12."],
+    ];
+    for (const [q, esperado] of casos) {
+      const r = ask(fixture(), q);
+      if (r.kind !== "answer") assert.fail(`debió responder: ${q}`);
+      assert.equal(r.family, "calculadora", q);
+      assert.equal(r.verdict, esperado, q);
+    }
+    const bare = ask(fixture(), "5 por 15");
+    if (bare.kind !== "answer") assert.fail("la forma desnuda sin pregunta debió responder");
+    assert.equal(bare.verdict, "5 por 15 es 75.");
+    const en = ask(fixture(), "What is 5 times 15?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder en inglés");
+    assert.equal(en.verdict, "5 times 15 is 75.");
+    const cero = ask(fixture(), "¿Cuánto es 10 entre 0?");
+    if (cero.kind !== "answer") assert.fail("debió responder");
+    assert.ok(cero.verdict.includes("Entre cero no se puede"), cero.verdict);
+  });
+
+  it("los guardianes de la operación: la exclusión no es resta y el porcentaje no se toca", () => {
+    const exc = ask(fixture(), "¿Cuánto gasté menos la renta?");
+    if (exc.kind !== "answer") assert.fail("debió responder");
+    assert.notEqual(exc.family, "calculadora");
+    const pct = ask(fixture(), "¿Cuánto es el 15 por ciento de 200?");
+    if (pct.kind !== "answer") assert.fail("debió responder");
+    assert.equal(pct.family, "calculadora");
+    assert.ok(pct.verdict.includes("$30.00"), pct.verdict);
+    const suma = ask(fixture(), "¿Cuánto es 5 más 3?");
+    if (suma.kind !== "answer") assert.fail("debió responder");
+    assert.ok(suma.verdict.includes("$8.00"), suma.verdict);
+  });
+
+  it("el quién con ventana: la lista es del período traído, no el patrón de siempre", () => {
+    let l = fixture();
+    l = addRemitPerson(l, "Papá", "papa").state;
+    l.months[PREV] = { lines: [
+      line({ id: "rp1", kind: "expense-fixed" as LineKind, concept: "Remesa", amountMinor: 17000, categoryId: "f-remesas", subId: "f.remesas.envios", bookedOn: "2026-09-10", monthKey: PREV, to: "mama" }),
+      line({ id: "rp2", kind: "expense-fixed" as LineKind, concept: "Remesa", amountMinor: 5000, categoryId: "f-remesas", subId: "f.remesas.envios", bookedOn: "2026-09-15", monthKey: PREV, to: "papa" }),
+    ] };
+    const r = ask(l, "¿A quién le envié remesas el mes pasado?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "remesas");
+    assert.ok(r.verdict.includes("Mamá $170.00 (1 envío)"), r.verdict);
+    assert.ok(r.verdict.includes("Papá $50.00 (1 envío)"), r.verdict);
+    assert.ok(!r.verdict.includes("remesa mayor"), r.verdict);
+    assert.ok(!r.verdict.includes("$300.00"), r.verdict);
+    const now = ask(l, "¿A quién le envié remesas este mes?");
+    if (now.kind !== "answer") assert.fail("debió responder");
+    assert.ok(now.verdict.includes("Mamá $170.00 (1 envío)"), now.verdict);
+    assert.ok(!now.verdict.includes("Papá"), now.verdict);
+    const vacia = ask(l, "¿A quién le envié remesas en agosto?");
+    if (vacia.kind !== "answer") assert.fail("debió responder");
+    assert.ok(vacia.verdict.includes("no anotaste ningún envío"), vacia.verdict);
+    assert.ok(vacia.verdict.includes("último envío anotado fue a Mamá"), vacia.verdict);
+    const en = ask(l, "Who did I send remittances to last month?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.ok(en.verdict.includes("Papá $50.00 (1 send)"), en.verdict);
+  });
+});
+
