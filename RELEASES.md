@@ -4390,3 +4390,12 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Registro: la entrada «hipotetico» de questionbank ganó el párrafo de la 72B en su answerShape (el de la 72C entrará en su ola).
 - Especímenes: los 3 de la copia en banco.test.ts. Suite 3.886/3.886; typecheck con los 3 errores de base.
 - Fuente: `50fa0c8d`. Publicación: lotes y cola `2d316882`; treediff DIFFER vacío y EXTRA 0. Verificación en vivo de primera mano: sw `faro-1.3.469`, el índice vivo apunta a `index-CwutCBIF.js` + `index-BMZ8Mg31.css`, barrido del precache **28/28**. Snapshot: `~/workspace/faro-469-dist-snapshot`. Sigue en la cola: la Ola 72C del banco (la premisa con «tengo»).
+
+## 1.3.470 — La pareja se reparte y la casa tiene su color (fallo de Oscar)
+
+- Fallo de Oscar (2026-11-26, sobre la foto del banco de la 465): el espacio junto a «Ahora no» iba contra la ley de envoltorio — la pareja de la confirmación abrazaba la izquierda y dejaba un hueco muerto a la derecha. Cura: toda fila de opciones dentro de una tarjeta se reparte la fila entera (flex 1 1 0, texto centrado): la pareja sí/no, las opciones de la pregunta de vuelta y la propuesta toman cada una su parte igual, sin hueco a un lado. Proporción y simetría, también en los botones.
+- La pregunta fija de la casa («¿Qué puede hacer el asesor?») se confundía con la confirmación: el mismo amarillo lleno. Ahora lleva su clase propia (is-house) y la voz --house, un color distinto que cada tema dice con su paleta: en Cyberpunk, su magenta con el corte de la casa; en Ion e Ion noche, su resplandor; en los demás temas, la tinta del tema. Lleva además la brújula del Asesor al frente. La confirmación conserva el acento lleno, solo suyo. El botón único de crear, que a Oscar le encantó, no se tocó.
+- Cerca nueva captura470 (3 tests, registrada en test:faro): clava el reparto de la fila, la clase y la voz de la casa, y la voz por tema (magenta y corte en Cyberpunk, resplandor en Ion).
+- Banco verificado a ojo en Cyberpunk (la pareja repartida y cuadrada, la casa en magenta con su corte) y en Claro (la pareja repartida, la casa en tinta con su brújula).
+- Suite 3.889/3.889; typecheck con los 3 errores de base.
+- Fuente: `7232ee1e`. Publicación: lotes y cola `8a765d88`; treediff DIFFER vacío y EXTRA 0. Verificación en vivo de primera mano: sw `faro-1.3.470`, el índice vivo apunta a `index-q4XPWRQB.js` + `index-CxDPwsXA.css`, barrido del precache **28/28**. Snapshot: `~/workspace/faro-470-dist-snapshot`. Sigue en la cola: la Ola 72C del banco (la premisa con «tengo»).
