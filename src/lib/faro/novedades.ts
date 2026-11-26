@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.461",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "Pregunta por un cargo suelto", en: "Ask about a single charge" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "El Asesor ya responde por UN cargo: «¿cuál fue el cargo de Amazon?», «¿de qué es el cargo de $49.99?» — te lo identifica con lo que tu libro sabe de él: nombre, categoría, monto y fecha.",
+        "Si no reconoces un cargo, dilo tal cual: «tengo un cargo de $12.34 que no reconozco». Te muestra lo anotado y te dice el límite con claridad: la disputa va con el banco que lo cobró; el libro guarda lo que se anotó, no juzga si un cargo es legítimo.",
+        "También oye «¿me cobraron dos veces el internet?» y «¿de qué cuenta salió este cargo?»: si hay dos cobros iguales te los compara con sus fechas, y la cuenta o tarjeta de origen solo se nombra si la línea la trae anotada — si no, se dice que el libro no lo guarda.",
+      ],
+      en: [
+        "The Advisor now answers about a SINGLE charge: “what was the Amazon charge?”, “what is the $49.99 charge?” — it identifies it with what your book knows about it: name, category, amount and date.",
+        "If you don't recognize a charge, say it just like that: “I don't recognize a $12.34 charge”. It shows you what's recorded and states the limit plainly: the dispute goes to the bank that charged it; the book keeps what was recorded, it doesn't judge whether a charge is legitimate.",
+        "It also hears “was I charged twice for the internet?” and “which account did this charge come from?”: if there are two matching charges it compares them with their dates, and the source account or card is named only if the line carries it — otherwise it says the book doesn't keep it.",
+      ],
+    },
+  },
+  {
     version: "1.3.460",
     date: "2026-11-25",
     level: "grande",

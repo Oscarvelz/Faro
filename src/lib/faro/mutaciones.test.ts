@@ -284,6 +284,16 @@ const MUTACIONES_EXCEPCION = new Set<string>([
    *   y la puerta de límites oye «can t». */
   "¿En cuál cueta debo más?",
   "What ca't you do?",
+  /* CUARTA TANDA (el puerto de la Ola 68 a canon, 1.3.461):
+   * - «chage» por «charge»: empate real con «change» a una letra
+   *   caída — en canon conviven las dos palabras (la mesa de
+   *   cambio y el cargo), y la reparación no adivina entre dos
+   *   palabras verdaderas. Es la misma colisión declarada en la
+   *   batería de la Rama (captura457 la fija); en la copia del
+   *   banco «change» no vive en el diccionario y la forma se
+   *   curaba sola — colisión solo de canon. La canónica sin mutar
+   *   responde cargo; la mutada queda declarada, no curada. */
+  "Which chage is the one from Amazon?",
 ]);
 
 describe("mutaciones · el centro bajo mutación", () => {

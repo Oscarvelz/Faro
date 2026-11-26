@@ -139,7 +139,7 @@ export function removeAskPreset(state: LedgerState, id: string): LedgerState {
  * forma que a Oscar le gustó tal cual. */
 const CAP_GROUPS: { title: { es: string; en: string }; families: string[] }[] = [
   { title: { es: "Tu mes", en: "Your month" }, families: ["how", "left", "free", "spend", "gustos", "promedio", "relator", "sintesis", "factibilidad", "figurada", "ingreso", "deriva"] },
-  { title: { es: "Tus movimientos", en: "Your movements" }, families: ["recencia", "historia", "comparar", "extremos", "frecuencia", "estacionalidad", "confirmacion", "ausencia", "identidad"] },
+  { title: { es: "Tus movimientos", en: "Your movements" }, families: ["recencia", "historia", "comparar", "extremos", "frecuencia", "estacionalidad", "confirmacion", "ausencia", "identidad", "cargo"] },
   { title: { es: "Tus cuotas y deudas", en: "Your dues and debts" }, families: ["agenda", "ya-pague", "ranking", "conteo", "deudas", "simulador", "series", "seguro"] },
   { title: { es: "Tus ahorros y envíos", en: "Your savings and remittances" }, families: ["ahorros", "total", "cuenta-origen", "remesas", "remesas-periodo", "respaldo", "meta", "reparto", "acciones"] },
   { title: { es: "Cuentas y fechas", en: "Math and dates" }, families: ["calculadora", "hipotetico", "contrafactual", "conversor", "calendario", "precio-tiempo", "regla"] },

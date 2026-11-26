@@ -84,7 +84,7 @@ export type BankFamilyId =
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
   | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
-  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion" | "seguro";
+  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion" | "seguro" | "cargo";
 
 export type BankPiece = { label: string; minor: number };
 /* OLA 27 · EL GRAFO QUE EXPLICA (investigación II, mecanismos #1 y
@@ -6296,6 +6296,155 @@ function ausenciaAnswer(c: Ctx, folded: string): BankResult | null {
   };
 }
 
+/** OLA 68 · EL CARGO SUELTO (el estudio de los grandes, 2026-11-25):
+ * la pregunta suelta más repetida del campo es sobre UN cargo
+ * (Copilot: «What is this charge from?»; Eno: el duplicado y el
+ * cargo no reconocido; Banking77 la domina). La identidad (Ola 35)
+ * ya nombra un cargo por su monto o su nombre cuando la pregunta
+ * trae su forma («¿qué es este cargo?»); lo que el banco no oía
+ * era el resto del territorio: el cargo traído por su COMERCIO
+ * («¿cuál fue el cargo de Amazon?»), el cargo NO RECONOCIDO («no
+ * reconozco este cargo de $12»), el cargo cobrado DOS VECES con su
+ * nombre («¿me cobraron dos veces el internet?», que frecuencia no
+ * oía en español), el ORIGEN del cargo («¿de dónde salió este
+ * cargo de $250?», que el porqué se robaba) y la FUENTE del cargo
+ * («¿fue con tarjeta o de mi cuenta?»). La puerta es estrecha a
+ * propósito: la palabra cargo/charge Y una de esas voces. La forma
+ * de identidad queda donde estaba.
+ * (Puerto a canon 1.3.461: el escaneo de ciudadano llama al
+ * citizenByName de canon, de tres argumentos; el abrazo bilingüe
+ * del nombre — otherNamer — llega con la sonda del
+ * code-switching, que es el paquete que sube esa costura.) */
+function cargoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  if (!/(carg|cobr|charge|charged)/.test(folded)) return null;
+  const unrec = /(no (lo |la )?reconozco|no reconozco|no se que es|no se de que es|no recuerdo (este|ese|haber)|don't recogn|do not recogn|don't remember|unrecogn)/.test(folded);
+  const twice = /(dos veces|twice|double[- ]?charg|cobraron dos|cobrado dos|charged twice)/.test(folded);
+  const sourceAsk = /(con tarjeta|con que (pague|tarjeta|cuenta)|de mi cuenta salio|de que cuenta (salio|fue)|from which account|which (card|account) (was|did)|what card|fue con (tarjeta|efectivo))/.test(folded);
+  const originAsk = /(de donde (salio|es|vino)|where did (this|that|the) charge come from)/.test(folded);
+  /* La forma inglesa «what is this/that charge» es de identidad
+   * (su detForm): esta puerta solo toma el pasado («what was the
+   * Amazon charge») y el artículo sin demostrativo — la onda
+   * hostil de las mutaciones cazó el robo sobre las canónicas
+   * inglesas de identidad. */
+  const identifyAsk = /(de que es|que cargo es|cual (es|fue) el cargo|what was [^?]{0,40}charge|what is (the|a) [^?]{0,30}charge|which charge|what charge)/.test(folded);
+  if (!unrec && !twice && !sourceAsk && !originAsk && !identifyAsk) return null;
+  type Hit = { l: Line; mk: string };
+  const all: Hit[] = [];
+  for (const mk of Object.keys(c.state.months)) {
+    if (mk > c.key) continue;
+    for (const l of c.state.months[mk]?.lines ?? []) if (l.active) all.push({ l, mk });
+  }
+  all.sort((a, b) => (lineDate(b.l) || "").localeCompare(lineDate(a.l) || ""));
+  const amts = amountsIn(raw);
+  let citizen: { display: string; folded: string; fn: (l: Line) => boolean } | null = null;
+  for (const w of folded.split(/[^a-z0-9]+/).filter((x) => x.length >= 4)) {
+    if (/^(cargo|cargos|cobro|cobros|charge|charges|charged|veces|twice|donde|where|cuenta|account|tarjeta|card)$/.test(w)) continue;
+    citizen = citizenByName(c.state, c.names, w);
+    if (citizen) break;
+  }
+  let hits: Hit[] = [];
+  if (amts.length) {
+    const targets = amts.map((a) => convertMinor(a.minor, a.currency, c.display, c.rateE4));
+    hits = all.filter((h) => targets.some((t) => Math.abs(view(c, h.l) - t) <= 1));
+  }
+  if (!hits.length && citizen) hits = all.filter((h) => citizen!.fn(h.l));
+  const src = ["libros.lineas"];
+  /* La llave de serie de esta familia: el concepto con su
+   * subcategoría. El seriesId crudo no sirve como llave única:
+   * dos instancias del mismo cargo pueden traer seriesId
+   * distintos (la importación y los libros viejos), y lo que el
+   * usuario reconoce como «el mismo cargo» es el nombre con su
+   * clase, no el identificador interno. */
+  const seriesKey = (l: Line): string => (l.concept ? `${l.concept}|${l.subId ?? ""}` : (l.seriesId || l.id));
+  const door = reportDoor(c, "historial.stream", "Verlo en el Historial", "See it in History");
+  const notFound: BankResult = {
+    kind: "answer", family: "cargo",
+    verdict: L(c.lang, "No encuentro un cargo así anotado en tu libro: ni por el monto ni por el nombre que trajiste. Si el cargo existe y no está anotado, el libro no lo puede identificar: dime el monto exacto o el nombre tal cual aparece y lo busco de nuevo.", "I can't find a charge like that recorded in your book: not by the amount, not by the name you brought. If the charge exists and was never recorded, the book can't identify it: give me the exact amount or the name as it appears and I'll look again."),
+    pieces: [], note: null, source: src, lines: 0,
+  };
+  const describeHit = (h: Hit): string => {
+    const l = h.l;
+    const name = l.concept || c.names.cat(l.categoryId);
+    const catTxt = c.names.cat(l.categoryId) + (l.subId ? ` · ${c.names.sub(l.subId)}` : "");
+    const kindTxt = l.kind === "subscription" ? L(c.lang, "una suscripción", "a subscription")
+      : l.kind === "purchase" ? L(c.lang, "una compra", "a purchase")
+        : l.kind.startsWith("income") ? L(c.lang, "un ingreso", "an income") : L(c.lang, "un gasto", "a charge");
+    const storeTxt = l.storeId ? L(c.lang, `, en ${c.names.catalog(l.storeId)}`, `, at ${c.names.catalog(l.storeId)}`) : "";
+    const date = lineDate(l);
+    return L(c.lang, `«${name}» es ${kindTxt} de ${catTxt}${storeTxt}: ${c.money(view(c, l))}${date ? `, el ${fmtFecha(c, date)}` : ""}.`, `"${name}" is ${kindTxt} under ${catTxt}${storeTxt}: ${c.money(view(c, l))}${date ? `, on ${fmtFecha(c, date)}` : ""}.`);
+  };
+  // DOS VECES: el mismo ciudadano, el mismo monto, dos líneas.
+  if (twice) {
+    const pool = hits.length ? hits : all;
+    const byKey = new Map<string, Hit[]>();
+    for (const h of pool) {
+      const k = `${seriesKey(h.l)}|${view(c, h.l)}`;
+      byKey.set(k, [...(byKey.get(k) ?? []), h]);
+    }
+    const dup = [...byKey.values()].filter((g) => g.length >= 2 && g.some((h) => h.mk === c.key));
+    if (dup.length) {
+      const g = dup[0];
+      const dates = g.map((h) => lineDate(h.l)).filter(Boolean).sort();
+      return {
+        kind: "answer", family: "cargo",
+        verdict: L(c.lang, `Sí: ${describeHit(g[0])} Y aparece ${g.length} veces con el mismo monto${dates.length ? ` (el ${dates.map((d) => fmtFecha(c, d)).join(" y el ")})` : ""}. Repetido no quiere decir cobrado mal por fuerza: una suscripción y su cobro de este mes se parecen; si solo esperabas un cobro, el que sobra es el que hay que mirar.`, `Yes: ${describeHit(g[0])} And it appears ${g.length} times with the same amount${dates.length ? ` (on ${dates.map((d) => fmtFecha(c, d)).join(" and ")})` : ""}. Repeated doesn't automatically mean wrongly charged: a subscription and this month's charge look alike; if you expected only one charge, the extra one is the one to look at.`),
+        pieces: [], note: null, source: src, lines: g.length, actions: door,
+      };
+    }
+    if (hits.length) {
+      return {
+        kind: "answer", family: "cargo",
+        verdict: L(c.lang, `No: ${describeHit(hits[0])} Y aparece una sola vez en tu libro. No hay un segundo cobro igual anotado.`, `No: ${describeHit(hits[0])} And it appears only once in your book. There is no second matching charge recorded.`),
+        pieces: [], note: null, source: src, lines: hits.length, actions: door,
+      };
+    }
+    return {
+      kind: "answer", family: "cargo",
+      verdict: L(c.lang, "No veo ningún cargo repetido con el mismo nombre y el mismo monto en tu libro. Si el cobro duplicado existe y no está anotado dos veces, el libro no lo puede ver: anótalo y te lo comparo.", "I don't see any repeated charge with the same name and the same amount in your book. If the duplicate charge exists and isn't recorded twice, the book can't see it: record it and I'll compare it."),
+      pieces: [], note: null, source: src, lines: 0,
+    };
+  }
+  if (!hits.length) return notFound;
+  // LA FUENTE: ¿de qué cuenta o tarjeta salió?
+  if (sourceAsk) {
+    const h = hits[0];
+    if (h.l.sourceId) {
+      return {
+        kind: "answer", family: "cargo",
+        verdict: L(c.lang, `${describeHit(h)} Salió de «${c.names.catalog(h.l.sourceId)}», que es lo que el libro guarda como su cuenta de origen.`, `${describeHit(h)} It came from "${c.names.catalog(h.l.sourceId)}", which is what the book keeps as its source account.`),
+        pieces: [], note: null, source: src, lines: hits.length, actions: door,
+      };
+    }
+    return {
+      kind: "answer", family: "cargo",
+      verdict: L(c.lang, `${describeHit(h)} De su origen el libro no guarda nada: esta línea no trae anotada la cuenta ni la tarjeta de la que salió, así que no te lo puedo decir sin inventarlo.`, `${describeHit(h)} About its source the book keeps nothing: this line has no account or card recorded as where it came from, so I can't tell you without inventing it.`),
+      pieces: [], note: null, source: src, lines: hits.length, actions: door,
+    };
+  }
+  // IDENTIFICAR (también el no reconocido y el origen): si el monto
+  // casa con series distintas, se listan y no se elige.
+  const seriesKeys = new Set(hits.map((h) => seriesKey(h.l)));
+  if (seriesKeys.size > 1 && amts.length) {
+    const reps = [...seriesKeys].slice(0, 3).map((k) => describeHit(hits.find((h) => seriesKey(h.l) === k)!));
+    return {
+      kind: "answer", family: "cargo",
+      verdict: L(c.lang, `Ese monto aparece en ${seriesKeys.size} cargos distintos y no elijo por ti: ${reps.join(" ")} La fecha y el nombre son el dato que los distingue.`, `That amount appears on ${seriesKeys.size} different charges and I won't pick for you: ${reps.join(" ")} The date and the name are the telling details.`),
+      pieces: [], note: null, source: src, lines: hits.length, actions: door,
+    };
+  }
+  const h = hits[0];
+  const sameMonthDup = hits.some((x) => x !== h && x.mk === h.mk && seriesKey(x.l) === seriesKey(h.l) && view(c, x.l) === view(c, h.l));
+  return {
+    kind: "answer", family: "cargo",
+    verdict: describeHit(h) + (sameMonthDup ? L(c.lang, " Ojo: ese mismo mes hay otro cargo igual en monto de la misma serie; si me preguntas si está duplicado, te los comparo.", " Note: that same month there is another charge for the same amount from the same series; if you ask me whether it's duplicated, I'll compare them.") : ""),
+    pieces: [],
+    note: unrec
+      ? L(c.lang, "Eso es todo lo que tu libro dice de ese cargo. Si aun así no lo reconoces, la disputa va con el banco o la tarjeta que lo cobró: el libro guarda lo que se anotó, no puede juzgar si un cargo es legítimo.", "That is everything your book says about that charge. If you still don't recognize it, the dispute goes to the bank or the card that charged it: the book keeps what was recorded, it can't judge whether a charge is legitimate.")
+      : null,
+    source: src, lines: hits.length, actions: door,
+  };
+}
+
 /** LA IDENTIDAD: «¿qué es este cargo?» — candidatas con la
  * evidencia dicha y el criterio declarado, nunca una adivinanza.
  * Si hay varias, se listan con el dato que las distingue. */
@@ -10354,16 +10503,20 @@ export function answerBankQuestion(
    * por «number» morían aquí aunque la reparación las curaba.
    * La puerta juzga sobre el texto reparado; la respuesta sigue
    * recibiendo el texto del usuario tal cual. (Puerto 1.3.454:
-   * la guarda chargeShape68 de la copia NO viaja — es de la
-   * Ola 68 y entra con su paquete.) */
+   * la guarda chargeShape68 de la copia NO viajó — era de la
+   * Ola 68; entra con su paquete en el puerto 1.3.461.) */
   const rawGate = repairGateTypos(foldQ(raw), undefined, lang);
   if (!pin) {
     const bare = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
-    if (/^(y )?(por que|porque)$/.test(bare)
+    /* OLA 68: «¿de dónde salió este cargo de $250?» no interroga
+     * la procedencia de una cifra del asesor: trae la forma de
+     * cargo con monto, y su casa es el cargo suelto (4b9). */
+    const chargeShape68 = /(cargo|cargos|charge|charges)/.test(rawGate) && amountsIn(raw).length > 0;
+    if (!chargeShape68 && (/^(y )?(por que|porque)$/.test(bare)
       || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(rawGate)
       // OLA 27: con grafo vivo, un «¿por qué…?» corto y con blanco
       // («¿por qué el ritmo?», «¿por qué $75?») interroga al grafo.
-      || (convo?.graph?.length && /(por que|porque|why)/.test(rawGate) && bare.split(/\s+/).length <= 7)) {
+      || (convo?.graph?.length && /(por que|porque|why)/.test(rawGate) && bare.split(/\s+/).length <= 7))) {
       return porqueResult(state, convo ?? null, lang, mode, askFrame ?? null, raw);
     }
   }
@@ -10878,7 +11031,11 @@ function answerSingle(
   // «Which account do I owe the most on?» casaba con «which account»
   // y recibía un need-amount, cuando su casa es el ranking (paso 7):
   // con «más/most» la puerta cede y la pregunta sigue a su familia.
-  if (/(de que cuenta|de donde saco|which account|where should i take)/.test(folded) && !/(mas|most)/.test(folded)) return cuentaOrigenAnswer(c, raw, parseCtx, pin?.accountId);
+  // OLA 68: «¿de qué cuenta SALIÓ el cargo de $12.34?» no pregunta
+  // de dónde sacar: pregunta la fuente de un cargo ya anotado, en
+  // pasado y con la palabra cargo — es del cargo suelto (4b9).
+  if (/(de que cuenta|de donde saco|which account|where should i take)/.test(folded) && !/(mas|most)/.test(folded)
+    && !((/(cargo|charge)/.test(folded) && /(salio|fue|vino|came from|was charged)/.test(folded)))) return cuentaOrigenAnswer(c, raw, parseCtx, pin?.accountId);
   // 4b · CONTEO (ola 2): «¿cuántas X…?» cuenta un ciudadano del mapa;
   // su patrón (cuántas/cuántos + nombre) no pisa a ninguna otra familia.
   {
@@ -10906,6 +11063,13 @@ function answerSingle(
   {
     const es = estadoAnswer(c, folded);
     if (es) return es;
+    // OLA 68: el cargo suelto (el comercio, el no reconocido, el
+    // cobrado dos veces, el origen, la fuente) se juzga antes que
+    // la identidad: su puerta trae la palabra cargo y una de esas
+    // voces, y la forma de identidad («¿qué es este cargo?») no
+    // trae ninguna, así que no se pisan.
+    const cg = cargoAnswer(c, folded, rawR);
+    if (cg) return cg;
     const idn = identidadAnswer(c, folded, raw);
     if (idn) return idn;
     const au = ausenciaAnswer(c, folded);
@@ -11284,6 +11448,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(antes o despues|que (fue|paso) primero|which came first|before or after)/, "historia"],
     [/(cuesta|cuestan|costo|margen|comision).{0,24}(remesa|envio|enviar|mandar)|(remesa|envio).{0,24}(cuesta|cuestan|costo|margen|comision)/, "remesas"],
     [/(que (me )?falta|que no aparece|what('s| is) missing|anything missing|what (hasn|haven)|shown up)/, "ausencia"],
+    [/(no (lo |la )?reconozco|no reconozco|don't recogn|do not recogn|cobraron dos|charged twice|de donde (salio|vino) (este|ese|el|un) cargo|de que es el cargo|que cargo es|cual (fue|es) el cargo)/, "cargo"],
     [/(que es (este|ese|esta|un|una)|what is (this|that))/, "identidad"],
     [/(como va (el|la|mi|tu)|como esta (el|la|mi) (prestamo|deuda|tarjeta|cuenta|saldo)|estado de|how is|status of)/, "ya-pague"],
     [/((ingreso|gano|sueldo|salario).{0,24}(piso|estable|volatil|mes malo|peor mes|floor|stable|volatile)|piso de (mi )?ingreso|income floor)/, "ingreso"],

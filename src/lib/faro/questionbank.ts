@@ -813,6 +813,21 @@ export const QUESTION_BANK: BankFamily[] = [
     silences: ["Sin monto ni nombre que case con el libro, la respuesta pide el dato exacto en vez de señalar algo parecido."],
   },
   {
+    id: "cargo",
+    name: { es: "El cargo suelto: este cargo, ¿qué es, de dónde, dos veces?", en: "The single charge: what is this charge, from where, twice?" },
+    cap: { es: "qué es un cargo suelto por su monto o su comercio, si no lo reconoces, si te lo cobraron dos veces y de qué cuenta o tarjeta salió", en: "what a single charge is by its amount or merchant, if you don't recognize it, if you were charged twice for it, and which account or card it came from" },
+    status: "viva",
+    source: ["libros.lineas"],
+    axes: ["la llave (el monto × el comercio × el nombre) × la voz (identificar × no reconocido × dos veces × el origen × la fuente)"],
+    canonical: {
+      es: ["¿De qué es el cargo de $49.99?", "¿Cuál fue el cargo de Amazon?", "Tengo un cargo de $12.34 que no reconozco", "¿Me cobraron dos veces el internet?", "¿De dónde salió este cargo de $250?"],
+      en: ["What was the Amazon charge?", "I don't recognize a $12.34 charge", "Which charge is the one from Amazon?"],
+    },
+    answerShape: "OLA 68 (el estudio de los grandes): el cargo se identifica con la evidencia del libro (nombre, categoría y subcategoría, monto, fecha, comercio y cuenta de origen cuando la línea la trae), y la respuesta nombra también lo que el libro no sabe: si el mismo mes hay otro cargo igual de la misma serie se dice, y ante el cargo no reconocido la nota declara el límite (la disputa va con el banco; el libro guarda lo anotado, no juzga legitimidad). La forma «¿qué es este cargo?» sigue siendo de identidad: esta familia entra por el comercio, el no reconocimiento, el dos veces, el origen y la fuente.",
+    contradiction: "Un monto que casa con series distintas no se funde: se listan las candidatas con su fecha y su nombre, y no se elige por el usuario.",
+    silences: ["Sin monto, comercio ni nombre que case con el libro, se dice que no se encuentra y se pide el dato exacto.", "La fuente (cuenta o tarjeta) solo se nombra si la línea la trae anotada: si no, se dice que el libro no lo guarda."],
+  },
+  {
     id: "seguimiento",
     name: { es: "Seguimiento: la misma pregunta, un eje cambiado", en: "Follow-up: same question, one axis changed" },
     cap: { es: "seguir una respuesta cambiando un solo eje — otro mes, otra cuenta", en: "following up on an answer by changing one axis — another month, another account" },

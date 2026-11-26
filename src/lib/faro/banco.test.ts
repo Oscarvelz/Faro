@@ -5051,3 +5051,113 @@ describe("olas 65-67 · la campaña de mutaciones (la onda hostil y la onda amig
   });
 });
 
+
+describe("banco · ola 68: el cargo suelto (el comercio, el no reconocido, el dos veces, el origen, la fuente)", () => {
+  function libroCargo68(): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    ledger.structure.catalog.push({ id: "acct-banco", kind: "acct", nameKey: "acct-banco", customName: "Banco", urlTemplate: "", icon: "", hidden: false, order: 0 });
+    ledger.months[KEY] = {
+      lines: [
+        line({ id: "sal68", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: "2026-10-05" }),
+        line({ id: "tv68", kind: "purchase" as LineKind, concept: "Televisor", amountMinor: 35000, categoryId: "ropa", storeId: "amazon", bookedOn: "2026-10-18" }),
+        line({ id: "net68", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, nextDue: "2026-10-28", bookedOn: "2026-09-28" }),
+        line({ id: "net68b", kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, bookedOn: "2026-10-06" }),
+        line({ id: "sup68", kind: "expense-variable" as LineKind, concept: "Súper", amountMinor: 25000, categoryId: "f-alimentos", subId: "f.alimentos.despensa", bookedOn: "2026-10-12", sourceId: "acct-banco" }),
+        line({ id: "raro68", kind: "expense-variable" as LineKind, concept: "XYZ Corp", amountMinor: 1234, bookedOn: "2026-10-20" }),
+      ],
+    };
+    ledger.settings.display = "USD";
+    return ledger;
+  }
+
+  it("el cargo por su monto con su otra forma: «¿De qué es el cargo de $49.99?» es Internet, y trae el aviso del repetido", () => {
+    const r = ask(libroCargo68(), "¿De qué es el cargo de $49.99?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "cargo");
+    assert.ok(r.verdict.includes("Internet") && r.verdict.includes("$49.99"), r.verdict);
+    assert.ok(r.verdict.includes("otro cargo igual"), r.verdict);
+  });
+
+  it("el cargo por su comercio: «¿Cuál fue el cargo de Amazon?» es el Televisor", () => {
+    const r = ask(libroCargo68(), "¿Cuál fue el cargo de Amazon?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "cargo");
+    assert.ok(r.verdict.includes("Televisor") && r.verdict.includes("$350.00"), r.verdict);
+  });
+
+  it("el cargo no reconocido: se identifica y la nota declara el límite (la disputa va con el banco)", () => {
+    const r = ask(libroCargo68(), "Tengo un cargo de $12.34 que no reconozco");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "cargo");
+    assert.ok(r.verdict.includes("XYZ Corp"), r.verdict);
+    assert.ok((r.note ?? "").includes("no puede juzgar"), r.note ?? "");
+  });
+
+  it("el dos veces en español: «¿Me cobraron dos veces el internet?» dice que sí, con las dos fechas", () => {
+    const r = ask(libroCargo68(), "¿Me cobraron dos veces el internet?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "cargo");
+    assert.ok(r.verdict.startsWith("Sí"), r.verdict);
+    assert.ok(r.verdict.includes("6 de octubre de 2026"), r.verdict);
+  });
+
+  it("el origen del cargo no es el porqué de una cifra: «¿De dónde salió este cargo de $250?» es el Súper", () => {
+    const r = ask(libroCargo68(), "¿De dónde salió este cargo de $250?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "cargo");
+    assert.ok(r.verdict.includes("Súper") && r.verdict.includes("$250.00"), r.verdict);
+  });
+
+  it("la fuente con cuenta anotada: «¿El cargo del súper fue con tarjeta o de mi cuenta?» nombra el Banco", () => {
+    const r = ask(libroCargo68(), "¿El cargo del súper fue con tarjeta o de mi cuenta?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "cargo");
+    assert.ok(r.verdict.includes("Banco"), r.verdict);
+  });
+
+  it("la fuente sin cuenta anotada se dice, no se inventa: el cargo XYZ no trae origen", () => {
+    const r = ask(libroCargo68(), "¿De qué cuenta salió el cargo de $12.34?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "cargo");
+    assert.ok(r.verdict.includes("no guarda nada"), r.verdict);
+  });
+
+  it("en inglés: «What was the Amazon charge?» y «I don't recognize a $12.34 charge»", () => {
+    const l1 = libroCargo68();
+    const r1 = answerBankQuestion(l1, KEY, "en", makeNamer(l1.structure, "en"), "What was the Amazon charge?", ctx(l1, "en"), TODAY);
+    assert.equal(r1.kind, "answer");
+    if (r1.kind === "answer") {
+      assert.equal(r1.family, "cargo");
+      assert.ok(r1.verdict.includes("Televisor"), r1.verdict);
+    }
+    const l2 = libroCargo68();
+    const r2 = answerBankQuestion(l2, KEY, "en", makeNamer(l2.structure, "en"), "I don't recognize a $12.34 charge", ctx(l2, "en"), TODAY);
+    assert.equal(r2.kind, "answer");
+    if (r2.kind === "answer") {
+      assert.equal(r2.family, "cargo");
+      assert.ok((r2.note ?? "").includes("can't judge"), r2.note ?? "");
+    }
+  });
+
+  it("el guardián: «¿Qué es este cargo de $350?» sigue siendo identidad, y «¿Cuánto gasté en internet?» sigue siendo historia", () => {
+    const ledger = libroCargo68();
+    const r1 = ask(ledger, "¿Qué es este cargo de $350?");
+    assert.equal(r1.kind, "answer");
+    if (r1.kind === "answer") assert.equal(r1.family, "identidad");
+    // La forma inglesa con demostrativo también es de identidad:
+    // la onda hostil cazó a cargo robándola con su «what is … charge».
+    const r1b = answerBankQuestion(ledger, KEY, "en", makeNamer(ledger.structure, "en"), "What is this $350 charge?", ctx(ledger, "en"), TODAY);
+    assert.equal(r1b.kind, "answer");
+    if (r1b.kind === "answer") assert.equal(r1b.family, "identidad");
+    const r2 = ask(ledger, "¿Cuánto gasté en internet este mes?");
+    assert.equal(r2.kind, "answer");
+    if (r2.kind === "answer") assert.notEqual(r2.family, "cargo");
+  });
+});
