@@ -4460,3 +4460,17 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Registro: historia gana los párrafos de la 74 y comparar el suyo. Baterías permanentes nuevas: ola74.test.ts (16 especímenes) y dir.test.ts (3), registradas en el test:faro en este mismo puerto. Enfocadas 746/746 (banco) y 573/573 (rama).
 - Suite 3.933/3.933; typecheck con los 3 errores de base.
 - Fuente: `cc2ad0c9`. Publicación: lotes y cola `2685d37c`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-475-dist-snapshot`. Sigue en la cola: la Ola 75 (la batería del hilo).
+
+## 1.3.476 — Ola 75: la batería del hilo
+
+- LA BATERÍA: hilo.test.ts (nuevo, registrado en el test:faro en este puerto) corre conversaciones completas con libro fresco por conversación y la caja simulada guardando el marco. Lo que ya aguantaba quedó medido: la sustitución de un eje, el turno nulo, el seguimiento duplicado idempotente y el orden cambiado de preguntas independientes.
+- LA REFORMULACIÓN: «¿y cuánto fue el mes pasado?» quemaba la reparación en vez de sustituir. La voz de pregunta («cuánto», «fue», how/much/was) entra a la envoltura permitida de la forma «solo el eje» (FOLLOWUP_STOP) y la reformulación da la misma cifra y el mismo veredicto que la forma desnuda.
+- LA CORRECCIÓN QUE REEMPLAZA: los marcadores de corrección (en realidad, quise decir, mejor dicho, perdón, actually, I meant) se retiran a la entrada de followUpRewrite y el eje nombrado manda; el hilo sigue desde el período corregido.
+- LA SUMA QUE AÑADE: additionPeriod75 se juzga ANTES que la sustitución: «muéstrame septiembre también» responde los dos períodos con sus dos cifras, declara que el primero no desaparece, y la horquilla se nombra «octubre + septiembre».
+- LA EXCLUSIÓN QUE SE REVOCA: revokeRewrite75 — forma cerrada («con/with» + el ciudadano exacto que el marco excluye + solo muletillas): se recalcula sin la franja de exclusión y el eco declara el estado del filtro. La trilogía vive en la batería: $950 → sin la renta $150 → con la renta $950 → no, sin la renta $150.
+- EL ENVENENAMIENTO, CURADO CON LA DECLARACIÓN: el eco de todo seguimiento NOMBRA la pregunta heredada («Viene de tu pregunta anterior («¿cuánto gasté en octubre?»): …»): heredar declarándolo, nunca en silencio. La forma de canon ya traía el «Viene de tu pregunta anterior:» sin el nombre; la ola lo completa.
+- ADAPTACIÓN DE CANON CON ACTA: la copia maneja la conversación con el AskFrame (§20) como único marco; canon lleva dos marcos y el conversacional (ConvoFrame) es el que su caja guarda y el que su maquinaria consume — la caja simulada de la batería se adaptó a ese canal, con el acta escrita en el archivo. Las cercas de texto de seguimiento (captura373/376) pasaron sin enmienda.
+- DEUDA DECLARADA: dentro de hilo.test.ts viajan dos especímenes de la Ola P3 (el eje del ciudadano y la reparación sin piezas); en la cola de canon la P3 entra tras la P2, así que quedan SALTADOS con su razón escrita en el archivo, y el puerto de la P3 los reactiva.
+- Registro: «seguimiento» gana los párrafos de la 75. Enfocado 733/733 (+2 saltados declarados).
+- Suite 3.941/3.941 (+2 saltados); typecheck con los 3 errores de base.
+- Fuente: `3536ac7d`. Publicación: lotes y cola `651eceeb`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-476-dist-snapshot`. Sigue en la cola: la Ola P1 (las anclas de un día y el fin de semana).
