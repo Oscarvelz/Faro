@@ -74,9 +74,40 @@ const INGRESO = new Set(["entro", "recibi", "cobre", "pagaron", "llego", "ingres
    * puerto 1.3.459): «añadí 300 a mi banco» salía como GASTO con
    * concepto «Anadi»; añadir/agregar/depositar son ingreso con su
    * destino, en los dos idiomas. */
-  "anadi", "agregue", "deposite", "added", "deposited"]);
-const MOVER = new Set(["movi", "pase", "transferi", "traslade", "meti", "moved", "transferred"]);
+  "anadi", "agregue", "deposite", "added", "deposited",
+  /* LA CAZA DEL IMPERATIVO (Oscar, 2026-11-25; puerto 1.3.460):
+   * el oído nació en pasado (el relato de lo ya hecho) y la orden
+   * en imperativo no existía: «ingresa 500 a mi cuenta de Meta»
+   * caía en silencio. El imperativo se oye con la misma forma: el
+   * borrador se propone y la confirmación dispone. */
+  "ingresa", "ingrese", "ingresar", "deposita", "deposite", "depositar", "deposit", "deposits",
+  /* «deposa»: la forma que el normalizador deja de «deposita»
+   * (su regla del diminutivo le come el «it»); los conjuntos de
+   * verbos viven DESPUÉS del plegado, así que la forma que se oye
+   * es la plegada. Medido en la caza: «deposita 300 en mi cuenta»
+   * era silencio con «deposita» a secas en el conjunto. */
+  "deposa"]);
+const MOVER = new Set(["movi", "pase", "transferi", "traslade", "meti", "moved", "transferred",
+  /* LA CAZA DEL IMPERATIVO (puerto 1.3.460): «mueve 200 pesos de
+   * meta a emergencia» fallaba entero — ni relato ni orden lo
+   * oían (la orden lo leía como corrección de una línea). El
+   * paradigma imperativo del mover entra aquí, con su contrato
+   * intacto: origen y destino se resuelven contra el libro o se
+   * preguntan. */
+  "mueve", "mueva", "mover", "pasa", "transfiere", "traslada", "mete", "move", "moves", "transfer", "transfers"]);
 const ALL_VERBS = new Set([...GASTO, ...INGRESO, ...MOVER]);
+/* EL MARCO DE LA ORDEN (caza de Oscar, 2026-11-25; puerto
+ * 1.3.460): «compré un pollo por 20 pesos y una licuadora por
+ * 300, añádelos a mi cuenta» — el «añádelos a mi cuenta» es el
+ * MARCO del relato (la orden de asentarlo todo), no una cosa
+ * más: el motor lo trataba como cláusula y paría un concepto
+ * fantasma («anadelos cuenta») que pedía su monto. Las formas
+ * del marco no son verbos de dinero (no fijan gasto ni ingreso:
+ * el contenido trae los suyos) y jamás entran en un concepto. */
+const FRAME = new Set(["anade", "anadelos", "anadelo", "anadela", "agrega", "agregalos", "agregalo", "apunta", "apuntalos", "apuntalo", "anota", "anotalos", "anotalo", "suma", "sumalos", "ponlos", "ponlo", "add", "adds"]);
+/** La cola genérica del destino: «a mi cuenta», «to my account» —
+ *  nombra el libro entero, no una cuenta del libro. */
+const FRAME_TAIL = new Set(["cuenta", "cuentas", "libro", "account", "book"]);
 const STOP = new Set(["de", "del", "la", "el", "los", "las", "un", "una", "unos", "unas", "en", "por", "para", "a", "al", "me", "mi", "mis", "the", "an", "of", "my", "con", "sin", "i", "for", "on", "at",
   /* Enmienda de canon al puerto 1.3.459, cazada en el banco vivo:
    * con el corte por oraciones, una cláusula puede NACER con la
@@ -142,7 +173,7 @@ function tokenize(folded: string): string[] {
   return folded.match(/\$?\d+(?:[.,]\d{3})*(?:[.,]\d{1,2})?|[a-z]+/g) ?? [];
 }
 
-type Span = { minor: number; currency: Currency; start: number; end: number };
+type Span = { minor: number; currency: Currency; start: number; end: number; explicit: boolean };
 
 function digitValue(tok: string): number | null {
   const t = tok.replace("$", "");
@@ -166,6 +197,14 @@ function amountSpans(toks: string[], dayTok: number | ReadonlySet<number>, def: 
   const hasVerb = toks.some((t) => ALL_VERBS.has(t));
   const hasDigit = toks.some((t, i) => !fenced.has(i) && digitValue(t) !== null);
   const spans: Span[] = [];
+  // LA MONEDA DE LA FRASE (caza de Oscar, 2026-11-25; puerto
+  // 1.3.460): «compré un pollo por 20 pesos y una licuadora por
+  // 300» — el 300 sin nombre salía en la moneda del libro
+  // (dólares) y la compra era en pesos. La moneda que la frase
+  // NOMBRA manda sobre los montos que la frase no nombra, dentro
+  // de la misma llamada: el default corriente (running) arranca
+  // en la del libro y lo reemplaza la primera moneda nombrada.
+  let running = def;
   let i = 0;
   while (i < toks.length) {
     if (fenced.has(i)) { i++; continue; }
@@ -177,10 +216,13 @@ function amountSpans(toks: string[], dayTok: number | ReadonlySet<number>, def: 
       if (scale === "mil" || scale === "thousand") { v *= 1_000; end++; }
       else if (scale === "millon" || scale === "millones" || scale === "million" || scale === "millions") { v *= 1_000_000; end++; }
       // LA MONEDA SE OYE: el monto sin palabra de moneda es de la
-      // moneda del libro (def), no del dólar por defecto.
+      // moneda del libro (def), no del dólar por defecto — salvo
+      // que la frase ya haya nombrado la suya (running).
       const wEnd = toks[end] ?? "";
-      const cur: Currency = (wEnd === "pesos" || wEnd === "cordobas") ? "NIO" : (wEnd === "dolares" || wEnd === "dollars" || wEnd === "usd") ? "USD" : def;
-      spans.push({ minor: Math.round(v * 100), currency: cur, start: i, end });
+      const named: Currency | null = (wEnd === "pesos" || wEnd === "cordobas") ? "NIO" : (wEnd === "dolares" || wEnd === "dollars" || wEnd === "usd") ? "USD" : null;
+      const cur: Currency = named ?? running;
+      if (named) running = named;
+      spans.push({ minor: Math.round(v * 100), currency: cur, start: i, end, explicit: named !== null });
       i = end;
       continue;
     }
@@ -192,8 +234,10 @@ function amountSpans(toks: string[], dayTok: number | ReadonlySet<number>, def: 
       const near = [toks[p.end] ?? "", toks[p.end + 1] ?? ""];
       const certified = near.some((x) => CUR_WORDS.has(x)) || hasVerb || hasDigit;
       if (certified) {
-        const cur: Currency = near.some((x) => x === "pesos" || x === "cordobas") ? "NIO" : near.some((x) => x === "dolares" || x === "dollars" || x === "usd") ? "USD" : def;
-        spans.push({ minor: Math.round(p.value * 100), currency: cur, start: i, end: p.end });
+        const named: Currency | null = near.some((x) => x === "pesos" || x === "cordobas") ? "NIO" : near.some((x) => x === "dolares" || x === "dollars" || x === "usd") ? "USD" : null;
+        const cur: Currency = named ?? running;
+        if (named) running = named;
+        spans.push({ minor: Math.round(p.value * 100), currency: cur, start: i, end: p.end, explicit: named !== null });
         i = p.end;
         continue;
       }
@@ -575,7 +619,7 @@ function simpleClause(
     // Sin monto, pero con la cosa nombrada y ubicada, la pregunta la
     // nombra: «¿de cuánto fue lo de la luz?» clarifica más que un
     // «¿de cuánto fue?» a secas.
-    const words = toks.filter((t) => !STOP.has(t) && !ALL_VERBS.has(t) && !PRECIO.has(t) && !FOOD.has(t) && !CUR_WORDS.has(t));
+    const words = toks.filter((t) => !STOP.has(t) && !ALL_VERBS.has(t) && !FRAME.has(t) && !PRECIO.has(t) && !FOOD.has(t) && !CUR_WORDS.has(t));
     const residual = words.join(" ").trim();
     const filed = residual ? filingFor(residual, clause, idx, foodCat) : null;
     if (filed && filed.concept) {
@@ -586,16 +630,37 @@ function simpleClause(
   // La cuenta nombrada («del banco», «al banco») se resuelve y sale del concepto.
   const used = new Set<number>();
   spans.forEach((s) => { for (let i = s.start; i < s.end; i++) used.add(i); });
-  toks.forEach((t, i) => { if (ALL_VERBS.has(t) || PRECIO.has(t) || FOOD.has(t) || CUR_WORDS.has(t) || dayTok.has(i)) used.add(i); });
+  toks.forEach((t, i) => { if (ALL_VERBS.has(t) || FRAME.has(t) || PRECIO.has(t) || FOOD.has(t) || CUR_WORDS.has(t) || dayTok.has(i)) used.add(i); });
   let place: RelatoPlace | null = null;
+  let placeAmb = false;
   const text = toks.join(" ");
-  const pm = text.match(/(?:del|de la|desde el|desde la|al|a la|a mi|from the|from|to the|to my)\s+([a-z]+(?:\s+[a-z]+)?)$/);
-  if (pm) {
-    const r = resolvePlace(pm[1], places);
+  // LA CUENTA DE NOMBRE («a mi cuenta de Meta», «ingresa 500 a mi
+  // cuenta de Meta»; caza del imperativo, puerto 1.3.460): el
+  // nombre tras «cuenta de» es el lugar; la frase genérica de
+  // abajo lo perdía y el destino se evaporaba.
+  const cdm = text.match(/(?:cuenta|account)\s+de\s+([a-z]+(?:\s+[a-z]+)?)$/);
+  if (cdm) {
+    const r = resolvePlace(cdm[1], places);
+    if (r === "amb") placeAmb = true;
     if (r && r !== "amb") {
       place = r;
-      const phraseToks = tokenize(pm[0]);
-      const startAt = toks.length - phraseToks.length;
+      const ci = Math.max(toks.lastIndexOf("cuenta"), toks.lastIndexOf("account"));
+      for (let i = Math.max(0, ci - 2); i < toks.length; i++) used.add(i);
+    }
+  }
+  const pm = !place ? text.match(/(?:del|de la|desde el|desde la|al|a la|a mi|a mis|en mi|en la|from the|from|to the|to my|in my|a)\s+([a-z]+(?:\s+[a-z]+)?)$/) : null;
+  if (pm) {
+    const r = resolvePlace(pm[1], places);
+    if (r === "amb") placeAmb = true;
+    const phraseToks = tokenize(pm[0]);
+    const startAt = toks.length - phraseToks.length;
+    if (r && r !== "amb") {
+      place = r;
+      for (let i = Math.max(0, startAt); i < toks.length; i++) used.add(i);
+    } else if (FRAME_TAIL.has((pm[1] ?? "").split(" ")[0])) {
+      // La cola genérica («a mi cuenta») no resuelve a ninguna
+      // cuenta del libro porque nombra el libro entero: sale del
+      // concepto igual, sin destino.
       for (let i = Math.max(0, startAt); i < toks.length; i++) used.add(i);
     }
   }
@@ -617,7 +682,7 @@ function simpleClause(
     const take = (i: number) => {
       if (used.has(i) || claimed.has(i) || (i >= s.start && i < s.end)) return;
       const t = toks[i];
-      if (STOP.has(t) || ALL_VERBS.has(t)) return;
+      if (STOP.has(t) || ALL_VERBS.has(t) || FRAME.has(t)) return;
       words.push(t);
       claimed.add(i);
     };
@@ -635,6 +700,11 @@ function simpleClause(
     // su contenido; preguntar «¿de qué fue?» no clarifica nada
     // (ola del punto y el temporizador, puerto 1.3.459).
     if (!filed && verb === "ingreso" && place) filed = { concept: place.label, categoryId: "", subId: "" };
+    // LA CASILLA QUE FALTA SE NOMBRA BIEN (caza del imperativo,
+    // puerto 1.3.460): «deposita 300 en mi cuenta» con DOS cuentas
+    // en el libro no carece de concepto: carece de destino. La
+    // pregunta nombra la casilla que de verdad está vacía.
+    if (!filed && placeAmb) return { ask: askResult(lang, verb === "gasto" ? "origen" : "destino") };
     if (!filed) return { ask: askResult(lang, "concepto") };
     if (!residual) usedPending = true;
     if (foodHint && !filed.categoryId && foodCat) filed = { ...filed, categoryId: foodCat };
@@ -748,6 +818,11 @@ export function parseRelato(
   const drafts: RelatoDraft[] = [];
   const figures: FiguraKind[] = [];
   let pending: Filing | null = null;
+  // LA MONEDA DE LA FRASE entre cláusulas (caza 1, puerto
+  // 1.3.460): la primera moneda nombrada del relato manda sobre
+  // los montos sin nombre que siguen, sean de esta cláusula o de
+  // las que vienen.
+  let phraseCur: Currency | null = null;
   let sawPriceOrFood = false;
   // El índice del último borrador SIN ancla propia: un fragmento
   // que es solo tiempo («Hace 2 días.») cierra la narración y su
@@ -781,7 +856,14 @@ export function parseRelato(
     // el programa (parsePrograma la oye por su puerta); aquí se
     // deja pasar sin tocarla.
     if (future) continue;
-    const spans = amountSpans(toks, timeToks, state.settings.display);
+    // EL MARCO SOLO: una cláusula que es pura orden de asentar
+    // («añádelos a mi cuenta») no nombra cosa ni trae monto: es el
+    // marco del relato entero, y se deja pasar sin borrador y sin
+    // la pregunta fantasma que pedía el monto de «anadelos cuenta».
+    if (toks.every((t) => STOP.has(t) || FRAME.has(t) || FRAME_TAIL.has(t))) continue;
+    const defCur = phraseCur ?? state.settings.display;
+    const spans = amountSpans(toks, timeToks, defCur);
+    for (const s of spans) if (s.explicit) phraseCur = s.currency;
     // La cláusula cuya única «cantidad» era figurada («gasté una
     // fortuna en zapatos») no deja un monto faltante: era color.
     if (!spans.length && clauseFigures.includes("cantidad-grande")) continue;
@@ -801,8 +883,8 @@ export function parseRelato(
       continue;
     }
     const out = ownVerb === "mover"
-      ? moverClause(toks, clauseText, date, timeToks, places, lang, state.settings.display)
-      : simpleClause(toks, clauseText, verb, date, timeToks, places, idx, lang, pending, foodCat, state.settings.display);
+      ? moverClause(toks, clauseText, date, timeToks, places, lang, defCur)
+      : simpleClause(toks, clauseText, verb, date, timeToks, places, idx, lang, pending, foodCat, defCur);
     if (!out) continue;
     if ("ask" in out) return out.ask;
     drafts.push(...out.drafts);

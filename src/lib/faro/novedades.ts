@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.460",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "Las órdenes también se oyen", en: "Orders are heard too" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Ya puedes ordenar en vez de contar: «mueve 200 pesos de meta a emergencia» e «ingresa 500 pesos a mi cuenta» se oyen como lo que son y llegan como borrador, con tu confirmación antes de asentarse — oír la orden la propone, no la ejecuta.",
+        "La moneda que nombras manda sobre la frase entera: en «compré un pollo por 20 pesos y una licuadora por 300», el 300 también es en pesos, no en la moneda del libro.",
+        "El cierre «añádelos a mi cuenta» ya no se vuelve una cosa más que asentar: es el marco de tu relato, no un gasto. Y si a una orden le falta el origen o el destino, la pregunta nombra esa casilla — «¿de dónde salió?», «¿a dónde fue?» — en vez de callar.",
+      ],
+      en: [
+        "You can now give orders instead of telling stories: “move 200 pesos from savings goal to emergency” and “deposit 500 pesos into my account” are heard for what they are and arrive as a draft, with your confirmation before anything posts — hearing the order proposes it, it does not execute it.",
+        "The currency you name rules the whole sentence: in “I bought a chicken for 20 pesos and a blender for 300”, the 300 is in pesos too, not in the book's currency.",
+        "The closing “add them to my account” no longer becomes one more thing to post: it is the frame of your story, not an expense. And if an order is missing its origin or its destination, the question names that slot — “where from?”, “where to?” — instead of going silent.",
+      ],
+    },
+  },
+  {
     version: "1.3.459",
     date: "2026-11-25",
     level: "grande",

@@ -539,3 +539,87 @@ describe("relato · el punto y el temporizador (caza de Oscar, 2026-11-25)", () 
     assert.equal(r.drafts[1].date, "2026-10-21");
   });
 });
+
+describe("relato · las cazas del teléfono de Oscar (2026-11-25): el marco, la moneda de la frase y el imperativo", () => {
+  function libroImperativo(display: "USD" | "NIO"): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    const ahorro = ledger.structure.categories.find((c) => c.id === "f-ahorro");
+    if (!ahorro) throw new Error("missing savings");
+    ahorro.subs = [
+      { id: "f.ahorro.colchon", nameKey: "f.ahorro.colchon", customName: "Colchón", icon: "vault:generic", hidden: false, order: 10 },
+      { id: "f.ahorro.meta", nameKey: "", customName: "Meta", icon: "", hidden: false, order: 20 },
+      { id: "f.ahorro.emergencia", nameKey: "", customName: "Emergencia", icon: "", hidden: false, order: 30 },
+    ];
+    ledger.structure.catalog = ledger.structure.catalog.filter((c) => c.kind !== "acct");
+    ledger.structure.catalog.push({ id: "acct-banco", nameKey: "", customName: "Banco", icon: "", hidden: false, order: 90, kind: "acct", urlTemplate: "" });
+    ledger.structure.catalog.push({ id: "acct-chase", nameKey: "", customName: "Chase", icon: "", hidden: false, order: 91, kind: "acct", urlTemplate: "" });
+    ledger.months[KEY] = { lines: [line({ id: "salario", kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 120000, bookedOn: "2026-10-05" })] };
+    ledger.settings.display = display;
+    return ledger;
+  }
+
+  it("el marco no paría concepto ni pregunta, y la moneda nombrada manda sobre la frase entera", () => {
+    for (const display of ["USD", "NIO"] as const) {
+      const l = libroImperativo(display);
+      const r = parseRelato(l, KEY, "es", makeNamer(l.structure, "es"), "compré un pollo por 20 pesos y una licuadora por 300, añádelos a mi cuenta", TODAY);
+      if (r.kind !== "drafts") assert.fail(`debió dar borradores en ${display}`);
+      assert.equal(r.drafts.length, 2);
+      assert.equal(r.drafts[0].concept, "Pollo");
+      assert.equal(r.drafts[0].amountMinor, 2000);
+      assert.equal(r.drafts[0].currency, "NIO");
+      assert.equal(r.drafts[1].concept, "Licuadora");
+      assert.equal(r.drafts[1].amountMinor, 30000);
+      assert.equal(r.drafts[1].currency, "NIO");
+    }
+    const solo = libroImperativo("USD");
+    const marco = parseRelato(solo, KEY, "es", makeNamer(solo.structure, "es"), "añádelos a mi cuenta", TODAY);
+    assert.equal(marco.kind, "unknown");
+  });
+
+  it("el imperativo se oye: mover entre lugares e ingresar con su elipsis", () => {
+    const l = libroImperativo("USD");
+    const names = makeNamer(l.structure, "es");
+    const mv = parseRelato(l, KEY, "es", names, "mueve 200 pesos de meta a emergencia", TODAY);
+    if (mv.kind !== "drafts") assert.fail("debió dar el borrador de mover");
+    assert.equal(mv.drafts.length, 1);
+    assert.equal(mv.drafts[0].op, "mover");
+    assert.equal(mv.drafts[0].amountMinor, 20000);
+    assert.equal(mv.drafts[0].currency, "NIO");
+    assert.equal(mv.drafts[0].from?.label, "Meta");
+    assert.equal(mv.drafts[0].to?.label, "Emergencia");
+
+    const ing = parseRelato(l, KEY, "es", names, "Ingresa 500 pesos a mi cuenta de Meta, 200 a emergencia", TODAY);
+    if (ing.kind !== "drafts") assert.fail("debió dar los dos ingresos");
+    assert.equal(ing.drafts.length, 2);
+    assert.equal(ing.drafts[0].op, "ingreso");
+    assert.equal(ing.drafts[0].to?.label, "Meta");
+    assert.equal(ing.drafts[0].amountMinor, 50000);
+    assert.equal(ing.drafts[0].currency, "NIO");
+    assert.equal(ing.drafts[1].to?.label, "Emergencia");
+    assert.equal(ing.drafts[1].amountMinor, 20000);
+    assert.equal(ing.drafts[1].currency, "NIO");
+
+    const en = parseRelato(l, KEY, "en", makeNamer(l.structure, "en"), "move 100 from banco to colchon", TODAY);
+    if (en.kind !== "drafts") assert.fail("debió oír el move en inglés");
+    assert.equal(en.drafts[0].op, "mover");
+    assert.equal(en.drafts[0].from?.label, "Banco");
+    assert.equal(en.drafts[0].to?.label, "Colchón");
+  });
+
+  it("la casilla vacía del imperativo se pregunta por su nombre: origen y destino, no silencio", () => {
+    const l = libroImperativo("USD");
+    const names = makeNamer(l.structure, "es");
+    const mete = parseRelato(l, KEY, "es", names, "mete 100 a la meta", TODAY);
+    if (mete.kind !== "ask") assert.fail("debió preguntar el origen");
+    assert.equal(mete.missing, "origen");
+    const dep = parseRelato(l, KEY, "es", names, "deposita 300 en mi cuenta", TODAY);
+    if (dep.kind !== "ask") assert.fail("debió preguntar el destino");
+    assert.equal(dep.missing, "destino");
+    const una = libroImperativo("USD");
+    una.structure.catalog = una.structure.catalog.filter((c) => c.id !== "acct-chase");
+    const depUna = parseRelato(una, KEY, "es", makeNamer(una.structure, "es"), "deposita 300 en mi cuenta", TODAY);
+    if (depUna.kind !== "drafts") assert.fail("con una sola cuenta debió asentar el borrador");
+    assert.equal(depUna.drafts[0].op, "ingreso");
+    assert.equal(depUna.drafts[0].to?.label, "Banco");
+  });
+});

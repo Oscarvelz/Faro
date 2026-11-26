@@ -263,3 +263,14 @@ describe("orden · la campaña de mutaciones de la rama (2026-11-25)", () => {
     assert.ok(r.hits.some((h) => h.where === "borrador"), r.text);
   });
 });
+
+describe("orden · la cesión del imperativo (caza de Oscar, 2026-11-25)", () => {
+  it("el movimiento de dinero entre lugares cede al relato; la corrección con día se queda", () => {
+    const l = fixture();
+    const names = makeNamer(l.structure, "es");
+    const cede = parseOrden(l, KEY, "es", names, "mueve 200 pesos de meta a emergencia", TODAY);
+    assert.equal(cede.kind, "unknown");
+    const corrige = parseOrden(l, KEY, "es", names, "pasa la luz al día 15", TODAY);
+    assert.notEqual(corrige.kind, "unknown");
+  });
+});

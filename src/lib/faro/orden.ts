@@ -261,6 +261,22 @@ export function parseOrden(
     return note(L(lang, "Ese ajuste no lo sé cambiar por aquí. Los que sí te puedo dejar en borrador: la moneda de vista, el idioma, el modo, la tasa, las notificaciones y los avisos de pagos.", "I can't change that setting from here. The ones I can draft for you: the display currency, the language, the mode, the rate, the notifications and the payment alerts."));
   }
 
+  /* ---- LA CESIÓN DEL IMPERATIVO (caza de Oscar, 2026-11-25;
+   * puerto 1.3.460): «mueve 200 pesos de meta a emergencia» es un
+   * MOVIMIENTO DE DINERO entre dos lugares del libro, no la
+   * corrección de una línea: con monto y con el par
+   * origen-destino dicho, la orden CEDE al relato, que lo oye
+   * como borrador de mover (con su confirmación). La corrección
+   * conserva su forma: una línea nombrada con su día o su monto
+   * nuevo — por eso un día de la semana o un «al día» en el texto
+   * anulan la cesión. */
+  if (/\b(mueve|mueva|pasa|transfiere|traslada|move|transfer)\b/.test(folded)
+    && amountsIn(raw, state.settings.display).length >= 1
+    && /(?:de|del|desde|from)\s+.+\s+(?:a|al|hacia|para|to|into)\s+/.test(folded)
+    && !/\b(linea|dia|lunes|martes|miercoles|jueves|viernes|sabado|domingo|monday|tuesday|wednesday|thursday|friday|saturday|sunday|manana|ayer|hoy)\b/.test(folded)) {
+    return { kind: "unknown" };
+  }
+
   /* ---- CORREGIR: el monto o la fecha de una línea nombrada. */
   const corrM = /\b(corrige|corregir|corregilo|corregila|no fueron|no fue|eran|en realidad|actually|correct)\b/.test(folded);
   if (corrM || /\b(pasala|pasalo|pasa|muevela|muevelo|mueve|cambiala|cambialo|cambia)\b/.test(folded)) {
