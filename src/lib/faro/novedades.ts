@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.466",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "La vigilancia aprende tres avisos más", en: "The watch learns three more flags" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Cuando preguntas qué cambió en tu libro, el Asesor ahora también avisa de un cobro repetido: la misma serie cobrando el mismo monto dos veces en el mes, dicho sin acusar, porque repetido no es automáticamente un error.",
+        "Avisa del primer cobro de un compromiso nuevo: la primera vez que una suscripción o un cargo fijo aparece en tu libro.",
+        "Y avisa del descubierto: cuando lo que vence en los próximos 14 días supera lo que hoy te queda del mes, nombra cuánto falta.",
+      ],
+      en: [
+        "When you ask what changed in your book, the Advisor now also flags a repeated charge: the same series charging the same amount twice in the month, said without accusing, because repeated isn't automatically an error.",
+        "It flags the first charge of a new commitment: the first time a subscription or a fixed charge appears in your book.",
+        "And it flags an uncovered due: when what comes due in the next 14 days exceeds what's left of your month today, it names how much is short.",
+      ],
+    },
+  },
+  {
     version: "1.3.465",
     date: "2026-11-26",
     level: "menor",

@@ -5967,7 +5967,7 @@ function caminoFigure(c: Ctx, start: number, w: ReturnType<typeof walkEvents>, n
  * suprimidos y no vuelven. */
 export type AskAlert = {
   id: string;
-  kind: "deriva" | "salto" | "ausencia";
+  kind: "deriva" | "salto" | "ausencia" | "duplicado" | "primero" | "descubierto";
   concept: string;
   detail: string;
   amountMinor: number;
@@ -6064,6 +6064,83 @@ export function driftCandidates(state: LedgerState, key: string, lang: Lang, nam
       amountMinor: median, evidence: dated.length, score: median * dated.length,
     });
   }
+  /* OLA 70 · LA VIGILANCIA, SEGUNDA VUELTA: tres detectores nuevos
+   * sobre la misma vara declarada y el mismo presupuesto de tres.
+   * EL DUPLICADO: la misma serie cobra el mismo monto dos veces en
+   * el mes en curso, a 10 días o menos, cuando su ritmo histórico
+   * entre cobros es de 20 días o más (o la serie nació este mes y ya
+   * cobró dos veces lo mismo: la forma del doble cobro clásico).
+   * Repetido no es automáticamente un error: la candidata lo dice.
+   * EL PRIMERO: una serie con forma de compromiso (suscripción,
+   * cargo fijo o próximo vencimiento anotado) cobra este mes por
+   * primera vez en la historia del libro. EL DESCUBIERTO: lo que
+   * vence en los próximos 14 días supera lo que hoy queda del mes:
+   * la candidata nombra el faltante (las cuotas de este mes ya están
+   * contadas en la queda: no se restan dos veces). */
+  const bySeries70 = new Map<string, Line[]>();
+  for (const k of keys) for (const l of state.months[k]?.lines ?? []) {
+    if (!l.active || !isOut(l)) continue;
+    if (l.categoryId && roleOf(state, l.categoryId) === "savings") continue;
+    const sk = `${foldQ(l.concept || "")}|${l.subId || ""}`;
+    const arr = bySeries70.get(sk); if (arr) arr.push(l); else bySeries70.set(sk, [l]);
+  }
+  const bookMonths70 = keys.filter((k) => (state.months[k]?.lines ?? []).some((l) => l.active)).length;
+  for (const ls of bySeries70.values()) {
+    const dated = ls.map((l) => ({ l, on: lineDate(l) })).filter((x) => x.on).sort((a, b) => (a.on < b.on ? -1 : 1));
+    if (!dated.length) continue;
+    const name = dated[dated.length - 1].l.concept || names.cat(dated[dated.length - 1].l.categoryId);
+    /* «Este mes» se lee por la FECHA del cobro, no por la cubeta
+     * donde quedó archivado: un cobro del mes pasado archivado en
+     * la cubeta de este mes no nació este mes. */
+    const thisMonth = dated.filter((x) => x.on.slice(0, 7) === key);
+    if (dated.length === 1 && thisMonth.length === 1 && bookMonths70 >= 3) {
+      const l = dated[0].l;
+      if (l.kind === "subscription" || l.kind === "expense-fixed" || l.nextDue) {
+        const amt = Math.abs(viewLine(l));
+        out.push({
+          id: `primero|${foldQ(name)}|${key}`, kind: "primero", concept: name,
+          detail: L(lang, `Primer cobro de «${name}»: ${money(amt)} el ${fechaDe(dated[0].on)}. Es la primera vez que esta serie aparece en tu libro: un compromiso nuevo que desde hoy corre en tu mes.`, `First charge from "${name}": ${money(amt)} on ${fechaDe(dated[0].on)}. It's the first time this series appears in your book: a new commitment that runs in your month from today.`),
+          amountMinor: amt, evidence: 1, score: amt * 2,
+        });
+      }
+      continue;
+    }
+    if (thisMonth.length >= 2) {
+      const gaps: number[] = [];
+      for (let i = 1; i < dated.length; i++) { const g = daysBetweenIso(dated[i - 1].on, dated[i].on); if (g > 0) gaps.push(g); }
+      gaps.sort((a, b) => a - b);
+      const medGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+      let done = false;
+      for (let i = 0; i < thisMonth.length && !done; i++) {
+        for (let j = i + 1; j < thisMonth.length && !done; j++) {
+          const a = viewLine(thisMonth[i].l), b = viewLine(thisMonth[j].l);
+          if (a === 0 || a !== b) continue;
+          const between = daysBetweenIso(thisMonth[i].on, thisMonth[j].on);
+          if (between < 0 || between > 10) continue;
+          if (dated.length > 2 && medGap < 20) continue;
+          out.push({
+            id: `duplicado|${foldQ(name)}|${key}`, kind: "duplicado", concept: name,
+            detail: L(lang, `«${name}» cobró ${money(Math.abs(a))} dos veces este mes: el ${fechaDe(thisMonth[i].on)} y el ${fechaDe(thisMonth[j].on)}${dated.length > 2 ? `, cuando su ritmo es de ~${medGap} días entre cobros` : ", y la serie nació este mes"}. Repetido no es automáticamente un error: puede ser un cobro partido o un ajuste, pero es la forma exacta de un doble cobro, y por eso se avisa.`, `"${name}" charged ${money(Math.abs(a))} twice this month: on ${fechaDe(thisMonth[i].on)} and ${fechaDe(thisMonth[j].on)}${dated.length > 2 ? `, when its rhythm is ~${medGap} days between charges` : ", and the series was born this month"}. Repeated isn't automatically an error: it can be a split charge or an adjustment, but it's the exact shape of a double charge, and that's why it's flagged.`),
+            amountMinor: Math.abs(a), evidence: dated.length, score: Math.abs(a) * dated.length,
+          });
+          done = true;
+        }
+      }
+    }
+  }
+  {
+    const dueNext = duesWindow(state, 14, today).filter((d) => d.amt !== null && d.kind !== "lent" && !(d.kind === "cuota" && d.line?.monthKey === key));
+    const dueSum = dueNext.reduce((s, d) => s + (d.amt as number), 0);
+    if (dueNext.length && reading.left >= 0 && dueSum > reading.left) {
+      const biggest = dueNext.reduce((m, d) => ((d.amt as number) > (m.amt as number) ? d : m), dueNext[0]);
+      const gapAmt = dueSum - reading.left;
+      out.push({
+        id: `descubierto|${key}`, kind: "descubierto", concept: biggest.name,
+        detail: L(lang, `Entre lo vencido y lo que vence en los próximos 14 días hay ${money(dueSum)} por cubrir (lo mayor: «${biggest.name}», ${money(biggest.amt as number)}, el ${fechaDe(biggest.on)}) y lo que hoy te queda del mes es ${money(reading.left)}: faltan ${money(gapAmt)} si nada más entra. Las cuotas de este mes ya están contadas en tu queda: esto es solo lo que hay que cubrir y todavía no está cubierto.`, `Between what's overdue and what comes due in the next 14 days there is ${money(dueSum)} to cover (the largest: "${biggest.name}", ${money(biggest.amt as number)}, on ${fechaDe(biggest.on)}) and what's left of your month today is ${money(reading.left)}: ${money(gapAmt)} short if nothing else comes in. This month's installments are already counted in what's left: this is only what needs covering and isn't covered yet.`),
+        amountMinor: gapAmt, evidence: dueNext.length, score: gapAmt * dueNext.length,
+      });
+    }
+  }
   return out
     .filter((a) => !(suppressed && suppressed.has(a.id)))
     .sort((a, b) => b.score - a.score)
@@ -6091,7 +6168,7 @@ function derivaAnswer(c: Ctx, folded: string): BankResult | null {
     kind: "answer", family: "deriva",
     verdict: L(c.lang, `Hay ${alerts.length === 1 ? "una cosa" : `${alerts.length} cosas`} que avisar de tu libro, en orden de peso: ${alerts.map((a) => a.detail).join(" ")}`, `There ${alerts.length === 1 ? "is one thing" : `are ${alerts.length} things`} to flag in your book, in order of weight: ${alerts.map((a) => a.detail).join(" ")}`),
     pieces: alerts.map((a) => ({ label: a.concept, minor: a.amountMinor })),
-    note: L(c.lang, "Son candidatas medidas de tu libro, no predicciones. La vara, dicha: la deriva se nombra cuando la suma paciente de los excesos (CUSUM, k = ½σ) pasa 4σ con el nivel reciente 15% sobre la base; el salto, cuando un mes pasa la cerca de Tukey y el anterior no pasaba; la ausencia, cuando una serie regular lleva más de paso y medio sin volver. El presupuesto: hasta tres avisos, por monto × evidencia.", "These are measured candidates from your book, not predictions. The bar, stated: drift is named when the patient sum of excesses (CUSUM, k = ½σ) passes 4σ with the recent level 15% above base; a jump, when one month clears the Tukey fence and the previous one didn't; an absence, when a regular series is more than a step and a half overdue. The budget: at most three flags, by amount × evidence."),
+    note: L(c.lang, "Son candidatas medidas de tu libro, no predicciones. La vara, dicha: la deriva se nombra cuando la suma paciente de los excesos (CUSUM, k = ½σ) pasa 4σ con el nivel reciente 15% sobre la base; el salto, cuando un mes pasa la cerca de Tukey y el anterior no pasaba; la ausencia, cuando una serie regular lleva más de paso y medio sin volver; el duplicado, cuando una serie cobra el mismo monto dos veces en el mes a 10 días o menos contra su ritmo de 20 días o más; el primero, cuando un compromiso cobra por primera vez en el libro; el descubierto, cuando lo que vence en 14 días supera lo que hoy queda del mes. El presupuesto: hasta tres avisos, por monto × evidencia.", "These are measured candidates from your book, not predictions. The bar, stated: drift is named when the patient sum of excesses (CUSUM, k = ½σ) passes 4σ with the recent level 15% above base; a jump, when one month clears the Tukey fence and the previous one didn't; an absence, when a regular series is more than a step and a half overdue; a duplicate, when a series charges the same amount twice in the month within 10 days against its rhythm of 20 days or more; a first, when a commitment charges for the first time in the book; an uncovered due, when what comes due in 14 days exceeds what's left of the month today. The budget: at most three flags, by amount × evidence."),
     source: src, lines: 0,
   };
 }

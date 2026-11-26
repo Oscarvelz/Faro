@@ -5263,3 +5263,67 @@ describe("banco · ola 69: la tasa de ahorro contra la referencia (la propia y l
     assert.ok(r.verdict.includes("estás en esa marca o por encima"), r.verdict);
   });
 });
+
+describe("banco · ola 70: la vigilancia, segunda vuelta (el duplicado, el primero, el descubierto)", () => {
+  const libroVig70 = () => {
+    const l = createInitial("es", "oscuro");
+    const meses = ["2026-08", "2026-09", "2026-10"];
+    for (const mk of meses) {
+      l.months[mk] = { lines: [
+        line({ id: `s${mk}`, kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: `${mk}-05`, monthKey: mk }),
+        line({ id: `sup${mk}`, kind: "expense-flex" as LineKind, concept: "Súper", amountMinor: 30000, categoryId: "f-alimentos", bookedOn: `${mk}-12`, monthKey: mk }),
+      ] };
+    }
+    const net: Array<[string, string]> = [["2026-08", "2026-08-06"], ["2026-09", "2026-09-06"], ["2026-10", "2026-10-06"], ["2026-10", "2026-10-14"]];
+    net.forEach(([mk, on], i) => {
+      l.months[mk].lines.push(line({ id: `net${i}`, kind: "subscription" as LineKind, concept: "Internet", amountMinor: 4999, categoryId: "f-casa", subId: "f.casa.internet", recurring: true, cadence: "monthly", bookedOn: on, monthKey: mk }));
+    });
+    l.months[KEY].lines.push(line({ id: "gym1", kind: "subscription" as LineKind, concept: "Gimnasio", amountMinor: 3000, categoryId: "f-casa", bookedOn: "2026-10-03", monthKey: KEY }));
+    const cafes: Array<[string, string]> = [["2026-09", "2026-09-07"], ["2026-09", "2026-09-14"], ["2026-09", "2026-09-21"], ["2026-09", "2026-09-28"], ["2026-10", "2026-10-05"], ["2026-10", "2026-10-12"]];
+    cafes.forEach(([mk, on], i) => {
+      l.months[mk].lines.push(line({ id: `caf${i}`, kind: "expense-flex" as LineKind, concept: "Café", amountMinor: 500, categoryId: "f-alimentos", bookedOn: on, monthKey: mk }));
+    });
+    l.cards = [{ id: "card1", name: "Tarjeta Grande", issuer: "Banco", mark: "", color: "", last4: "1234", currency: "USD", limitMinor: 600000, dueDay: 2, aprBps: 2400, autopay: null, rewards: "", snaps: [{ on: "2026-10-01", at: "2026-10-01T00:00:00.000Z", balanceMinor: 500000, src: "manual" }] }];
+    l.settings.display = "USD";
+    return l;
+  };
+
+  it("los tres detectores nuevos disparan en un solo libro, en orden de peso", () => {
+    const alerts = driftCandidates(libroVig70(), KEY, "es", makeNamer(libroVig70().structure, "es"), "2026-10-22");
+    assert.deepEqual(alerts.map((a) => a.kind), ["descubierto", "duplicado", "primero"]);
+    const dup = alerts.find((a) => a.kind === "duplicado");
+    assert.ok(dup && dup.detail.includes("dos veces este mes") && dup.detail.includes("no es automáticamente un error"), dup?.detail);
+    const pri = alerts.find((a) => a.kind === "primero");
+    assert.ok(pri && pri.detail.includes("Primer cobro de «Gimnasio»"), pri?.detail);
+    const des = alerts.find((a) => a.kind === "descubierto");
+    assert.ok(des && des.amountMinor === 443998 && des.detail.includes("faltan $4,439.98"), des?.detail);
+  });
+
+  it("la respuesta de la deriva los dice y su nota trae las varas nuevas", () => {
+    const r = ask(libroVig70(), "¿Algo cambió en mi libro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "deriva");
+    assert.ok(r.verdict.includes("dos veces este mes"), r.verdict);
+    assert.ok(r.verdict.includes("Primer cobro de «Gimnasio»"), r.verdict);
+    assert.ok((r.note ?? "").includes("el duplicado, cuando"), r.note ?? "");
+    assert.ok((r.note ?? "").includes("el descubierto, cuando"), r.note ?? "");
+  });
+
+  it("el guardián: la serie semanal no es duplicado, y el libro base no dispara ninguno de los tres", () => {
+    const alerts = driftCandidates(libroVig70(), KEY, "es", makeNamer(libroVig70().structure, "es"), "2026-10-22");
+    assert.ok(!alerts.some((a) => a.concept === "Café"));
+    const base = driftCandidates(fixture(), KEY, "es", makeNamer(fixture().structure, "es"), "2026-10-22");
+    assert.ok(!base.some((a) => a.kind === "duplicado" || a.kind === "primero" || a.kind === "descubierto"), JSON.stringify(base.map((a) => a.kind)));
+  });
+
+  it("la supresión del usuario honra también las candidatas nuevas", () => {
+    const l = libroVig70();
+    const alerts = driftCandidates(l, KEY, "es", makeNamer(l.structure, "es"), "2026-10-22");
+    const dup = alerts.find((a) => a.kind === "duplicado");
+    assert.ok(dup);
+    const sup = driftCandidates(l, KEY, "es", makeNamer(l.structure, "es"), "2026-10-22", new Set([dup!.id]));
+    assert.ok(!sup.some((a) => a.kind === "duplicado"));
+    assert.ok(sup.some((a) => a.kind === "primero"));
+  });
+});
