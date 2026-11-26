@@ -2538,6 +2538,78 @@ function anoContraAnoAnswer(c: Ctx, folded: string): BankResult | null {
   };
 }
 
+/* OLA 74 · LA UNIÓN DE DOS CIUDADANOS (INV-1, la aditividad de
+ * disjuntas): «¿cuánto gasté en comida y transporte?» recibía SOLO
+ * la segunda cifra ($90 de transporte por $240 de las dos): la
+ * mitad de la pregunta contestada con la cifra de una parte, sin
+ * decirlo — peor que el silencio, porque la parte se disfraza del
+ * todo. La forma tiene casa desde esta ola: dos ciudadanos del
+ * libro unidos por una conjunción (y/e/and/o/or) se suman como
+ * unión de conjuntos, y el veredicto nombra cada parte con su
+ * subtotal (la línea que cae en dos partes cuenta en la primera:
+ * los subtotales suman el total EXACTO, la cerca de la invariancia).
+ * Sin conjunción o con un solo ciudadano, manda el filtro de
+ * siempre; y un filtro de clase o de medio (tarjeta, efectivo,
+ * compras) no se pisa con la unión. */
+function citizensUnion74(c: Ctx, foldedClean: string): { parts: Array<{ display: string; fn: (l: Line) => boolean }>; fn: (l: Line) => boolean } | null {
+  const namesOther = otherNamer(c.state, c.lang);
+  const cands: Array<{ display: string; folded: string; fn: (l: Line) => boolean }> = [];
+  for (const m of Object.values(c.state.months)) for (const l of m.lines) {
+    if (l.concept) cands.push({ display: l.concept, folded: foldQ(l.concept), fn: (x) => x.concept === l.concept });
+  }
+  for (const cat of c.state.structure.categories) {
+    for (const s of cat.subs) {
+      const folds = new Set([foldQ(c.names.sub(s.id)), foldQ(namesOther.sub(s.id))]);
+      const fn = (x: Line) => x.subId === s.id || (!!x.concept && folds.has(foldQ(x.concept)));
+      for (const f of folds) cands.push({ display: c.names.sub(s.id), folded: f, fn });
+    }
+    const catFolds = new Set([foldQ(c.names.cat(cat.id)), foldQ(namesOther.cat(cat.id))]);
+    for (const f of catFolds) cands.push({ display: c.names.cat(cat.id), folded: f, fn: (x) => x.categoryId === cat.id });
+  }
+  for (const p of c.state.structure.purchases) cands.push({ display: c.names.purchase(p.id), folded: foldQ(c.names.purchase(p.id)), fn: (x) => x.kind === "purchase" && x.categoryId === p.id });
+  for (const item of c.state.structure.catalog) cands.push({ display: c.names.catalog(item.id), folded: foldQ(c.names.catalog(item.id)), fn: (x) => x.storeId === item.id });
+  const hits: Array<{ display: string; fn: (l: Line) => boolean; at: number; len: number }> = [];
+  const seen = new Set<(l: Line) => boolean>();
+  for (const cand of cands) {
+    if (!cand.folded || cand.folded.length < 3 || seen.has(cand.fn)) continue;
+    const m = new RegExp(`(^|[^a-z0-9])${cand.folded.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).exec(foldedClean);
+    if (m) { seen.add(cand.fn); hits.push({ display: cand.display, fn: cand.fn, at: m.index, len: cand.folded.length }); }
+  }
+  hits.sort((a, b) => a.at - b.at || b.len - a.len);
+  const parts: typeof hits = [];
+  for (const h of hits) { if (!parts.some((p) => p.at === h.at)) parts.push(h); if (parts.length >= 3) break; }
+  if (parts.length < 2) return null;
+  const between = foldedClean.slice(parts[0].at + parts[0].len, parts[1].at);
+  if (!/\b(y|e|and|o|or)\b/.test(between)) return null;
+  return { parts, fn: (l) => parts.some((p) => p.fn(l)) };
+}
+
+/* OLA 74 · LA EXCEPCIÓN DENTRO DE LO EXCLUIDO (la exclusión con
+ * excepción, profundidad 3 de la composicional): «sin la comida,
+ * salvo el mercado» y «en salud, salvo la farmacia». Medido antes
+ * de construir: la primera respondía la cifra del mercado solo (la
+ * excepción se volvía el filtro y la exclusión se anunciaba en
+ * $0), y la segunda respondía la farmacia misma, lo contrario de
+ * lo pedido. El álgebra es de conjuntos, no una familia por cruce:
+ * «salvo Y» tras una exclusión RE-INCLUYE a Y dentro de lo
+ * excluido; «salvo Y» tras un filtro EXCLUYE a Y del filtro. El
+ * token solo cuenta como excepción si viene DESPUÉS de la
+ * exclusión (o tras un filtro, sin exclusión): «excepto» y
+ * «except» como primer operador son la exclusión misma, la clase
+ * de la sonda, y no se tocan. */
+function exceptionTail74(c: Ctx, folded: string, excl: { strip: string } | null): { display: string; fn: (l: Line) => boolean; strip: string } | null {
+  const m = folded.match(/\b(salvo|excepto|except|but)\s+(.+)$/);
+  if (!m || m.index === undefined) return null;
+  if (excl) {
+    const at = folded.indexOf(excl.strip);
+    if (at >= 0 && m.index < at + excl.strip.length) return null;
+  } else if (m[1] !== "salvo") return null;
+  const tail = m[2].replace(/^(el |la |los |las |the |un |una )/, "").split(/[,?.]|\s+y\s+|\s+and\s+/)[0].trim();
+  if (!tail) return null;
+  const cit = citizenByName(c.state, c.names, tail, undefined, otherNamer(c.state, c.lang));
+  return cit ? { ...cit, strip: m[0] } : null;
+}
+
 function historiaAnswer(c: Ctx, folded: string): BankResult {
   const p = periodOf(c, folded);
   // OLA 28: la exclusión se lee ANTES que el filtro y se retira del
@@ -2549,7 +2621,7 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   // palabras, «¿cuánto gano por día?» recibía el GASTO: la dirección
   // cruzada, peor que el silencio. (Se lee aquí, antes que la
   // exclusión, porque la alberca del desempate la necesita.)
-  const income = /entr|ingres|recibi|gana|gano|gane|cobr|salario|sueldo|earned|came in|salary|wage/.test(folded);
+  const income = /entr|ingres|recibi|gana|gano|gane|cobr|depositaron|me pagaron|cuanto recibo|salario|sueldo|earned|came in|salary|wage/.test(folded);
   // OLA 35 (C35-1): la alberca del período y la dirección, sin
   // filtro — el desempate del ciudadano (citizenByName) la consulta
   // para no atar a un homónimo que en este período no excluye nada.
@@ -2625,9 +2697,22 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
       }
     }
   }
+  /* OLA 74: la excepción se lee y se retira del texto que el
+   * filtro escanea, como la exclusión desde la Ola 28 — si el
+   * segmento «salvo el mercado» quedaba en el texto, el filtro lo
+   * tomaba por blanco y la pregunta entera se volvía el mercado. */
+  const exc74 = exceptionTail74(c, folded, excl);
+  if (exc74) foldedClean = foldedClean.replace(exc74.strip, " ");
   const hit = filterHitOf(c, foldedClean);
   const filter = hit?.fn ?? null;
-  if (!filter && !income) {
+  /* OLA 74: la unión de dos ciudadanos manda sobre el filtro
+   * único cuando la pregunta los une con conjunción — salvo que
+   * la pregunta traiga además un filtro de clase o de medio, que
+   * es otra pregunta y no se pisa. */
+  const union74 = citizensUnion74(c, foldedClean);
+  const useUnion = !!union74 && (!filter || !/(tarjeta|efectivo|compras|suscripciones|card|cash|purchases|subscriptions)/.test(foldedClean));
+  const effFilter = useUnion && union74 ? union74.fn : filter;
+  if (!effFilter && !income) {
     const stray = strayFilterWord(c, foldedClean);
     if (stray) {
       return {
@@ -2637,18 +2722,49 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
       };
     }
   }
-  const poolAll = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)));
-  const exclSums = exclList.map((e) => poolAll.filter((l) => e.fn(l)).reduce((a, l) => a + view(c, l), 0));
-  const pool = exclList.length ? poolAll.filter((l) => !exclList.some((e) => e.fn(l))) : poolAll;
+  const poolAll = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!effFilter || effFilter(l)));
+  /* OLA 74: la excepción («salvo», ya leída arriba) re-incluye
+   * dentro de la exclusión, o excluye dentro del filtro si no
+   * hubo exclusión. Su cláusula solo se anuncia cuando de verdad
+   * re-incluye algo: una excepción que no intersecta lo excluido
+   * es vacua bajo la lectura resuelta, y anunciarla en $0
+   * confundía más que callarla. (Forma de canon: la re-inclusión
+   * actúa sobre la PRIMERA exclusión de la lista de la casa; la
+   * excepción sin exclusión se aplica como exclusión propia
+   * dentro del filtro.) */
+  const reFn = excl && exc74 ? exc74.fn : null;
+  const excAsExcl = !excl && exc74 && effFilter ? exc74 : null;
+  const exclSums = exclList.map((e, i) => poolAll.filter((l) => e.fn(l) && !(i === 0 && reFn && reFn(l))).reduce((a, l) => a + view(c, l), 0));
+  const excAsExclSum = excAsExcl ? poolAll.filter((l) => excAsExcl.fn(l)).reduce((a, l) => a + view(c, l), 0) : 0;
+  const reSum = reFn && exclList.length ? poolAll.filter((l) => exclList[0].fn(l) && reFn(l)).reduce((a, l) => a + view(c, l), 0) : 0;
+  const pool = poolAll.filter((l) => !(excAsExcl && excAsExcl.fn(l)) && !exclList.some((e, i) => e.fn(l) && !(i === 0 && reFn && reFn(l))));
   const total = pool.reduce((a, l) => a + view(c, l), 0);
-  const exclText = exclList.map((e, i) => L(c.lang, ` Sin contar «${e.display}» (${c.money(exclSums[i])}).`, ` Not counting "${e.display}" (${c.money(exclSums[i])}).`)).join("");
+  const exclText = exclList.map((e, i) => L(c.lang, ` Sin contar «${e.display}» (${c.money(exclSums[i])}).`, ` Not counting "${e.display}" (${c.money(exclSums[i])}).`)).join("")
+    + (excAsExcl ? L(c.lang, ` Sin contar «${excAsExcl.display}» (${c.money(excAsExclSum)}).`, ` Not counting "${excAsExcl.display}" (${c.money(excAsExclSum)}).`) : "")
+    + (reFn && exc74 && reSum > 0 ? L(c.lang, ` Salvo «${exc74.display}» (${c.money(reSum)}), que sí entra.`, ` Except "${exc74.display}" (${c.money(reSum)}), which does count.`) : "");
+  /* OLA 74: con unión, el veredicto nombra cada parte con su
+   * subtotal (la línea compartida cuenta en la primera parte: los
+   * subtotales suman el total exacto). */
+  const partData = useUnion && union74 ? (() => {
+    const assigned = new Set<Line>();
+    return union74.parts.map((pt) => {
+      const ls = pool.filter((l) => !assigned.has(l) && pt.fn(l));
+      for (const l of ls) assigned.add(l);
+      return { display: pt.display, sum: ls.reduce((a, l) => a + view(c, l), 0) };
+    });
+  })() : null;
+  const partsText = partData ? partData.map((d) => `${d.display} ${c.money(d.sum)}`).join(", ") : "";
   return {
     kind: "answer", family: "historia",
-    verdict: income
+    verdict: partData
+      ? (income
+        ? L(c.lang, `En ${p.label} entraron ${c.money(total)} por ese filtro: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `${c.money(total)} came in ${p.label} under that filter: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`)
+        : L(c.lang, `En ${p.label} gastaste ${c.money(total)} en eso: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `In ${p.label} you spent ${c.money(total)} on that: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`))
+      : income
       // OLA 26 (U4): la frase concuerda — «de 1 línea», no «de 1 líneas».
       ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filter ? " por ese filtro" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `${c.money(total)} came in ${p.label}${filter ? " under that filter" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`)
       : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}`),
-    pieces: [{ label: p.label, minor: total }, ...exclList.map((e, i) => ({ label: L(c.lang, `Fuera de la cuenta: ${e.display}`, `Left out: ${e.display}`), minor: -exclSums[i] }))],
+    pieces: [{ label: p.label, minor: total }, ...(partData ? partData.map((d) => ({ label: d.display, minor: d.sum })) : []), ...exclList.map((e, i) => ({ label: L(c.lang, `Fuera de la cuenta: ${e.display}`, `Left out: ${e.display}`), minor: -exclSums[i] })), ...(excAsExcl ? [{ label: L(c.lang, `Fuera de la cuenta: ${excAsExcl.display}`, `Left out: ${excAsExcl.display}`), minor: -excAsExclSum }] : [])],
     note: pool.length === 0
       ? L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.")
       : null,
@@ -2666,7 +2782,7 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
     // respuesta fresca la aplicó y la nombró; si el marco no la
     // guarda, el seguimiento la pierde en silencio (el total bruto
     // del desplazamiento) o la lee al revés (el estrechamiento).
-    ...(!hit || hit.desc ? { frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total, exclusion: exclList[0] ? { folded: exclList[0].folded, display: exclList[0].display } : null } as AskFrame } : {}),
+    ...(!useUnion && !exc74 && (!hit || hit.desc) ? { frame: { kind: "period1", period: p, income, filter: hit?.desc ?? null, total, exclusion: exclList[0] ? { folded: exclList[0].folded, display: exclList[0].display } : null } as AskFrame } : {}),
   };
 }
 
@@ -3098,6 +3214,53 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
         note: null,
       },
     };
+  }
+  // OLA 67 — UN FILTRO CONTRA SU PROPIO PASADO: «¿gasté más en
+  // tiendas este mes que el pasado?» trae UN solo filtro y dos
+  // períodos; la rama de dos filtros no lo veía (no hay «o») y la
+  // pregunta moría. El filtro se resuelve una vez y se suma en los
+  // dos meses, con el nombre que la pregunta trajo.
+  // (En canon esta rama no había entrado con la Ola 67 — el puerto
+  // de la 454 trajo solo el puente de parentesco — y entra ahora
+  // con la mitad del banco de la Ola 74, que vive dentro de ella.)
+  if (/(este mes|this month)/.test(folded) && /(que el pasado|que el mes pasado|que el anterior|than last|than the previous|comparado con el mes pasado|comparar con el mes pasado|frente al mes pasado|versus last month|compared (to|with) last month)/.test(folded) && /(gast|spend|compr|went|se fue)/.test(folded)) {
+    /* OLA 74 · LA COMPARACIÓN TAMBIÉN LLEVA LA EXCLUSIÓN: «¿cuánto
+     * gasté este mes sin la renta, comparado con el mes pasado?»
+     * moría en la historia, que contestaba UN solo período (el
+     * pasado) con la exclusión aplicada: la mitad de la pregunta
+     * por respuesta. La exclusión se aplica en los dos meses, y
+     * sin filtro positivo la comparación es el total menos lo
+     * excluido en cada mes. La exclusión se retira del texto que
+     * el filtro escanea (la lección de la Ola 28): sin retirar,
+     * el filtro resolvía un blanco vacío y la rama daba $0/$0. */
+    const excl67 = exclusionIn(c.state, c.names, folded, undefined, otherNamer(c.state, c.lang));
+    const f67 = filterOf(c, excl67 ? folded.replace(excl67.strip, " ") : folded);
+    if (!f67 && excl67) {
+      const sumE = (key: string) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && !excl67.fn(l)).reduce((a, l) => a + view(c, l), 0);
+      const nowE = sumE(c.key);
+      const beforeE = sumE(prevKey(c.key));
+      return {
+        kind: "answer", family: "comparar",
+        verdict: L(c.lang, `Sin contar «${excl67.display}»: este mes ${c.money(nowE)} y el mes pasado ${c.money(beforeE)} — ${nowE === beforeE ? "van parejos" : nowE > beforeE ? `${c.money(nowE - beforeE)} más este mes` : `${c.money(beforeE - nowE)} menos este mes`}.`, `Not counting "${excl67.display}": this month ${c.money(nowE)} and last month ${c.money(beforeE)} — ${nowE === beforeE ? "they're tied" : nowE > beforeE ? `${c.money(nowE - beforeE)} more this month` : `${c.money(beforeE - nowE)} less this month`}.`),
+        pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: nowE }, { label: L(c.lang, "Mes pasado", "Last month"), minor: beforeE }],
+        note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      };
+    }
+    if (f67) {
+      const sum67 = (key: string) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && f67(l) && !(excl67 && excl67.fn(l))).reduce((a, l) => a + view(c, l), 0);
+      const now67 = sum67(c.key);
+      const before67 = sum67(prevKey(c.key));
+      const wm = folded.match(/(?:en|in)\s+([a-z]{3,})/);
+      const w67 = wm ? wm[1][0].toUpperCase() + wm[1].slice(1) : L(c.lang, "Ese gasto", "That spending");
+      return {
+        kind: "answer", family: "comparar",
+        verdict: L(c.lang, `En ${w67}: este mes ${c.money(now67)} y el mes pasado ${c.money(before67)} — ${now67 === before67 ? "van parejos" : now67 > before67 ? `${c.money(now67 - before67)} más este mes` : `${c.money(before67 - now67)} menos este mes`}.`, `On ${w67}: this month ${c.money(now67)} and last month ${c.money(before67)} — ${now67 === before67 ? "they're tied" : now67 > before67 ? `${c.money(now67 - before67)} more this month` : `${c.money(before67 - now67)} less this month`}.`),
+        pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: now67 }, { label: L(c.lang, "Mes pasado", "Last month"), minor: before67 }],
+        note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      };
+    }
   }
   // OLA 12b — DOS FILTROS, UN FILTRO CONTRA SU PASADO, EL MEJOR MES.
   {
@@ -5816,8 +5979,17 @@ function cadenciaIngresoAnswer(c: Ctx, folded: string): BankResult | null {
  * suma, y aquí se ve cuánto. */
 function umbralAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   const hormiga = /(gasto hormiga|gastos hormiga|ant (spending|expenses)|small (purchases|spending|expenses)|gastos (chicos|pequenos|menores))/.test(folded);
-  const thresholdVoice = /(menos de|menores de|debajo de|no mas de|under|less than|below)\s*\$?\s*\d/.test(folded);
-  if (!hormiga && !thresholdVoice) return null;
+  /* OLA 74 · EL UMBRAL TIENE DOS LADOS (par DIR-D2): la forma
+   * nació oyendo solo el lado de abajo («menos de»), y el par
+   * medido lo cazó: «¿cuánto gasté en cosas de más de $100?» caía
+   * en el miss del filtro extraviado mientras su gemela de abajo
+   * respondía. La vara es estricta en los dos lados: lo que vale
+   * exactamente la vara no cae en ninguno, y las dos mitades con
+   * el igual suman el total (la cerca INV del par). */
+  const underVoice = /(menos de|menores de|debajo de|no mas de|under|less than|below)\s*\$?\s*\d/.test(folded);
+  const overVoice = !underVoice && /(mas de|mayores de|encima de|por encima de|over|more than|above)\s*\$?\s*\d/.test(folded.replace(/no mas de/g, " "));
+  if (!hormiga && !underVoice && !overVoice) return null;
+  const over = overVoice && !hormiga;
   if (!/(gast|compr|salio|spend|spent|purchas|buy|bought)/.test(folded) && !hormiga) return null;
   const amounts = amountsIn(raw, c.display);
   let threshold: number;
@@ -5832,7 +6004,7 @@ function umbralAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   if (threshold <= 0) return null;
   const p = periodOf(c, folded);
   const poolAll = allLines(c).filter((l) => inPeriod(c, l, p) && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
-  const small = poolAll.filter((l) => view(c, l) < threshold);
+  const small = poolAll.filter((l) => (over ? view(c, l) > threshold : view(c, l) < threshold));
   const sumSmall = small.reduce((a, l) => a + view(c, l), 0);
   const sumAll = poolAll.reduce((a, l) => a + view(c, l), 0);
   const pct = sumAll > 0 ? Math.round((sumSmall / sumAll) * 100) : 0;
@@ -5841,9 +6013,11 @@ function umbralAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
     : "";
   return {
     kind: "answer", family: "historia",
-    verdict: L(c.lang, `${varaTxt}En ${p.label}, los gastos de menos de ${c.money(threshold)} son ${small.length}: suman ${c.money(sumSmall)}, el ${pct}% de todo lo que gastaste en ese período (${c.money(sumAll)}).`, `${varaTxt}In ${p.label}, expenses under ${c.money(threshold)} number ${small.length}: they add up to ${c.money(sumSmall)}, ${pct}% of everything you spent in that period (${c.money(sumAll)}).`),
-    pieces: [{ label: L(c.lang, `Gastos de menos de ${c.money(threshold)}`, `Expenses under ${c.money(threshold)}`), minor: sumSmall }],
-    note: small.length === 0 ? L(c.lang, "Ningún gasto del período cae bajo esa vara: el cero también es la respuesta del libro.", "No expense in the period falls under that yardstick: the zero is the book's answer too.") : null,
+    verdict: over
+      ? L(c.lang, `${varaTxt}En ${p.label}, los gastos de más de ${c.money(threshold)} son ${small.length}: suman ${c.money(sumSmall)}, el ${pct}% de todo lo que gastaste en ese período (${c.money(sumAll)}).`, `${varaTxt}In ${p.label}, expenses over ${c.money(threshold)} number ${small.length}: they add up to ${c.money(sumSmall)}, ${pct}% of everything you spent in that period (${c.money(sumAll)}).`)
+      : L(c.lang, `${varaTxt}En ${p.label}, los gastos de menos de ${c.money(threshold)} son ${small.length}: suman ${c.money(sumSmall)}, el ${pct}% de todo lo que gastaste en ese período (${c.money(sumAll)}).`, `${varaTxt}In ${p.label}, expenses under ${c.money(threshold)} number ${small.length}: they add up to ${c.money(sumSmall)}, ${pct}% of everything you spent in that period (${c.money(sumAll)}).`),
+    pieces: [{ label: L(c.lang, over ? `Gastos de más de ${c.money(threshold)}` : `Gastos de menos de ${c.money(threshold)}`, over ? `Expenses over ${c.money(threshold)}` : `Expenses under ${c.money(threshold)}`), minor: sumSmall }],
+    note: small.length === 0 ? L(c.lang, over ? "Ningún gasto del período supera esa vara: el cero también es la respuesta del libro." : "Ningún gasto del período cae bajo esa vara: el cero también es la respuesta del libro.", over ? "No expense in the period clears that yardstick: the zero is the book's answer too." : "No expense in the period falls under that yardstick: the zero is the book's answer too.") : null,
     source: ["libros.lineas", "historial.stream"], lines: small.length,
   };
 }
@@ -10655,6 +10829,19 @@ const GATE_WORDS: string[] = [
   "palmado", "palmada", "pelado", "pelada", "quebrado", "quebrada",
   "dineral", "millonada", "broke", "fortune", "advisor",
   "llego", "tightest", "credit",
+  /* OLA 74 · LA REPARACIÓN FALSA, EN VIVO: «cobré» se pliega a
+   * «cobre» y la reparación lo convertía en «cover», matando la
+   * pregunta «¿cuánto cobré este mes?» antes de toda puerta. La
+   * clase se mide aparte en la batería de la Ola 74: toda palabra
+   * del mundo que la reparación deforma a otra palabra. */
+  "cobre",
+  /* OLA 74 · LA MISMA CLASE, SEGUNDA PIEZA: «renta» no vivía en
+   * el diccionario y la reparación la convertía en «rentar» (la
+   * tanda de la frontera de la Ola 73 trajo el verbo, no el
+   * sustantivo). En el pipeline entero la protege el nombre del
+   * libro cuando el libro trae la renta puesta; sin esa suerte,
+   * la palabra correcta se deformaba. */
+  "renta",
 ];
 /* LA TANDA DEL AGENTE (puerto de la Rama, 1.3.457): los verbos y
  * las palabras de los cinco escalones, el modismo semilla y las
@@ -11971,6 +12158,17 @@ function answerSingle(
       };
     }
   }
+  // OLA 74 · EL CRUCE COMPARACIÓN × EXCLUSIÓN SE JUZGA ANTES QUE
+  // LA HISTORIA PLANA: su forma («comparado con el mes pasado»)
+  // no trae ninguna palabra de la puerta del bloque 9 (más/menos/
+  // mucho), y la historia lo contestaba con un solo período. La
+  // comparación se juzga aquí cuando la pregunta nombra los dos
+  // meses y la comparación en voz alta; si no es suya, devuelve
+  // null y la historia sigue su camino.
+  if (/(comparado con|comparar con|frente a|versus|compared (to|with))/.test(folded) && /(mes pasado|mes anterior|last month|previous month)/.test(folded) && /(gast|spend|compr|went|se fue)/.test(folded)) {
+    const r = compararAnswer(c, folded);
+    if (r) return r;
+  }
   // 5 · HISTORIA con período manda sobre recencia: «¿cuánto gasté el
   // ÚLTIMO mes…?» trae «último» pero pregunta una suma, no una línea.
   // OLA 9 (CAZA-DIARIA C4): la puerta ya no exige el pretérito exacto y
@@ -11984,7 +12182,15 @@ function answerSingle(
     const al = allenAnswer(c, folded);
     if (al) return al;
   }
-  if (/(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago|pague|he pagado)|cuanto me (entro|entra)|cuanto (pago|cuesta|cuestan|costaron|costo) |cuanto (fue|es|ha sido) lo que (gaste|gano|pague|compre|entro|recibi)|how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|gasto hormiga|gastos (chicos|pequenos|menores)|how much (did i earn|do i earn|have i earned|has come in|came in)|how much (tax|did i pay in tax))/.test(folded)) {
+  // OLA 74 · LA PUERTA APRENDE EL PRETÉRITO DE RECIBIR: la puerta
+  // de la historia enumeraba los verbos del gasto y del ingreso en
+  // presente y en perfecto («he recibido»), pero el pretérito de
+  // recibir no estaba: «¿cuánto recibí este mes?», «¿cuánto
+  // cobré?», «¿cuánto me pagaron?», «¿cuánto me depositaron?»
+  // caían en silencio con el libro lleno, aunque la familia misma
+  // sí conoce esas voces (su regex de ingreso trae recibi y cobr
+  // desde la Ola 12). La puerta y la familia vuelven a coincidir.
+  if (/(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago|pague|he pagado|recibi|recibimos|cobre)|cuanto dinero (gaste|gasto|gano|gane|recibi|cobre|pague|compre|entro|ingrese|ingreso)|cuanto recibo|cuanto me (entro|entra|pagaron|depositaron|ingresaron|dieron)|cuanto se (recibio|deposito)|cuanto (pago|cuesta|cuestan|costaron|costo) |cuanto (fue|es|ha sido) lo que (gaste|gano|pague|compre|entro|recibi)|how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|gasto hormiga|gastos (chicos|pequenos|menores)|how much (did i earn|do i earn|have i earned|has come in|came in)|how much (tax|did i pay in tax))/.test(folded)) {
     // OLA 47 (F5): la comparación anual se juzga antes que la
     // historia plana — su mitad comparativa se perdía en silencio.
     const aa = anoContraAnoAnswer(c, folded);

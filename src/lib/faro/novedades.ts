@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.475",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El instrumento se endurece: pares e invariancias", en: "The instrument hardens: pairs and invariances" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Tu historial ya oye el pretérito de recibir: «¿cuánto recibí?», «¿cuánto cobré?», «¿cuánto me pagaron?», «¿cuánto me depositaron?» y «¿cuánto dinero gané?» responden con lo que entró. Antes caían en silencio con el libro lleno.",
+        "El umbral tiene dos lados: «gastos de más de $100» suma lo que supera la vara, igual que «de menos de $20» suma lo de abajo; lo que vale exactamente la vara no cae en ningún lado, y las dos mitades con el igual suman tu total exacto.",
+        "Dos ciudadanos unidos se suman como unión: «¿cuánto gasté en comida y transporte?» nombra cada parte con su subtotal, y la excepción tiene su álgebra: «sin la comida, salvo el mercado» re-incluye el mercado, y «en salud, salvo la farmacia» excluye la farmacia del filtro. La comparación también lleva la exclusión en los dos meses.",
+        "Y en el relato: «le pagué 50 a Juan» ya no asienta un gasto llamado «Le», y «Juan me pagó 50» ya se oye como el ingreso que es.",
+      ],
+      en: [
+        "Your history now hears the preterite of receiving: “how much did I get paid?”, “how much was I deposited?” style forms in Spanish («¿cuánto recibí?», «¿cuánto cobré?», «¿cuánto me pagaron?») answer with what came in. Before, they fell silent with the book full.",
+        "The yardstick has two sides: “expenses over $100” adds up what clears the bar, just as “under $20” adds up what's below; what is worth exactly the bar falls on neither side, and the two halves plus the equal sum your exact total.",
+        "Two citizens joined add up as a union: “how much did I spend on food and transport?” names each part with its subtotal, and the exception has its algebra: “without food, except the market” re-includes the market, and “on health, except the pharmacy” excludes the pharmacy from the filter. Comparisons also carry the exclusion in both months.",
+        "And in the telling: “le pagué 50 a Juan” no longer settles an expense called “Le”, and “Juan me pagó 50” is now heard as the income it is.",
+      ],
+    },
+  },
+  {
     version: "1.3.474",
     date: "2026-11-26",
     level: "menor",

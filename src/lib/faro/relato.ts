@@ -116,7 +116,11 @@ const STOP = new Set(["de", "del", "la", "el", "los", "las", "un", "una", "unos"
    * sin esto la «y» se asentaba como CONCEPTO del ingreso
    * («Ingreso: Y: $300.00»). La conjunción es palabra de función,
    * jamás contenido. */
-  "y", "and"]);
+  "y", "and",
+  /* OLA 74 (DIR-A3): los clíticos «le» y «les» jamás son concepto:
+   * «le pagué 50 a Juan» asentaba un gasto con concepto «Le», la
+   * misma clase de basura que la caza del «añádelos» de Oscar. */
+  "le", "les"]);
 const CUR_WORDS = new Set(["dolares", "dollars", "pesos", "cordobas", "usd", "nio", "dolar", "reales"]);
 /** Los verbos de precio: la cláusula no dice «pagué» — dice lo que la
  *  cosa VALE («vale 150», «costó 40», «salió en 200»): es un gasto cuyo
@@ -159,12 +163,34 @@ const UNITS = new Set(["uno", "dos", "tres", "cuatro", "cinco", "seis", "siete",
 
 type Verb = "gasto" | "ingreso" | "mover";
 function verbOf(toks: string[]): Verb | null {
+  /* OLA 74 (DIR-A3) · EL PAGO QUE ENTRA SE OYE POR SU BIGRAMA:
+   * «Juan me pagó 50» caía en silencio y su gemela «le pagué 50 a
+   * Juan» sí asentaba: el par de dirección quedaba cojo. «pagó» en
+   * tercera persona se pliega a «pago», que a secas es ambiguo
+   * (yo pago / el cheque pago) y NO puede entrar al conjunto del
+   * gasto: «me pagó» entero es la señal, el clítico manda la
+   * dirección. Lo mismo «me abonó», «me depositó», «me dio». El
+   * préstamo («me prestó») NO entra: es otra operación (una deuda,
+   * no un ingreso), y su silencio simétrico es el resultado
+   * honesto del par DIR-A1. */
+  for (let i = 0; i + 1 < toks.length; i++) {
+    if (toks[i] === "me" && (toks[i + 1] === "pago" || toks[i + 1] === "abono" || toks[i + 1] === "deposito" || toks[i + 1] === "ingreso" || toks[i + 1] === "dio" || toks[i + 1] === "transfirio")) return "ingreso";
+  }
   for (const t of toks) {
     if (MOVER.has(t)) return "mover";
     if (GASTO.has(t)) return "gasto";
     if (INGRESO.has(t)) return "ingreso";
   }
   return null;
+}
+
+/* Las formas del bigrama «me + verbo» también son verbo a todos
+ * los efectos (no entran en conceptos ni quedan sueltas): sin
+ * esto, «Juan me pagó 50» asentaba el ingreso con concepto «Juan
+ * pago», el verbo pegado al nombre. */
+const ME_PAGO = new Set(["pago", "abono", "deposito", "ingreso", "dio", "transfirio"]);
+function isVerbToken(toks: string[], i: number): boolean {
+  return ALL_VERBS.has(toks[i]) || (i > 0 && toks[i - 1] === "me" && ME_PAGO.has(toks[i]));
 }
 
 /* ---------------- tokens y montos con posición ---------------- */
@@ -194,7 +220,7 @@ function amountSpans(toks: string[], dayTok: number | ReadonlySet<number>, def: 
   // (ola del punto y el temporizador, puerto 1.3.459 — el 2 de
   // «hace 2 días» no es un gasto de $2).
   const fenced: ReadonlySet<number> = typeof dayTok === "number" ? (dayTok < 0 ? new Set<number>() : new Set([dayTok])) : dayTok;
-  const hasVerb = toks.some((t) => ALL_VERBS.has(t));
+  const hasVerb = toks.some((t, i) => isVerbToken(toks, i));
   const hasDigit = toks.some((t, i) => !fenced.has(i) && digitValue(t) !== null);
   const spans: Span[] = [];
   // LA MONEDA DE LA FRASE (caza de Oscar, 2026-11-25; puerto
@@ -452,7 +478,7 @@ function filingFor(residual: string, clauseText: string, idx: Map<string, Filing
  *  tajadas», «el arreglo del carro»): su ubicación queda pendiente
  *  para que una cláusula de precio («vale 150») la complete. */
 function pendingFiling(toks: string[], clauseText: string, idx: Map<string, Filing>, foodCat: string): Filing | null {
-  const words = toks.filter((t) => !STOP.has(t) && !ALL_VERBS.has(t) && !PRECIO.has(t) && !FOOD.has(t) && !CUR_WORDS.has(t));
+  const words = toks.filter((t, i) => !STOP.has(t) && !isVerbToken(toks, i) && !PRECIO.has(t) && !FOOD.has(t) && !CUR_WORDS.has(t));
   const residual = words.join(" ").trim();
   if (!residual) return null;
   const filed = filingFor(residual, clauseText, idx, foodCat);
@@ -543,7 +569,7 @@ function splitSentence(folded: string, today: string): string[] {
     const conjSet = new Set(cuts);
     const verbCuts: number[] = [];
     for (let i = 2; i < toks.length; i++) {
-      if (!ALL_VERBS.has(toks[i]) || conjSet.has(i)) continue;
+      if (!isVerbToken(toks, i) || conjSet.has(i)) continue;
       if ([...conjSet].some((j) => i - j >= 0 && i - j < 3)) continue;
       const before = toks.slice(0, i);
       if (verbOf(before) !== null && amountSpans(before, dateOf(before, today).timeToks).length > 0) verbCuts.push(i);
@@ -619,7 +645,7 @@ function simpleClause(
     // Sin monto, pero con la cosa nombrada y ubicada, la pregunta la
     // nombra: «¿de cuánto fue lo de la luz?» clarifica más que un
     // «¿de cuánto fue?» a secas.
-    const words = toks.filter((t) => !STOP.has(t) && !ALL_VERBS.has(t) && !FRAME.has(t) && !PRECIO.has(t) && !FOOD.has(t) && !CUR_WORDS.has(t));
+    const words = toks.filter((t, i) => !STOP.has(t) && !isVerbToken(toks, i) && !FRAME.has(t) && !PRECIO.has(t) && !FOOD.has(t) && !CUR_WORDS.has(t));
     const residual = words.join(" ").trim();
     const filed = residual ? filingFor(residual, clause, idx, foodCat) : null;
     if (filed && filed.concept) {
@@ -630,7 +656,7 @@ function simpleClause(
   // La cuenta nombrada («del banco», «al banco») se resuelve y sale del concepto.
   const used = new Set<number>();
   spans.forEach((s) => { for (let i = s.start; i < s.end; i++) used.add(i); });
-  toks.forEach((t, i) => { if (ALL_VERBS.has(t) || FRAME.has(t) || PRECIO.has(t) || FOOD.has(t) || CUR_WORDS.has(t) || dayTok.has(i)) used.add(i); });
+  toks.forEach((t, i) => { if (isVerbToken(toks, i) || FRAME.has(t) || PRECIO.has(t) || FOOD.has(t) || CUR_WORDS.has(t) || dayTok.has(i)) used.add(i); });
   let place: RelatoPlace | null = null;
   let placeAmb = false;
   const text = toks.join(" ");
@@ -682,7 +708,7 @@ function simpleClause(
     const take = (i: number) => {
       if (used.has(i) || claimed.has(i) || (i >= s.start && i < s.end)) return;
       const t = toks[i];
-      if (STOP.has(t) || ALL_VERBS.has(t) || FRAME.has(t)) return;
+      if (STOP.has(t) || ALL_VERBS.has(t) || ME_PAGO.has(t) || FRAME.has(t)) return;
       words.push(t);
       claimed.add(i);
     };
