@@ -4474,3 +4474,14 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Registro: «seguimiento» gana los párrafos de la 75. Enfocado 733/733 (+2 saltados declarados).
 - Suite 3.941/3.941 (+2 saltados); typecheck con los 3 errores de base.
 - Fuente: `3536ac7d`. Publicación: lotes y cola `651eceeb`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-476-dist-snapshot`. Sigue en la cola: la Ola P1 (las anclas de un día y el fin de semana).
+
+## 1.3.477 — Ola P1: las anclas de un día y el fin de semana
+
+- EL DEFECTO (cazado por el examen sellado de la campaña de prejuicio, F1–F4): «¿cuánto gasté el viernes pasado?», «ayer» y «hoy» respondían el MES ENTERO sin decirlo; «el fin de semana» tomaba prestada la semana corriente y respondía lo de hoy con el rótulo de la semana.
+- LA CURA: bloque nuevo de anclas en periodOf — tras el bloque de «hace» de la Ola 35 y antes de las ramas de semana, como manda la nota — que devuelve rangos con su fecha nombrada en el rótulo («el viernes (12 de marzo)», «el fin de semana (13 y 14 de marzo)»): hoy, ayer, antier / day before yesterday; el día de la semana en los dos idiomas (el pasado = el último ya vivido, con hoy empujado una semana atrás cuando hoy es ese día; el de esta semana = el que viene; el desnudo = el último vivido, y hoy si hoy es ese día); el fin de semana (sábado y domingo, el último vivido).
+- Lo heredan historia, conteo, frecuencia y comparar, que ya consumían periodOf: la cura es del motor, no de una familia. Los guardianes viajan verdes: «este mes» intacto, «¿cuánto me queda hoy?» en su familia, «¿qué día cae el 28?» en el calendario.
+- Especímenes permanentes: describe «banco · ola P1» en banco.test.ts (5 tests, libro propio de marzo de 2027). Registro: «historia» gana el párrafo de la ola y tres canónicas.
+- LA DECLARACIÓN DE LA SONDA, ACTUALIZADA: la clase 4 del frente ambiguo queda cerrada en su parte de anclas (la nota de actualización vive en la cabecera de sonda.test.ts); lo mal formado («el last viernes») sigue declarado abierto.
+- Contra el examen sellado (medido en la copia): F1–F3 exactos, F4 con el fin de semana verdadero; el examen queda en 26/29 (G1, G14 y el hilo son territorio de las olas siguientes).
+- Enfocado 743/743 (+2 saltados declarados de la P3). Suite 3.946/3.946 (+2 saltados); typecheck con los 3 errores de base.
+- Fuente: `dfb0d1dd`. Publicación: lotes y cola `c7c05268`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-477-dist-snapshot`. Sigue en la cola: la Ola P2 (el stock no es el flujo).
