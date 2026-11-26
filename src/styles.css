@@ -71,6 +71,8 @@
 [data-theme="humo"] { --bg:#141210; --surface:#1e1b18; --surface-2:#292420; --fg:#f3eee8; --muted:#b3a89e; --faint:#7d746c; --line:#3a342e; --accent:#d4c9bb; --accent-fg:#161310; --good:#8eae96; --warn:#c4a36a; --bad:#d08980; color-scheme:dark; }
 [data-theme="ion"] { --bg:#e7eef8; --surface:#f4f8fd; --surface-2:#d5e3f4; --fg:#0b1220; --muted:#3c516c; --faint:#6a7d96; --line:#c5d4e6; --accent:#0b7c96; --accent-fg:#f4fcff; --good:#0c8a78; --warn:#b86e12; --bad:#c43862; --glow:#14b8d4; color-scheme:light; }
 [data-theme="ion-noche"] { --bg:#070b12; --surface:#101722; --surface-2:#172233; --fg:#e7f2ff; --muted:#93a6c2; --faint:#64758f; --line:#243044; --accent:#67e8f9; --accent-fg:#041016; --good:#3ee0b5; --warn:#f0b45a; --bad:#ff6d8f; --glow:#22d3ee; color-scheme:dark; }
+[data-theme="ion"] { --house: var(--glow); --house-fg: #041016; }
+[data-theme="ion-noche"] { --house: var(--glow); --house-fg: #041016; }
 [data-theme="ion"] body, [data-theme="ion-noche"] body {
   background-color: var(--bg);
   background-image:

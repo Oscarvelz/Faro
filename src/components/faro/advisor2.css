@@ -506,6 +506,23 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
    letra sobre el acento — ya no un chip teñido. */
 .ask-chip.is-fixed { border-color: transparent; background: var(--accent); color: var(--accent-fg); font-weight: 650; }
 .ask-chip.is-fixed:hover { border-color: transparent; filter: brightness(1.07); }
+/* OLA 470 (fallo de Oscar, 2026-11-26, sobre su foto de la 465): la
+   pareja de la confirmación se reparte la fila entera de su tarjeta:
+   cada botón toma su parte igual y el hueco muerto que quedaba a la
+   derecha de «Ahora no» desaparece — proporción y simetría, la ley
+   de envoltorio aplicada a los botones. Vale para toda fila de
+   opciones dentro de una tarjeta (la pareja sí/no, las opciones de
+   la pregunta de vuelta, la propuesta). */
+.ask-card .ask-chips > .ask-chip { flex: 1 1 0; text-align: center; }
+/* OLA 470: la pregunta fija de la casa («¿Qué puede hacer el
+   asesor?») NO comparte el color de la confirmación — se confundía
+   con el «Asentarlo así» de arriba, el mismo amarillo lleno. Lleva
+   la voz de la casa: el color --house, que cada tema dice con su
+   propia paleta (en Cyberpunk, su magenta; en Ion, su resplandor;
+   en los demás, la tinta del tema), y la brújula del Asesor al
+   frente. La confirmación conserva el acento lleno, solo suyo. */
+.ask-chip.is-house { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: transparent; background: var(--house, var(--fg)); color: var(--house-fg, var(--bg)); font-weight: 650; }
+.ask-chip.is-house:hover { border-color: transparent; filter: brightness(1.07); }
 /* 1.3.369: el administrador de las preguntas a la mano (pliegue de Ajustes). */
 .ap-wrap { display: flex; flex-direction: column; gap: 12px; }
 .ap-note { margin: 0; font-size: .86rem; color: var(--muted); line-height: 1.45; }

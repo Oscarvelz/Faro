@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.470",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "La pareja se reparte y la casa tiene su color", en: "The pair shares the row and the house has its color" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Los botones de confirmar y de «ahora no» ahora se reparten la fila entera de su tarjeta: cada uno con su parte igual, sin hueco muerto a un lado.",
+        "La pregunta «¿Qué puede hacer el asesor?» estrena color propio, distinto del amarillo de confirmar, para que no se confundan: cada tema lo dice con su paleta, y lleva la brújula del Asesor al frente.",
+        "El botón de crear en tu estructura se queda como estaba: único, ancho y con su aire.",
+      ],
+      en: [
+        "The confirm and \"not now\" buttons now share the whole row of their card: each with its equal part, no dead gap at one side.",
+        "The \"What can the advisor do?\" question gets its own color, distinct from the confirm yellow, so they're never confused: each theme voices it with its own palette, and it carries the Advisor's compass up front.",
+        "The create-in-your-structure button stays as it was: unique, wide and with its air.",
+      ],
+    },
+  },
+  {
     version: "1.3.469",
     date: "2026-11-26",
     level: "menor",

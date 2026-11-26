@@ -955,7 +955,7 @@ export function AskBox() {
       <div className="ask-presets" data-anchor="ask-presets">
         <span className="ask-presets-label">{L("A la mano", "At hand")}</span>
         <div className="ask-chips">
-          <button type="button" className="ask-chip is-fixed" data-anchor="ask-preset-fixed" onClick={showCaps}>{FIXED_PRESET_Q[lang]}</button>
+          <button type="button" className="ask-chip is-house" data-anchor="ask-preset-fixed" onClick={showCaps}><Compass size={13} aria-hidden /> {FIXED_PRESET_Q[lang]}</button>
           {presets.map((p) => (
             <button key={p.id} type="button" className="ask-chip" data-anchor="ask-preset" onClick={() => ask(p.text)}>{p.text}</button>
           ))}

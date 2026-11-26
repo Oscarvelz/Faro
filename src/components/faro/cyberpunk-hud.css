@@ -576,3 +576,7 @@ html:root[data-theme="cyberpunk"] .stat-fold .pp-bars .pp-bar-name { font-weight
    crear lleva el corte de la casa, como las barras del HUD. */
 html:root[data-theme="cyberpunk"] .ask-chip { border-radius: 0; }
 html:root[data-theme="cyberpunk"] .ask-create-btn { border-radius: 0; clip-path: var(--cp-cut-sm); }
+/* OLA 470: la pregunta fija de la casa lleva el magenta del tema
+   (token --house en cyberpunk.css) y el corte de la casa, como el
+   botón de crear: su forma única de presentarse en este tema. */
+html:root[data-theme="cyberpunk"] .ask-chip.is-house { clip-path: var(--cp-cut-sm); }

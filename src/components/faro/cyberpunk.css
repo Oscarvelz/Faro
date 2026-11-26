@@ -71,6 +71,7 @@
 [data-theme="cyberpunk"] {
   --bg: #0b0a08; --surface: #161310; --surface-2: #201b16; --fg: #f2eee3; --muted: #aca294; --faint: #968b78;
   --line: #3a332a; --accent: #fcee0a; --accent-fg: #0b0a08;
+  --house: var(--cp-magenta); --house-fg: #0b0a08;
   --good: #00e67a; --warn: #ff7a00; --bad: #ff003c; --glow: #fcee0a;
   --cp-cyan: #00f0ff; --cp-data: #00f0ff; --cp-magenta: #ff2a6d;
   --cp-red: #ff003c; --cp-orange: #ff7a00; --cp-green: #00e67a; --cp-violet: #8b5cff;
