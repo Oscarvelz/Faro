@@ -4485,3 +4485,14 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Contra el examen sellado (medido en la copia): F1–F3 exactos, F4 con el fin de semana verdadero; el examen queda en 26/29 (G1, G14 y el hilo son territorio de las olas siguientes).
 - Enfocado 743/743 (+2 saltados declarados de la P3). Suite 3.946/3.946 (+2 saltados); typecheck con los 3 errores de base.
 - Fuente: `dfb0d1dd`. Publicación: lotes y cola `c7c05268`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-477-dist-snapshot`. Sigue en la cola: la Ola P2 (el stock no es el flujo).
+
+## 1.3.478 — Ola P2: el stock no es el flujo
+
+- EL FALLO QUE NO ERA (corrección 10 del acta del examen): la ola apuntaba a G1 («¿cuánto gasté en el supermercado?») y el fallo era del EXAMEN, no del motor — su fixture usaba un subId sin crear el sub; con el sub creado, el motor responde la suma exacta. Declarado en el examen con su segundo sello; nada que portar de G1.
+- LA ROTURA VERDADERA (G14): «¿cuánto ahorro tengo?» recibía el promedio del FLUJO («apartas en promedio…») y el total guardado no aparecía en su propia respuesta. Causa: la alternativa desnuda («cuanto ahorro…») de la rama del ritmo cazaba la pregunta de stock.
+- LAS CURAS: la voz del flujo exige su marca de período en las dos alternativas de la rama del ritmo; la posesión («¿cuánto ahorro tengo?», «¿cuánto tengo ahorrado?», el desnudo «¿cuánto ahorro?») cae al stock, que abre con el total («En ahorros tienes $550.00»). Dos silencios hermanos: «¿cuánto guardo al mes?» (la puerta de la familia oye la raíz «guard») y «How much do I save per month?» (el «save» del ritmo, con su período como cerca).
+- ADJUDICACIÓN DE CANON, CON GUARDIÁN: la raíz «guard» entró CERCADA (guard(?!ia)) — sin la cerca, «¿cuánto gasté en guardia?» recibía el stock de ahorros (verificado con sonda antes de cerrar; guardián permanente nuevo en banco.test.ts). Y la primera suite completa cazó lo que el set enfocado no veía: «¿Cómo guardo una pregunta?» caía en ahorros por la misma raíz (los controles de las Olas 26 y 27 de modos lo afirman); la cura quedó en la guarda esGuardarPregunta de canon, que ahora oye también la forma española, con su acta en el código.
+- Especímenes permanentes: describe «banco · ola P2» (los 2 de la copia + el guardián de canon). Registro: el párrafo de la ola en la entrada «ahorros».
+- Contra el examen sellado (medido en la copia): G14 exacto; el examen queda en 28/29, con el hilo como único fallo afirmado vivo.
+- Enfocado 731/731; enfocado ampliado tras la cura de la guarda, 790/790. Suite 3.949/3.949 (+2 saltados declarados); typecheck con los 3 errores de base.
+- Fuente: `c1b92eac`. Publicación: lotes y cola `b9b533a6`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-478-dist-snapshot`. Siguen en la cola: las Olas P3 y P4.
