@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.471",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "La premisa con «tengo»: tu cifra manda", en: "The premise with “I have”: your figure rules" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Si partes de lo que tienes («si tengo 300 en PayPal y gasto 100»), el Asesor corre la cuenta con tu cifra, declarada como premisa, y nunca la suma como si fuera un gasto más.",
+        "Cuando nombras una cuenta, la nota confronta tu libro: si trae otra cifra en ese lugar, lo dice y te da también el resultado con la cifra del libro; si coinciden, lo dice; si no ata saldo a ese nombre, lo dice también.",
+        "La forma ya no exige el «si»: «tengo 200 y gasto 50, ¿cuánto me queda?» se responde igual. Y si la frase trae una entrada además del gasto, la entrada también camina: la premisa es la base y cada movimiento entra con su signo.",
+      ],
+      en: [
+        "If you start from what you have (“if I have 300 in PayPal and spend 100”), the Advisor runs the sum on your figure, stated as a premise, and never adds it in as if it were one more expense.",
+        "When you name an account, the note checks your book: if it shows a different figure there, it says so and also gives you the result on the book's figure; if they agree, it says so; if no balance ties to that name, it says that too.",
+        "The form no longer needs the “if”: “I have 200 and spend 50, how much is left?” is answered the same way. And if the sentence brings income beside the spending, the income walks too: the premise is the base and each movement enters with its sign.",
+      ],
+    },
+  },
+  {
     version: "1.3.470",
     date: "2026-11-26",
     level: "menor",

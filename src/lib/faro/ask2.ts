@@ -3873,6 +3873,103 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   // «Monto N» solo como último recurso, nunca como primera opción.
   const amountLabel = (a: FoundAmount, i: number): string => a.label
     || (a.currency !== c.display ? formatMoney(a.minor, a.currency, c.lang) : L(c.lang, `Monto ${i + 1}`, `Amount ${i + 1}`));
+  // OLA 72C · LA PREMISA CON «TENGO» (el frente ambiguo, clase 1;
+  // censo en FRENTE-AMBIGUO.md): un monto gobernado por TENER es
+  // el punto de partida que el usuario TRAE, no un movimiento —
+  // sumarlo al gasto era el error grosero medido («si tengo 300
+  // en mi cuenta y gasto 100» usaba $400 contra la cuenta). La
+  // premisa se identifica una vez y manda en todas las ramas: la
+  // cerrada la camina sin libro, la de abajo la confronta con el
+  // libro cuando nombra una cuenta, y los caminos del libro la
+  // excluyen de sus sumas y la toman como base. El «sí» con tilde
+  // del texto crudo es la señal de la otra lectura (la
+  // confirmación: «sí, ya sé que tengo 300»): no cambia la
+  // cuenta, se DECLARA en la nota.
+  const premise72 = ((): { va: VerbAmount; named: boolean } | null => {
+    const toks = verbAll.toks;
+    const tenerIdx = toks.findIndex((t) => /^(tengo|tuviera|tuviese|tendria|have|had)$/.test(t));
+    if (tenerIdx < 0) return null;
+    const va = verbAll.list.find((v) => v.start > tenerIdx && !toks.slice(tenerIdx + 1, v.start).some((t) => /^(gast\w*|spend|spent|compr\w*|buy|bought)$/.test(t)));
+    if (!va) return null;
+    const named = /(tengo|tuviera|tuviese|tendria|have|had).{0,30}\b(en|de|in)\s+(mi\s+|mis\s+|el\s+|la\s+|los\s+|las\s+|my\s+|the\s+)?(cuenta|paypal|banco|tarjeta|ahorros?|account|bank|savings)\b/.test(folded);
+    return { va, named };
+  })();
+  const siConfirm72 = /^\s*sí[\s,;:]/i.test(raw);
+  // OLA 72C · LA PREMISA QUE NOMBRA EL LIBRO: «tengo 1299 en
+  // PayPal y gasto 300» no es un mundo cerrado (la cuenta existe
+  // y el libro trae su cifra) ni un «si» contra el libro (la
+  // premisa no se suma a nada). La cuenta corre con LA CIFRA DEL
+  // USUARIO, declarada como premisa, y la nota confronta: lo que
+  // el libro trae en ese lugar, y el resultado con su cifra si
+  // difiere. Si el libro no ata ningún saldo a ese nombre, la
+  // nota lo dice y la premisa manda sola.
+  if (premise72 && premise72.named) {
+    const asksLeftC = /(cuanto|que) (me |te )?(queda|quedaria|quedara|sobra|sobraria)|cuanto[^?]{0,24}(quedaria|queda|quedaba|tendria)|what('s| is| would be) (left|remaining)|how much (is|would be|do i have) left|how much would i (have|be) left|how much would be left/.test(folded);
+    if (asksLeftC) {
+      const premiseDisp = disp(premise72.va.a);
+      const rest = verbAll.list.filter((v) => v !== premise72.va);
+      const movs: Array<{ a: FoundAmount; effect: number }> = [];
+      let inSum = 0;
+      let outSum = 0;
+      let saveSum = 0;
+      for (const s of rest) {
+        if (s.sign === 1) { inSum += disp(s.a); movs.push({ a: s.a, effect: disp(s.a) }); }
+        else if (s.sign === -1) { outSum += disp(s.a); movs.push({ a: s.a, effect: -disp(s.a) }); }
+        else { saveSum += disp(s.a); movs.push({ a: s.a, effect: -disp(s.a) }); }
+      }
+      if (!rest.length) {
+        const tail = verbAll.toks.slice(premise72.va.end).join(" ");
+        const anaphora = /(gast\w*|spend|spent)\s+(los|lo|las|la|todo|eso|it|them|all)\b|(los|lo|las|la|todo|eso)\s+(gast\w*|gasto|gastara|gastaria|spend)/.test(tail);
+        if (anaphora) { outSum = premiseDisp; movs.push({ a: premise72.va.a, effect: -premiseDisp }); }
+        else {
+          const others = amounts.filter((a) => !(a.minor === premise72.va.a.minor && a.currency === premise72.va.a.currency));
+          for (const a of others) { outSum += disp(a); movs.push({ a, effect: -disp(a) }); }
+        }
+      }
+      {
+        const result = premiseDisp + inSum - outSum - saveSum;
+        const stock72 = savingsStock(c.state, c.key);
+        const hosts72 = hostAccounts(c.state, c.key, stock72);
+        let bookFig: number | null = null;
+        let bookLabel = "";
+        if (/paypal/.test(folded)) {
+          const h = hosts72.find((x) => foldQ(c.names.sub(x.id) || x.id).includes("paypal"));
+          if (h) { bookFig = h.minor; bookLabel = c.names.sub(h.id) || h.id; }
+        }
+        if (bookFig === null && /(ahorros|savings)/.test(folded)) { bookFig = stock72.total; bookLabel = L(c.lang, "tus ahorros", "your savings"); }
+        if (bookFig === null && /(cuenta|account)/.test(folded) && hosts72.length === 1) { bookFig = hosts72[0].minor; bookLabel = c.names.sub(hosts72[0].id) || hosts72[0].id; }
+        const placeName72 = /paypal/.test(folded) ? "PayPal"
+          : /(ahorros|savings)/.test(folded) ? L(c.lang, "tus ahorros", "your savings")
+          : /tarjeta/.test(folded) ? L(c.lang, "tu tarjeta", "your card")
+          : /(banco|bank)/.test(folded) ? L(c.lang, "el banco", "the bank")
+          : L(c.lang, "tu cuenta", "your account");
+        const moves: string[] = [];
+        if (inSum > 0) moves.push(L(c.lang, `entran ${c.money(inSum)}`, `${c.money(inSum)} comes in`));
+        if (outSum > 0) moves.push(L(c.lang, `gastas ${c.money(outSum)}`, `you spend ${c.money(outSum)}`));
+        if (saveSum > 0) moves.push(L(c.lang, `apartas ${c.money(saveSum)} (siguen siendo tuyos)`, `you set aside ${c.money(saveSum)} (still yours)`));
+        let note72 = bookFig !== null && bookFig !== premiseDisp
+          ? L(c.lang, `Tu premisa es tuya: tu libro trae ${c.money(bookFig)} en ${bookLabel}, no ${c.money(premiseDisp)}. No sumé tu premisa a lo del libro: con la cifra de tu libro, te quedarían ${c.money(bookFig + inSum - outSum - saveSum)}.`, `Your premise is yours: your book shows ${c.money(bookFig)} in ${bookLabel}, not ${c.money(premiseDisp)}. I didn't add your premise to the book: with your book's figure, you'd have ${c.money(bookFig + inSum - outSum - saveSum)} left.`)
+          : bookFig !== null
+            ? L(c.lang, `Tu libro trae la misma cifra en ${bookLabel}: tu premisa y el libro van de acuerdo.`, `Your book shows the same figure in ${bookLabel}: your premise and your book agree.`)
+            : L(c.lang, `La cuenta va con tu cifra, declarada como premisa: tu libro no trae un saldo que yo pueda atar a ese nombre.`, `The sum runs on your figure, stated as a premise: your book carries no balance I can tie to that name.`);
+        if (siConfirm72) note72 += L(c.lang, " Y lo leo como tu confirmación: partes de lo que ya sabes que tienes.", " And I read it as your confirmation: you start from what you already know you have.");
+        if (premise72.va.a.currency !== c.display) note72 += L(c.lang, ` Tu premisa venía en ${premise72.va.a.currency === "NIO" ? "córdobas" : "dólares"}: la pasé a tu moneda de vista con la tasa de tu Mesa de cambio.`, ` Your premise came in ${premise72.va.a.currency === "NIO" ? "córdobas" : "dollars"}: I converted it at your Exchange Desk rate.`);
+        return {
+          kind: "answer", family: "hipotetico",
+          verdict: moves.length
+            ? L(c.lang, `Partiendo de los ${c.money(premiseDisp)} que dices tener en ${placeName72}: si ${moves.join(" y ")}, te quedan ${c.money(result)}.`, `Starting from the ${c.money(premiseDisp)} you say you have in ${placeName72}: if ${moves.join(" and ")}, you'd have ${c.money(result)} left.`)
+            : L(c.lang, `Dices tener ${c.money(premiseDisp)} en ${placeName72}: con tu cifra, eso es lo que tienes, ${c.money(premiseDisp)}.`, `You say you have ${c.money(premiseDisp)} in ${placeName72}: on your figure, that's what you have, ${c.money(premiseDisp)}.`),
+          pieces: [
+            { label: L(c.lang, `Lo que dices tener en ${placeName72}`, `What you say you have in ${placeName72}`), minor: premiseDisp },
+            ...movs.map((m, i) => ({ label: amountLabel(m.a, i), minor: m.effect })),
+            { label: L(c.lang, "Te quedan", "You'd have left"), minor: result },
+          ],
+          note: note72,
+          source: ["central.tengo", "ahorros.stock"], lines: 0,
+        };
+      }
+    }
+  }
   // OLA 72B · EL HIPOTÉTICO CERRADO (caza de Oscar en su teléfono,
   // 2026-11-25): «¿si tengo 200 pesos y los gasto, cuánto me
   // queda?» trae su propio punto de partida — el mundo de la
@@ -3902,7 +3999,14 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
         const tail = toks.slice(startVA.end).join(" ");
         const anaphora = !spendVA && /(gast\w*|spend|spent)\s+(los|lo|las|la|todo|eso|it|them|all)\b|(los|lo|las|la|todo|eso)\s+(gast\w*|gasto|gastara|gastaria|spend)/.test(tail);
         const spendA: FoundAmount | null = spendVA ? spendVA.a : (anaphora ? startVA.a : null);
-        if (spendA) {
+        // OLA 72C: lo cerrado es solo partida menos gasto. Si la
+        // frase trae OTRO movimiento con signo (una entrada, un
+        // apartado), esta rama ya no es su casa: caminarla a ciegas
+        // lo ignoraba («si tengo 500 y me entran 200 y gasto 100»
+        // daba 400 en vez de 600). Con otro signo presente, cede
+        // al camino firmado, que ya excluye la premisa.
+        const othersClosed = verbAll.list.filter((v) => v !== startVA && v !== spendVA);
+        if (spendA && othersClosed.every((v) => v.sign === -1)) {
           const startCur = startVA.a.currency;
           const spendInStart = convertMinor(spendA.minor, spendA.currency, startCur, c.rateE4);
           const rest = startVA.a.minor - spendInStart;
@@ -3913,7 +4017,7 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
               ? L(c.lang, `Te quedan ${fmt(rest)}: tienes ${fmt(startVA.a.minor)} y gastas ${fmt(spendInStart)}.`, `You'd have ${fmt(rest)} left: you have ${fmt(startVA.a.minor)} and you spend ${fmt(spendInStart)}.`)
               : L(c.lang, `Te quedarían ${fmt(rest)}: gastarías ${fmt(-rest)} más de los ${fmt(startVA.a.minor)} que tienes.`, `You'd be at ${fmt(rest)}: you'd spend ${fmt(-rest)} more than the ${fmt(startVA.a.minor)} you have.`),
             pieces: [{ label: L(c.lang, "Lo que tienes", "What you have"), minor: disp(startVA.a) }, { label: L(c.lang, "Lo que gastas", "What you spend"), minor: -disp(spendA) }, { label: L(c.lang, "Lo que queda", "What's left"), minor: disp(startVA.a) - disp(spendA) }],
-            note: L(c.lang, "Es la cuenta tal como la trajiste: tu libro no entra en este cálculo.", "It's the sum exactly as you brought it: your book isn't part of this calculation."),
+            note: L(c.lang, "Es la cuenta tal como la trajiste: tu libro no entra en este cálculo.", "It's the sum exactly as you brought it: your book isn't part of this calculation.") + (siConfirm72 ? L(c.lang, " Y lo leo como tu confirmación: partes de lo que ya sabes que tienes.", " And I read it as your confirmation: you start from what you already know you have.") : ""),
             source: ["asesor.lectura"], lines: 0,
           };
         }
@@ -4098,7 +4202,10 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   // del camino sin signo y solo cuando hay entrada o apartado;
   // la premisa de puro gasto sigue por su camino de siempre.
   {
-    const { list: signed, toks: sToks } = verbAll;
+    const { list: signedAll, toks: sToks } = verbAll;
+    // OLA 72C: la premisa con «tengo» sale de los movimientos —
+    // no entra, no sale, no se aparta: es el punto de partida.
+    const signed = premise72 ? signedAll.filter((s) => !(s.start === premise72.va.start && s.end === premise72.va.end)) : signedAll;
     const inList = signed.filter((s) => s.sign === 1);
     const outList = signed.filter((s) => s.sign === -1);
     const saveList = signed.filter((s) => s.sign === 0);
@@ -4160,13 +4267,26 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
           baseLabel = L(c.lang, "Tu queda de hoy", "Your left-for-the-month today");
         }
         if (base !== null) {
+          // OLA 72C: con premisa sin cuenta nombrada (la que nombra
+          // ya volvió por su rama), la base es SU cifra, no la del
+          // libro — el mundo de la pregunta parte de ahí. Con pin
+          // puesto, manda la cuenta que el usuario tocó.
+          let premiseBase = false;
+          if (premise72 && !premise72.named && !pinId) {
+            base = disp(premise72.va.a);
+            baseLabel = L(c.lang, "Lo que dices tener", "What you say you have");
+            singleAccount = false;
+            premiseBase = true;
+          }
           // El apartado: contra UNA cuenta o contra lo libre del
           // mes, sale de esa bolsa (y se dice que sigue siendo
           // tuyo); contra el total de tus cuentas, se mueve
           // DENTRO de ellas y el total no cambia.
           const saveEffect = singleAccount || !onAccount58 ? -saveSum : 0;
           const result = base + inSum - outSum + saveEffect;
-          const baseText = base < 0
+          const baseText = premiseBase
+            ? L(c.lang, `los ${c.money(base)} que dices tener`, `the ${c.money(base)} you say you have`)
+            : base < 0
             ? L(c.lang, `hoy tu queda ya va en negativo (${c.money(base)}: salió más de lo que entró)`, `today your left already runs negative (${c.money(base)}: more went out than came in)`)
             : singleAccount
               ? L(c.lang, `lo que hoy tienes en ${baseLabel} (${c.money(base)})`, `what you hold in ${baseLabel} today (${c.money(base)})`)
@@ -4217,6 +4337,13 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   const onAccount = /cuenta|account/.test(folded);
   const stock = savingsStock(c.state, c.key);
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
+  // OLA 72C: en este camino la premisa tampoco se suma: los
+  // movimientos son los montos que quedan sin ella, y si la
+  // premisa llegó hasta aquí (sin cuenta nombrada que su rama
+  // tomara), la base es su cifra y no la del libro.
+  const sumMov = premise72 ? sum - disp(premise72.va.a) : sum;
+  const amountsMov = premise72 ? amounts.filter((a, i) => amounts.findIndex((x) => x.minor === premise72.va.a.minor && x.currency === premise72.va.a.currency) !== i) : amounts;
+  const premiseBaseOld = premise72 && !pinId ? disp(premise72.va.a) : null;
   // EL CONTEXTO (ola 6, idea de Oscar 2026-11-21): «en mi cuenta» con
   // VARIAS cuentas no se responde sumando todas — el Asesor REACCIONA:
   // pregunta de vuelta con las cuentas en tarjetitas, y al tocar una,
@@ -4231,13 +4358,13 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       const host = hosts.find((h) => h.id === pinId);
       if (host) {
         const libre = libreOf(stock, host.id);
-        const after = host.minor - sum;
+        const after = host.minor - sumMov;
         return {
           kind: "answer", family: "hipotetico",
-          verdict: L(c.lang, `En ${nameOf(host.id)}: si usaras ${c.money(sum)}, el saldo quedaría en ${c.money(after)} y lo libre en ${c.money(libre - sum)} — lo apartado no se toca salvo que lo libre no alcance.`, `In ${nameOf(host.id)}: if you used ${c.money(sum)}, the balance would be ${c.money(after)} and the free part ${c.money(libre - sum)} — what's set aside stays untouched unless the free part falls short.`),
+          verdict: L(c.lang, `En ${nameOf(host.id)}: si usaras ${c.money(sumMov)}, el saldo quedaría en ${c.money(after)} y lo libre en ${c.money(libre - sumMov)} — lo apartado no se toca salvo que lo libre no alcance.`, `In ${nameOf(host.id)}: if you used ${c.money(sumMov)}, the balance would be ${c.money(after)} and the free part ${c.money(libre - sumMov)} — what's set aside stays untouched unless the free part falls short.`),
           pieces: [
             { label: nameOf(host.id), minor: host.minor },
-            ...amounts.map((a, i) => ({ label: amountLabel(a, i), minor: -disp(a) })),
+            ...amountsMov.map((a, i) => ({ label: amountLabel(a, i), minor: -disp(a) })),
             { label: L(c.lang, "Quedaría el saldo", "The balance would be"), minor: after },
           ],
           note: L(c.lang, "El supuesto, dicho: es un «si» — nada se movió de esa cuenta ni de ninguna.", "The assumption, stated: it's a hypothetical — nothing moved from that account or any other."),
@@ -4254,19 +4381,19 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       };
     }
     if (hosts.length === 1) {
-      const after = hosts[0].minor - sum;
+      const after = hosts[0].minor - sumMov;
       return {
         kind: "answer", family: "hipotetico",
-        verdict: L(c.lang, `En tu cuenta ${nameOf(hosts[0].id)}: si usaras ${c.money(sum)}, el saldo quedaría en ${c.money(after)}.`, `In your ${nameOf(hosts[0].id)} account: if you used ${c.money(sum)}, the balance would be ${c.money(after)}.`),
+        verdict: L(c.lang, `En tu cuenta ${nameOf(hosts[0].id)}: si usaras ${c.money(sumMov)}, el saldo quedaría en ${c.money(after)}.`, `In your ${nameOf(hosts[0].id)} account: if you used ${c.money(sumMov)}, the balance would be ${c.money(after)}.`),
         pieces: [{ label: nameOf(hosts[0].id), minor: hosts[0].minor }, { label: L(c.lang, "Quedaría el saldo", "The balance would be"), minor: after }],
         note: L(c.lang, "El supuesto, dicho: es un «si» — nada se movió.", "The assumption, stated: it's a hypothetical — nothing moved."),
         source: ["central.tengo", "ahorros.stock"], lines: 0,
       };
     }
   }
-  const base = onAccount ? (stock.byClass.cuenta ?? 0) : reading.left;
-  const baseLabel = onAccount ? L(c.lang, "Hoy en tus cuentas", "In your accounts today") : L(c.lang, "Tu queda de hoy", "Your left-for-the-month today");
-  const result = incomeSide ? base + sum : base - sum;
+  const base = premiseBaseOld !== null ? premiseBaseOld : onAccount ? (stock.byClass.cuenta ?? 0) : reading.left;
+  const baseLabel = premiseBaseOld !== null ? L(c.lang, "Lo que dices tener", "What you say you have") : onAccount ? L(c.lang, "Hoy en tus cuentas", "In your accounts today") : L(c.lang, "Tu queda de hoy", "Your left-for-the-month today");
+  const result = incomeSide ? base + sumMov : base - sumMov;
   // OLA 25 (espécimen de Oscar en su teléfono, 2026-11-22): el
   // veredicto viejo decía «tu base de hoy… menos los $8.19 del «si»»
   // y Oscar no lo pudo descifrar — «base» es jerga, el «si» es clave
@@ -4275,17 +4402,19 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   // traído se nombra en SU moneda con la conversión dicha, y cada
   // cifra de la respuesta se explica sola. La rama del negativo que
   // se traduce es de la Ola 26 (U1) y llega en la misma expresión.
-  const baseText = base < 0
+  const baseText = premiseBaseOld !== null
+    ? L(c.lang, `los ${c.money(base)} que dices tener`, `the ${c.money(base)} you say you have`)
+    : base < 0
     ? L(c.lang, `hoy tu queda ya va en negativo (${c.money(base)}: salió más de lo que entró)`, `today your left already runs negative (${c.money(base)}: more went out than came in)`)
     : onAccount
       ? L(c.lang, `lo que hoy tienes en tus cuentas (${c.money(base)})`, `what you hold in your accounts today (${c.money(base)})`)
       : L(c.lang, `lo que te queda hoy (${c.money(base)})`, `what you have left today (${c.money(base)})`);
-  const foreignOne = amounts.length === 1 && amounts[0].currency !== c.display ? amounts[0] : null;
+  const foreignOne = amountsMov.length === 1 && amountsMov[0].currency !== c.display ? amountsMov[0] : null;
   const sumText = foreignOne
-    ? L(c.lang, `tus ${formatMoney(foreignOne.minor, foreignOne.currency, c.lang)} (que son ${c.money(sum)} con la tasa de tu Mesa de cambio)`, `your ${formatMoney(foreignOne.minor, foreignOne.currency, c.lang)} (which is ${c.money(sum)} at your Exchange desk's rate)`)
+    ? L(c.lang, `tus ${formatMoney(foreignOne.minor, foreignOne.currency, c.lang)} (que son ${c.money(sumMov)} con la tasa de tu Mesa de cambio)`, `your ${formatMoney(foreignOne.minor, foreignOne.currency, c.lang)} (which is ${c.money(sumMov)} at your Exchange desk's rate)`)
     : incomeSide
-      ? L(c.lang, `los ${c.money(sum)} que entrarían`, `the ${c.money(sum)} coming in`)
-      : L(c.lang, `los ${c.money(sum)} que gastarías`, `the ${c.money(sum)} you'd spend`);
+      ? L(c.lang, `los ${c.money(sumMov)} que entrarían`, `the ${c.money(sumMov)} coming in`)
+      : L(c.lang, `los ${c.money(sumMov)} que gastarías`, `the ${c.money(sumMov)} you'd spend`);
   return {
     kind: "answer", family: "hipotetico",
     verdict: incomeSide
@@ -4293,7 +4422,7 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       : L(c.lang, `Si gastaras eso, te quedarían ${c.money(result)}: ${baseText} menos ${sumText}.`, `If you spent that, you'd have ${c.money(result)} left: ${baseText} minus ${sumText}.`),
     pieces: [
       { label: baseLabel, minor: base },
-      ...amounts.map((a, i) => ({ label: amountLabel(a, i), minor: incomeSide ? disp(a) : -disp(a) })),
+      ...amountsMov.map((a, i) => ({ label: amountLabel(a, i), minor: incomeSide ? disp(a) : -disp(a) })),
     ],
     note: L(c.lang, "El supuesto, dicho: es un «si» — nada de esto está anotado ni se guarda; tu libro queda como está.", "The assumption, stated: it's a hypothetical — none of this is recorded or saved; your book stays as it is."),
     graph: [{
@@ -4301,7 +4430,7 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       assumption: { text: L(c.lang, "el «si» que trajiste en tu pregunta: nada de esto está anotado", "the 'if' you brought in your question: none of this is recorded"), origin: "usuario" },
       children: [
         { id: "base", label: baseLabel, minor: base, tense: "stock", flow: "stock", currency: c.display, sign: 1 },
-        ...amounts.map((a, i): AskNode => ({ id: `si-${i}`, label: amountLabel(a, i), minor: disp(a), tense: "proyectado", flow: "flujo", currency: c.display, sign: incomeSide ? 1 : -1, assumption: { text: L(c.lang, "el «si» que trajiste en tu pregunta: nada de esto está anotado", "the 'if' you brought in your question: none of this is recorded"), origin: "usuario" } })),
+        ...amountsMov.map((a, i): AskNode => ({ id: `si-${i}`, label: amountLabel(a, i), minor: disp(a), tense: "proyectado", flow: "flujo", currency: c.display, sign: incomeSide ? 1 : -1, assumption: { text: L(c.lang, "el «si» que trajiste en tu pregunta: nada de esto está anotado", "the 'if' you brought in your question: none of this is recorded"), origin: "usuario" } })),
       ],
     }],
     source: onAccount ? ["central.tengo", "ahorros.stock"] : ["central.queda", "asesor.lectura"], lines: 0,
@@ -11149,7 +11278,7 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b|\btengo\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b|\btuviera\b|\btuviese\b/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, rawR, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo
@@ -11871,6 +12000,9 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
   if (hasDigit && /(verdad|es cierto|es verdad|no es asi|is it true)/.test(folded)) return { isQuestion, family: "confirmacion" };
   // El hipotético y la calculadora se juzgan por su forma y sus montos.
   if (/^si (uso|gasto|compro|pago|me regalan|recibo)/.test(folded) && /(quedaria|queda|tendria|seria)/.test(folded)) return { isQuestion, family: "hipotetico" };
+  // OLA 72C: la premisa con «tengo» también se clasifica sin «si»:
+  // tener + gastar + preguntar por lo que queda es la misma casa.
+  if (/\b(tengo|tuviera|tuviese|tendria)\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b/.test(folded) && /(queda|quedaria|quedaba|sobra|sobraria|left)/.test(folded)) return { isQuestion, family: "hipotetico" };
   if (hasDigit && /(mas|\+|suma|total|resta|menos|divid|repart|por ciento|porcentaje|percent|%|entre \d|partes iguales)/.test(folded)) return { isQuestion, family: "calculadora" };
   for (const [re, fam] of G) if (re.test(folded)) return { isQuestion, family: fam };
   return { isQuestion, family: null };

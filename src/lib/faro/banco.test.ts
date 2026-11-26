@@ -5489,3 +5489,62 @@ describe("banco · ola 72B: el hipotético cerrado (la caza del teléfono de Osc
     assert.ok(!(p.note ?? "").includes("tu libro no entra en este cálculo"), p.verdict);
   });
 });
+describe("banco · ola 72C: la premisa con «tengo» (el frente ambiguo, clase 1)", () => {
+  it("la premisa jamás se suma al gasto: 300 tenidos en la cuenta menos 100 gastados son 200", () => {
+    const r = ask(fixture(), "Si tengo 300 en mi cuenta y gasto 100, ¿cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "hipotetico");
+    assert.equal(r.verdict, "Partiendo de los $300.00 que dices tener en tu cuenta: si gastas $100.00, te quedan $200.00.");
+    // el libro trae otra cifra en su única cuenta y la nota la confronta
+    assert.ok((r.note ?? "").includes("$1,299.00"), r.note ?? "");
+    assert.ok((r.note ?? "").includes("$1,199.00"), r.note ?? "");
+    const b = ask(fixture(), "Si tengo 200 dólares en mi cuenta y me gasto 50, ¿cuánto me queda?");
+    if (b.kind !== "answer") assert.fail("debió responder");
+    assert.equal(b.verdict, "Partiendo de los $200.00 que dices tener en tu cuenta: si gastas $50.00, te quedan $150.00.");
+  });
+
+  it("la premisa que nombra PayPal corre con la cifra del usuario y confronta la del libro", () => {
+    const r = ask(fixture(), "Si tengo 300 en PayPal y gasto 100, ¿cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.verdict, "Partiendo de los $300.00 que dices tener en PayPal: si gastas $100.00, te quedan $200.00.");
+    assert.ok((r.note ?? "").includes("tu libro trae $1,299.00 en PayPal"), r.note ?? "");
+    const ok = ask(fixture(), "Tengo 1299 en PayPal y gasto 300, ¿cuánto me queda?");
+    if (ok.kind !== "answer") assert.fail("debió responder");
+    assert.equal(ok.verdict, "Partiendo de los $1,299.00 que dices tener en PayPal: si gastas $300.00, te quedan $999.00.");
+    assert.ok((ok.note ?? "").includes("van de acuerdo"), ok.note ?? "");
+  });
+
+  it("la forma sin «si» tiene la misma casa: tener, gastar y preguntar por lo que queda", () => {
+    const r = ask(fixture(), "Tengo 200 y gasto 50, ¿cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "hipotetico");
+    assert.equal(r.verdict, "Te quedan $150.00: tienes $200.00 y gastas $50.00.");
+    const b = ask(fixture(), "Tengo 200 en el banco y los gasto todos, ¿cuánto me queda?");
+    if (b.kind !== "answer") assert.fail("debió responder");
+    assert.equal(b.verdict, "Partiendo de los $200.00 que dices tener en el banco: si gastas $200.00, te quedan $0.00.");
+    assert.ok((b.note ?? "").includes("declarada como premisa"), b.note ?? "");
+  });
+
+  it("lo cerrado cede cuando la frase trae otro signo: la entrada también camina", () => {
+    const r = ask(fixture(), "Si tengo 500 y me entran 200 y gasto 100, ¿cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.ok(r.verdict.includes("$600.00"), r.verdict);
+    assert.ok(r.verdict.includes("los $500.00 que dices tener"), r.verdict);
+    assert.ok(r.verdict.includes("los $200.00 que entrarían"), r.verdict);
+  });
+
+  it("el «sí» con tilde se lee como confirmación y se declara, sin cambiar la cuenta", () => {
+    const r = ask(fixture(), "Sí, tengo 200 pesos y los gasto, ¿cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.verdict, "Te quedan C$0.00: tienes C$200.00 y gastas C$200.00.");
+    assert.ok((r.note ?? "").includes("tu confirmación"), r.note ?? "");
+  });
+
+  it("los guardianes: el «si» de gasto contra el libro sigue contra el libro, y clasificar nombra la premisa", () => {
+    const r = ask(fixture(), "¿Si gasto 200, cuánto me queda?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.ok(r.verdict.includes("Si gastaras eso"), r.verdict);
+    assert.equal(classifyBankQuestion("Tengo 200 y gasto 50, ¿cuánto me queda?").family, "hipotetico");
+    assert.equal(classifyBankQuestion("Si tengo 300 en mi cuenta y gasto 100, ¿cuánto me queda?").family, "hipotetico");
+  });
+});
