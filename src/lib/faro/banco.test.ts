@@ -5796,3 +5796,40 @@ describe("banco · ola P1 (prejuicio) — las anclas de un día y el fin de sema
   });
 });
 
+describe("banco · ola P2 (prejuicio) — el stock no es el flujo", () => {
+  it("«¿cuánto ahorro tengo?» da el total guardado, no el promedio", () => {
+    const l = fixture();
+    const r = ask(l, "¿Cuánto ahorro tengo?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "ahorros");
+    assert.ok(r.verdict.includes("$1,299.00"), r.verdict);
+    assert.ok(!/promedio|average/i.test(r.verdict), r.verdict);
+    const bare = ask(l, "¿Cuánto ahorro?");
+    if (bare.kind !== "answer") assert.fail("debió responder");
+    assert.ok(bare.verdict.includes("$1,299.00"), bare.verdict);
+    const have = ask(l, "How much have I saved?", "en");
+    if (have.kind !== "answer") assert.fail("debió responder");
+    assert.ok(have.verdict.includes("$1,299.00"), have.verdict);
+  });
+  it("el flujo conserva su casa: con su período, el promedio manda", () => {
+    const l = fixture();
+    const r = ask(l, "¿Cuánto ahorro al mes?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.ok(/promedio|average/i.test(r.verdict), r.verdict);
+    const g = ask(l, "¿Cuánto guardo al mes?");
+    if (g.kind !== "answer") assert.fail("debió responder");
+    assert.ok(/promedio|average/i.test(g.verdict), g.verdict);
+    const en = ask(l, "How much do I save per month?", "en");
+    if (en.kind !== "answer") assert.fail("debió responder");
+    assert.ok(/average/i.test(en.verdict), en.verdict);
+  });
+  it("guardián de canon: la raíz «guard» no caza «guardia»", () => {
+    // La cerca guard(?!ia) de la puerta, adjudicada en el puerto:
+    // sin ella, el gasto en guardia recibía el stock de ahorros.
+    const l = fixture();
+    const r = ask(l, "¿Cuánto gasté en guardia este mes?");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "historia");
+  });
+});
+

@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.478",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El stock no es el flujo", en: "The stock is not the flow" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«¿Cuánto ahorro tengo?» ya responde el total guardado («En ahorros tienes $…»), no el promedio de lo que apartas al mes. El stock y el flujo dejaron de confundirse: cada pregunta recibe su cifra.",
+        "El flujo conserva su casa cuando trae su período: «¿cuánto ahorro al mes?», «¿cuánto guardo al mes?» y “how much do I save per month?” responden el promedio, como antes.",
+      ],
+      en: [
+        "“How much savings do I have?” now answers the saved total (“In savings you have $…”), not the average of what you set aside per month. Stock and flow are no longer confused: each question gets its own figure.",
+        "The flow keeps its home when it carries its period: “how much do I save per month?” answers the average, as before.",
+      ],
+    },
+  },
+  {
     version: "1.3.477",
     date: "2026-11-26",
     level: "menor",

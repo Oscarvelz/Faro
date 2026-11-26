@@ -576,7 +576,17 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
       }
     }
   }
-  if (/(ahorr\w*|guarde|aparte|saved|set aside).{0,28}(al mes|por mes|mensual|cada mes|each month|per month|monthly)|(cuanto (ahorro|guarde|aparte|ahorr))/.test(folded)) {
+  // OLA P2 · LA VOZ DEL FLUJO EXIGE SU PERÍODO: la segunda
+  // alternativa de esta puerta («cuanto ahorro…») cazaba también
+  // «¿cuánto ahorro TENGO?», que es pregunta de STOCK, y la
+  // respuesta salía con el promedio del flujo y el total guardado
+  // sin aparecer (medido por el examen sellado de la campaña de
+  // prejuicio, G14). El flujo sin período nombrado no es flujo:
+  // la alternativa desnuda ahora exige su marca de período, y la
+  // voz de posesión cae al stock de abajo, que es su casa. La
+  // misma ola trae «guardo» y el «save» del ritmo a la primera
+  // alternativa, con su período como cerca.
+  if (/(ahorr\w*|guarde|guardo|aparte|saved|save|set aside).{0,28}(al mes|por mes|mensual|cada mes|each month|per month|monthly)|(cuanto (ahorro|guarde|guardo|aparte|ahorr)).{0,30}(al mes|por mes|este mes|al ano|este ano|por ano|cada mes|cada ano|per month|this month|per year|this year)/.test(folded)) {
     const thisMonth = savInMonth(c.key);
     return {
       kind: "answer", family: "ahorros",
@@ -11998,7 +12008,12 @@ function answerSingle(
   // hand» misma), la captura de ahorros cede y la pregunta sigue su
   // camino hasta el mapa. Guardar DINERO no nombra ninguna pregunta:
   // los controles de ahorros no se mueven.
-  const esGuardarPregunta = /(save[sd]?|saving)\b[^?]{0,24}\bquestions?\b|\bquestions? at hand\b/.test(folded);
+  // OLA P2 EN CANON: la guarda oye también la forma española
+  // («¿Cómo guardo una pregunta?»): la raíz «guard» de la puerta de
+  // ahorros la cazaba y la pregunta de la casa recibía el stock
+  // («En ahorros tienes $0.00») — la cura de la Ola 26 de modos,
+  // con su control en la Ola 27, no se mueve.
+  const esGuardarPregunta = /(save[sd]?|saving|guardo|guardar|guardas)\b[^?]{0,24}\b(questions?|pregunta)\b|\bquestions? at hand\b/.test(folded);
   // OLA 28 (Familia 2, E28-2): el pretérito entra por su forma
   // exacta — «aparté»/«guardé» (plegados: aparte/guarde) morían en
   // la puerta de su propia casa, que solo oía «apartad»/«guardad».
@@ -12061,8 +12076,13 @@ function answerSingle(
   // por «cuenta» y el fallback contestaba el total de ahorros a una
   // pregunta de deuda. La voz de deuda con superlativo y blanco de
   // cuenta/tarjeta cierra esta puerta.
+  // OLA P2 EN CANON: la raíz «guard» de la puerta va cercada
+  // (guard(?!ia)): sin la cerca, «¿cuánto gasté en guardia?» caía
+  // en esta familia y recibía el stock de ahorros — una cifra
+  // equivocada, la clase peor. La cerca conserva guardo, guarda,
+  // guardé, guardado y guardar, que son la cura de la ola.
   const deudaRank67 = /(debo|debe|deben|deuda|deudas|owe|owes|debt)/.test(folded) && /(mas|most|mayor)/.test(folded) && /(cuenta|tarjeta|card|account)/.test(folded);
-  if (!isFreeTrap && !esGuardarPregunta && !gastoClassOnly && !origenVoice67 && !deudaRank67 && (namedMove63 || cmpGate62 || ((/(ahorr|guardad|guarde|apartad|aparte|colchon|fondo|savings|saving|save|set aside|cushion|emergency fund|emergencia|emergency|\bmeta\b|goal|retiro|retirement)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta|puedo|podria|deberia|conviene|bien|sacar|retirar|should|can i|am i|incrementando|creciendo|aumentando|demasiados|growing|increasing|too much|overspending|\bmas\b)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded) || /(en que cuenta|en cual cuenta|cual de mis (ahorros|cuentas|bolsillos)|which account|which of my (savings|accounts))/.test(folded)))) {
+  if (!isFreeTrap && !esGuardarPregunta && !gastoClassOnly && !origenVoice67 && !deudaRank67 && (namedMove63 || cmpGate62 || ((/(ahorr|guard(?!ia)|apartad|aparte|colchon|fondo|savings|saving|save|set aside|cushion|emergency fund|emergencia|emergency|\bmeta\b|goal|retiro|retirement)/.test(folded) && /(cuanto|que|como|how much|how|suficiente|me falta|basta|puedo|podria|deberia|conviene|bien|sacar|retirar|should|can i|am i|incrementando|creciendo|aumentando|demasiados|growing|increasing|too much|overspending|\bmas\b)/.test(folded)) || /(cuanto (tengo|hay|queda) en|how much (do i have|is) in)/.test(folded) || /(en que cuenta|en cual cuenta|cual de mis (ahorros|cuentas|bolsillos)|which account|which of my (savings|accounts))/.test(folded)))) {
     // OLA 49 (F6): el rendimiento se juzga antes que el stock —
     // «¿cuánto interés he ganado en mis ahorros?» no es una
     // pregunta por el stock, y recibirlo era contestar otra cosa.
