@@ -4496,3 +4496,14 @@ Puerto de la enmienda de la Rama Agente «las cazas del teléfono 1 y 2» (rama 
 - Contra el examen sellado (medido en la copia): G14 exacto; el examen queda en 28/29, con el hilo como único fallo afirmado vivo.
 - Enfocado 731/731; enfocado ampliado tras la cura de la guarda, 790/790. Suite 3.949/3.949 (+2 saltados declarados); typecheck con los 3 errores de base.
 - Fuente: `c1b92eac`. Publicación: lotes y cola `b9b533a6`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-478-dist-snapshot`. Siguen en la cola: las Olas P3 y P4.
+
+## 1.3.479 — Ola P3: el hilo sin veneno
+
+- LO QUE EL EXAMEN MIDIÓ: «¿cuánto gasté en el supermercado?» ($228.00) → «¿y el mes pasado?» ($190.00) → «gracias» → «¿y en gasolina?» respondía $190.00 OTRA VEZ: la cifra de la pregunta anterior presentada como respuesta a la nueva.
+- EL DIAGNÓSTICO, EN DOS PIEZAS: la reescritura no tenía el eje del ciudadano (sus ejes eran período, persona, cuenta y exclusión; cambiar el concepto no era un ajuste aplicable), y la reparación cifraba sin querer (explicaba el problema pero traía las PIEZAS del marco: la cifra vieja como dato de la respuesta nueva).
+- LAS CURAS: (1) EL EJE DEL CIUDADANO en followUpRewrite, solo historia — el ciudadano nuevo se resuelve contra el libro con el ayudante nuevo frameCitizenIn (el mismo escaneo para el texto y para la pregunta guardada; en canon su citizenByName lleva la forma de cinco argumentos) y sustituye al viejo. Su regla de período: cambiar de asunto sin nombrar período vuelve al período natural de la pregunta, declarado en el eco; con período nombrado en el mismo turno, ese manda. (2) LA REPARACIÓN EXPLICA SIN CIFRAR: piezas vacías, y su texto nombra también el eje del concepto entre los que sí se pueden cambiar.
+- La onda hostil de la copia viajó medida: el intercambio directo sin horquilla previa (exacto), el mismo ciudadano repetido (reparación, ya sin piezas) y el ciudadano inexistente (el cero de historia de siempre; la ausencia nombrada de la Ola 12 sigue siendo de la pregunta completa — declarado observado, no curado).
+- Especímenes permanentes: los dos tests de la ola en hilo.test.ts, que la 476 dejó saltados con acta y esta ola REACTIVA — la suite corre por primera vez sin un solo salto. Registro: el párrafo de la ola en la entrada «seguimiento».
+- Contra el examen sellado (medido en la copia): el hilo corre exacto (22800 / 19000 / silencio / 9000) y el examen queda en 29 DE 29 afirmados.
+- Enfocado 745/745, 0 saltados. Suite 3.951/3.951, 0 saltados; typecheck con los 3 errores de base.
+- Fuente: `abb66cbc`. Publicación: lotes y cola `1d107ba7`; treediff DIFFER vacío y EXTRA 0. Snapshot: `~/workspace/faro-479-dist-snapshot`. Sigue en la cola: la Ola P4 (los tres frentes declarados).
