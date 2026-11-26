@@ -151,7 +151,7 @@ describe("hilo · las mutaciones de discurso (tercera lectura)", () => {
   // espécimen es de la Ola P3, que en la cola de canon entra tras
   // la P2; el archivo llegó entero desde la copia acumulativa. Se
   // salta con su razón escrita y el puerto de la P3 lo reactiva.
-  test("OLA P3 · el eje del ciudadano: «¿y en la renta?» cambia el concepto, y tras la horquilla vuelve al período de la pregunta", { skip: "llega con la Ola P3 (el eje del ciudadano), tras la P2 en la cola de canon" }, () => {
+  test("OLA P3 · el eje del ciudadano: «¿y en la renta?» cambia el concepto, y tras la horquilla vuelve al período de la pregunta", () => {
     const b = new Box(libro75());
     assert.equal(total(b.ask("¿Cuánto gasté en comida este mes?")), 15000);
     const swap = ans(b.ask("¿y en la renta?"));
@@ -168,7 +168,7 @@ describe("hilo · las mutaciones de discurso (tercera lectura)", () => {
     const withPeriod = ans(b3.ask("¿y en comida el mes pasado?"));
     assert.equal(total(withPeriod), 12000);
   });
-  test("OLA P3 · la reparación ya no trae las piezas del marco: explica sin cifrar", { skip: "llega con la Ola P3 (la reparación sin piezas), tras la P2 en la cola de canon" }, () => {
+  test("OLA P3 · la reparación ya no trae las piezas del marco: explica sin cifrar", () => {
     const b = new Box(libro75());
     b.ask("¿Cuánto gasté en comida este mes?");
     const rep = ans(b.ask("¿y en comida?"));

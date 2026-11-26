@@ -10452,6 +10452,33 @@ const FOLLOWUP_STOP = new Set(["y", "no", "en", "de", "a", "el", "la", "los", "l
  * y la persona a la cuenta); la exclusión es independiente. Y una
  * exclusión anterior solo se retira cuando llega su reemplazo: un
  * seguimiento de período no pierde la exclusión que el marco trae. */
+/* OLA P3 · EL ESCANEO DEL CIUDADANO DEL MARCO: el mismo barrido
+ * para el texto del seguimiento y para la pregunta guardada —
+ * prueba el segmento entero, su forma sin la conjunción inicial y
+ * lo que sigue a la preposición («en», «de», «in», «on»), con y sin
+ * artículo. El tramo devuelto es el nombre del ciudadano, no el
+ * resto del segmento: el segmento puede seguir («supermercado el
+ * mes pasado») y la sustitución trabaja sobre el nombre. En canon
+ * la llamada a citizenByName lleva su forma de cinco argumentos
+ * (el pool queda vacío y la costura bilingüe entra por el quinto). */
+function frameCitizenIn(state: LedgerState, names: Namer, sIn: string, lang: Lang): { folded: string; display: string; span: string; fn: (l: Line) => boolean } | null {
+  const s = sIn.replace(/[¿?¡!.,;:]+/g, " ").replace(/\s+/g, " ").trim();
+  const bases = [s, s.replace(/^(y|and)\s+/, "")];
+  const segs = new Set<string>();
+  for (const b of bases) {
+    segs.add(b);
+    const m = /\b(?:en|de|in|on)\s+(.+)$/.exec(b);
+    if (m) segs.add(m[1]);
+  }
+  for (const seg of segs) {
+    for (const cand of [seg, seg.replace(/^(el|la|los|las|the)\s+/, "")]) {
+      const hit = citizenByName(state, names, cand, undefined, otherNamer(state, lang));
+      if (hit) return { ...hit, span: hit.folded };
+    }
+  }
+  return null;
+}
+
 function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, lang: Lang, today: string): { question: string; echo: string | null; fork?: string } | null {
   /* OLA 75 · LA CORRECCIÓN QUE REEMPLAZA: «en realidad quise decir
    * septiembre» no es una pregunta nueva ni un ajuste fallido: es el
@@ -10490,7 +10517,21 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
     personHit = null;
   }
   if (person2 && frame.personName && frame.accountName && personInsideAccountOnly(frame.question, frame.personName, frame.accountName)) return null;
-  if (!p2 && !excl && !person2 && !acct2) return null;
+  /* OLA P3 · EL EJE DEL CIUDADANO: «¿y en gasolina?» tras una
+   * pregunta de historia cambia el CONCEPTO y la reescritura no
+   * tenía ese eje: el turno caía en la reparación, que respondía
+   * con las piezas de la pregunta anterior (el envenenamiento
+   * medido por el examen sellado de la campaña de prejuicio). El
+   * intercambio exige el ciudadano viejo en la pregunta guardada
+   * y uno distinto en el texto; y trae su regla de período:
+   * cambiar de asunto sin nombrar período vuelve al período
+   * natural de la pregunta, declarado en el eco — la horquilla
+   * era un desvío sobre el asunto viejo, no sobre el nuevo. Con
+   * período nombrado en el mismo turno, ese manda. */
+  const cit2 = frame.family === "historia" ? frameCitizenIn(state, names, f, lang) : null;
+  const oldCit = cit2 ? frameCitizenIn(state, names, frame.question, lang) : null;
+  const swap = cit2 && oldCit && cit2.folded !== oldCit.folded ? { cit2, oldCit } : null;
+  if (!p2 && !excl && !person2 && !acct2 && !swap) return null;
   // OLA 35 (Q35-9): EL TOTAL ES STOCK DE HOY Y NO TIENE EJE DE
   // PERÍODO — la rama de período AÑADÍA la frase a su pregunta
   // («¿cuánto dinero tengo en total? el mes pasado») y la familia
@@ -10510,6 +10551,7 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
   if (exclM) rest = rest.replace(exclM[0], " ");
   if (person2) rest = replaceWholeWord(rest, person2, " ");
   if (acct2) rest = replaceWholeWord(rest, acct2, " ");
+  if (swap) rest = replaceWholeWord(rest, swap.cit2.span, " ");
   if (reroutedWord) rest = replaceWholeWord(rest, reroutedWord, " ");
   if (rest.split(/\s+/).filter((w) => w && !FOLLOWUP_STOP.has(w)).length) return null;
   // LOS CAMBIOS (Q32-3): un eje solo cambia si su valor difiere del
@@ -10626,6 +10668,19 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
     q = `${q} sin ${excl.folded}`;
     parts.push({ solo: L(lang, `excluí solo «${excl.display}»`, `I left out only "${excl.display}"`), plain: L(lang, `la exclusión de «${excl.display}»`, `the exclusion of "${excl.display}"`) });
     forkParts.push(`sin ${excl.folded}`);
+  }
+  if (swap) {
+    const withArt = new RegExp(`\\b(?:el|la|los|las|the) ${swap.oldCit.span}\\b`);
+    q = withArt.test(q) ? q.replace(withArt, swap.cit2.folded) : replaceWholeWord(q, swap.oldCit.span, swap.cit2.folded);
+    const rebased = !p2 && !!frame.periodPhrase && !/^(este mes|this month)$/.test(frame.periodPhrase);
+    if (rebased) q = replaceWholeWord(q, frame.periodPhrase as string, " ").replace(/\s+/g, " ").trim();
+    parts.push({
+      solo: rebased
+        ? L(lang, `cambié el ciudadano a «${swap.cit2.display}» y el período volvió al de tu pregunta`, `I changed the citizen to "${swap.cit2.display}" and the period went back to your question's own`)
+        : L(lang, `cambié solo el ciudadano, a «${swap.cit2.display}»`, `I changed only the citizen, to "${swap.cit2.display}"`),
+      plain: L(lang, `el ciudadano a «${swap.cit2.display}»`, `the citizen to "${swap.cit2.display}"`),
+    });
+    forkParts.push(swap.cit2.folded);
   }
   if (!parts.length) return { question: frame.question, echo: null, fork: frame.forkName };
   const echo = parts.length === 1
@@ -11722,8 +11777,12 @@ function repairResult(frame: ConvoFrame, lang: Lang, askFrame?: AskFrame | null)
     kind: "answer", family: "porque",
     verdict: exhausted
       ? L(lang, `Llevamos ${repairs} intentos de ajustar tu pregunta anterior («${frame.question}») y no logro aplicarlo con palabras. El camino seguro es tocar la cifra donde vive: abre su área y desde ahí la ves entera — la puerta está abajo.`, `We've made ${repairs} attempts to adjust your previous question ("${frame.question}") and I can't apply it in words. The sure path is to tap the figure where it lives: open its area and see it whole — the door is below.`)
-      : L(lang, `Eso suena a un ajuste sobre tu pregunta anterior («${frame.question}»), pero no logro aplicarlo tal como vino. Los ejes que sí puedo cambiar de una pregunta son el período («¿y el mes pasado?»), la persona o la cuenta si la pregunta las traía, o excluir un concepto de un total («sin la casa»). Dímelo en esa forma y lo recalculo.`, `That sounds like an adjustment to your previous question ("${frame.question}"), but I can't apply it as it came. The axes I can change on a question are the period ("and last month?"), the person or account if the question carried them, or leaving a concept out of a total ("without the house"). Say it in that shape and I'll recompute it.`),
-    pieces: frame.pieces,
+      : L(lang, `Eso suena a un ajuste sobre tu pregunta anterior («${frame.question}»), pero no logro aplicarlo tal como vino. Los ejes que sí puedo cambiar de una pregunta son el período («¿y el mes pasado?»), el concepto («¿y en gasolina?»), la persona o la cuenta si la pregunta las traía, o excluir un concepto de un total («sin la casa»). Dímelo en esa forma y lo recalculo.`, `That sounds like an adjustment to your previous question ("${frame.question}"), but I can't apply it as it came. The axes I can change on a question are the period ("and last month?"), the concept ("and in gas?"), the person or account if the question carried them, or leaving a concept out of a total ("without the house"). Say it in that shape and I'll recompute it.`),
+    // OLA P3: la reparación explica, no cifra — sus piezas ya no
+    // son las del marco. Traerlas presentaba la cifra de la
+    // pregunta anterior como si fuera la respuesta a la nueva (el
+    // envenenamiento medido por el examen sellado).
+    pieces: [],
     note: null,
     source: frame.source, lines: 0,
     ...(exhausted && frame.source[0] ? { actions: [{ id: "goto", label: L(lang, "Abrir donde vive la cifra", "Open where the figure lives"), target: frame.source[0] }] } : {}),

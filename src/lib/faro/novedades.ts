@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.479",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El hilo sin veneno: cambiar de asunto en el seguimiento", en: "The thread, unpoisoned: switching subjects mid-follow-up" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Si preguntas «¿cuánto gasté en el supermercado?» y luego «¿y en gasolina?», la respuesta ya es la de la gasolina. Antes el seguimiento no sabía cambiar de concepto y repetía la cifra anterior como si fuera la nueva.",
+        "Cambiar de asunto sin nombrar período vuelve al período de tu pregunta original, y el eco lo declara. Si nombras un período en el mismo turno («¿y en gasolina el mes pasado?»), ese manda.",
+        "Y cuando un ajuste no se puede aplicar, la explicación ya no trae las cifras de la pregunta anterior: explica los ejes que sí se pueden cambiar, sin presentar números viejos como respuesta.",
+      ],
+      en: [
+        "If you ask “how much did I spend at the supermarket?” and then “and on gas?”, the answer is now the gas figure. Before, the follow-up couldn't switch concepts and repeated the previous figure as if it were the new one.",
+        "Switching subjects without naming a period returns to your original question's period, and the echo says so. If you name a period in the same turn (“and on gas last month?”), that one rules.",
+        "And when an adjustment can't be applied, the explanation no longer carries the previous question's figures: it explains the axes that can change, without presenting old numbers as the answer.",
+      ],
+    },
+  },
+  {
     version: "1.3.478",
     date: "2026-11-26",
     level: "menor",
