@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.481",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "La puerta inglesa: el Asesor oye el «did»", en: "The English door: the Advisor hears the “did”" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«How much did I send Mom?» ya responde: la puerta de remesas oye el «send» del «did» además del participio, y «Mom» encuentra a la persona anotada como «Mamá» por el puente de parentesco — responde con su nombre anotado y su cifra.",
+        "«How much did I pay in rent?» confirma la renta pagada, con su cifra y su fecha: la búsqueda de lo ya pagado ahora trae los nombres en los dos idiomas, y el ciudadano resuelto manda cuando la palabra no casa.",
+        "Y el cero con filtro nombra su ciudadano también en inglés: «no line falls in that period under “Groceries”» — el cero dice bajo qué nombre se midió.",
+      ],
+      en: [
+        "“How much did I send Mom?” now answers: the remittances door hears the “send” of the “did” beside the participle, and “Mom” finds the person recorded as “Mamá” through the kinship bridge — it answers with her recorded name and her figure.",
+        "“How much did I pay in rent?” confirms the rent as paid, with its figure and its date: the already-paid search now carries names in both languages, and the resolved citizen rules when the word doesn't match.",
+        "And the zero with a filter names its citizen in English too: “no line falls in that period under “Groceries”” — the zero says under what name it was measured.",
+      ],
+    },
+  },
+  {
     version: "1.3.480",
     date: "2026-11-26",
     level: "menor",

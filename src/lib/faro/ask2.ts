@@ -935,10 +935,24 @@ function gustosAnswer(c: Ctx, folded: string, raw: string, parseCtx: ParseCtx): 
 /* ------------------------------------------------------------------ */
 function yaPagueAnswer(c: Ctx, folded: string): BankResult {
   const lines = allLines(c).filter((l) => isOut(l) && l.monthKey === c.key);
-  const hit = lines.find((l) => {
-    const hay = foldQ(`${l.concept} ${c.names.cat(l.categoryId)} ${c.names.sub(l.subId)}`);
+  // OLA P5 · LA COSTURA BILINGÜE TAMBIÉN AQUÍ: el pajar trae los
+  // nombres en los dos idiomas (el namer del otro, como en
+  // filterOf y citizenByName desde la Ola 51) — «how much did I
+  // pay in rent?» no encontraba la línea «Renta» y respondía que
+  // no estaba pagada, con la renta pagada en el libro.
+  const namesOther = otherNamer(c.state, c.lang);
+  const wordHit = lines.find((l) => {
+    const hay = foldQ(`${l.concept} ${c.names.cat(l.categoryId)} ${c.names.sub(l.subId)} ${namesOther.cat(l.categoryId)} ${namesOther.sub(l.subId)}`);
     return hay.split(/\s+/).some((w) => w.length >= 4 && folded.includes(w));
   });
+  // Y si la palabra no casó, el ciudadano resuelto manda: el sub
+  // «Rent» abraza la línea «Renta» aunque la línea no lleve el sub
+  // puesto (la misma costura, por el escaneo del hilo).
+  const citHit = !wordHit ? (() => {
+    const cit = frameCitizenIn(c.state, c.names, folded, c.lang);
+    return cit ? lines.find((l) => cit.fn(l)) : undefined;
+  })() : undefined;
+  const hit = wordHit ?? citHit;
   if (hit) {
     // OLA 9 (CAZA-TRAMPAS clase 3): dos curas. (a) La fecha se dice con
     // su precisión real: si viene de la caída de lineDate, se dice el
@@ -1174,6 +1188,19 @@ function remitPersonOf(c: Ctx, folded: string) {
         break;
       }
     }
+    // OLA P5 · ADJUDICACIÓN DE CANON: el puente de parentesco de la
+    // Ola 67 (KIN_BRIDGE, el de personNamedIn) también resuelve
+    // aquí — «Mom» encuentra a la persona anotada «Mamá». Sin esta
+    // consideración, la puerta inglesa («did I send») oía el verbo
+    // y la cerca, pero la persona se perdía y la familia servía la
+    // negativa nombrada con el libro lleno. El puente es la lista
+    // corta y fija de la familia: solo resuelve cuando el nombre
+    // del libro ES la palabra del puente. (La consideración vive
+    // DESPUÉS de la cadena if/else-if de arriba, no entre sus
+    // ramas: intercalarla rompía la rama de las dos letras de la
+    // Ola 30, medido en el puerto.)
+    const kinAltsP5 = KIN_BRIDGE[f];
+    if (kinAltsP5) for (const a of kinAltsP5) if (wholeAt(a)) consider(p, a.length);
   }
   if (best) return (best as { person: (typeof people)[number] }).person;
   return people.find((p) => foldQ(p.name).split(/\s+/).some((w) => w.length >= 3 && wholeAt(w)));
@@ -2833,7 +2860,16 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
       : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`),
     pieces: [{ label: p.label, minor: total }, ...(partData ? partData.map((d) => ({ label: d.display, minor: d.sum })) : []), ...exclList.map((e, i) => ({ label: L(c.lang, `Fuera de la cuenta: ${e.display}`, `Left out: ${e.display}`), minor: -exclSums[i] })), ...(excAsExcl ? [{ label: L(c.lang, `Fuera de la cuenta: ${excAsExcl.display}`, `Left out: ${excAsExcl.display}`), minor: -excAsExclSum }] : [])],
     note: pool.length === 0
-      ? L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.")
+      ? (() => {
+          // OLA P5: el cero con filtro NOMBRA su ciudadano — «on
+          // groceries» recibía el cero a secas, sin decir bajo qué
+          // nombre se midió (más débil que el miss nombrado en
+          // español). El escaneo del hilo recupera el nombre.
+          const namedCit = effFilter ? frameCitizenIn(c.state, c.names, foldedClean, c.lang) : null;
+          return namedCit
+            ? L(c.lang, `Ninguna línea cae en ese período bajo «${namedCit.display}»: el cero también es la respuesta del libro.`, `No line falls in that period under "${namedCit.display}": the zero is the book's answer too.`)
+            : L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.");
+        })()
       : null,
     source: ["libros.lineas", "historial.stream", "estudio.flujo"], lines: pool.length,
     actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
@@ -12540,7 +12576,7 @@ function answerSingle(
       return f.length >= 3 && new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(folded);
     });
     if ((/(remesa|remittance)/.test(folded) && /(cuando|quien|cuanto|cual|ritmo|patron|pattern|when|who|which|how much|cuesta|costo|margen|comision|fee|cost|margin)/.test(folded))
-      || (personNamed && /(enviado|envie|mande|mandado|he enviado|sent)/.test(folded) && /(cuanto|how much)/.test(folded))) {
+      || (personNamed && /(enviado|envie|mande|mandado|he enviado|sent|send)/.test(folded) && /(cuanto|how much)/.test(folded))) {
       return remesasAnswer(c, folded);
     }
   }

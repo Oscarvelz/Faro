@@ -5875,3 +5875,44 @@ describe("banco · ola P4 (prejuicio) — los tres frentes declarados", () => {
   });
 });
 
+describe("banco · ola P5 (prejuicio) — la puerta inglesa", () => {
+  function libroEN(): LedgerState {
+    let l = createInitial("en", "claro");
+    l.settings.display = "USD";
+    l = addRemitPerson(l, "Mamá", "mama").state;
+    l = addRemitPerson(l, "Bill", "bill").state;
+    l.months[KEY] = { lines: [
+      line({ id: "salE", kind: "income-fixed", amountMinor: 100000, concept: "Salary", bookedOn: `${KEY}-01` }),
+      line({ id: "rentaE", kind: "expense-fixed", amountMinor: 80000, concept: "Renta", categoryId: "f-casa", bookedOn: `${KEY}-03` }),
+      line({ id: "remE", kind: "expense-variable", amountMinor: 17000, concept: "Remesa", categoryId: "f-remesas", subId: "f.remesas.envios", to: "mama", bookedOn: `${KEY}-09` }),
+      line({ id: "remE2", kind: "expense-variable", amountMinor: 5000, concept: "Remesa", categoryId: "f-remesas", subId: "f.remesas.envios", to: "bill", bookedOn: `${KEY}-12` }),
+    ] };
+    return l;
+  }
+  it("el envío con «did I send» y la persona: la puerta oye la forma del «did»", () => {
+    const l = libroEN();
+    const mom = ask(l, "How much did I send Mom?", "en");
+    if (mom.kind !== "answer") assert.fail("debió responder");
+    assert.equal(mom.family, "remesas");
+    assert.ok(mom.verdict.includes("$170.00"), mom.verdict);
+    const bill = ask(l, "How much did I send Bill?", "en");
+    if (bill.kind !== "answer") assert.fail("debió responder");
+    assert.equal(bill.family, "remesas");
+    assert.ok(bill.verdict.includes("$50.00"), bill.verdict);
+  });
+  it("«pay in rent» encuentra la renta pagada: la costura bilingüe en ya-pague", () => {
+    const l = libroEN();
+    const r = ask(l, "How much did I pay in rent?", "en");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "ya-pague");
+    assert.ok(r.verdict.includes("$800.00"), r.verdict);
+    assert.ok(!/don.t find it paid/i.test(r.verdict), r.verdict);
+  });
+  it("el cero con filtro nombra su ciudadano en la nota", () => {
+    const l = libroEN();
+    const r = ask(l, "How much did I spend on groceries?", "en");
+    if (r.kind !== "answer") assert.fail("debió responder");
+    assert.equal(r.family, "historia");
+    assert.ok((r.note ?? "").includes("Groceries"), r.note ?? "");
+  });
+});

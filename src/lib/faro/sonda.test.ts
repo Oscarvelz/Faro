@@ -21,7 +21,14 @@ import type { LedgerState, Line, LineKind } from "./types.ts";
  * quedó cerrada en su parte de anclas — hoy, ayer, antier, el día
  * de la semana y el fin de semana son rangos con su fecha en
  * periodOf —; lo mal formado («el last viernes») sigue declarado
- * abierto, como quedó escrito. */
+ * abierto, como quedó escrito.
+ * CIERRE DE LOS RESTOS (campaña de prejuicio, 2026-11-26): el
+ * resto (a) — «¿cuánto tengo?» a secas — lo cerró la Ola P4
+ * (1.3.480) con casa en el total; los restos (b) y (c) — «how much
+ * did I pay in rent?» y «how much did I send…?» — los cerró la
+ * Ola P5 (1.3.481): la costura bilingüe en ya-pague y el «send»
+ * con el puente de parentesco en remesas. De lo declarado por la
+ * sonda solo queda abierto lo mal formado de la clase 4. */
 
 const KEY = "2026-10";
 const PREV = "2026-09";
