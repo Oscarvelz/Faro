@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.474",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "La exclusión ya oye los dos idiomas", en: "Exclusion now hears both languages" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "La exclusión de tus preguntas ya es bilingüe: «sin la renta», «without the rent», «except the food», «excluding the car» y «minus the fees» restan lo mismo. Antes, con el operador en inglés, la palabra siguiente se volvía el blanco y la respuesta te daba justo la cifra de lo excluido: la cuenta salía invertida.",
+        "Y la exclusión anunciada ahora sí excluye: si tu línea se llama «Renta» y tu subcategoría se llama «Rent», el nombre en cualquiera de los dos idiomas ata la misma línea, la lleve o no puesta la subcategoría.",
+        "Un nombre de persona que también es un mes ya no secuestra el período: «¿cuánto le envié a April en mayo?» responde mayo, porque la preposición marca que April es la persona. Sin preposición, el mes manda como siempre.",
+      ],
+      en: [
+        "Exclusion in your questions is now bilingual: “sin la renta”, “without the rent”, “except the food”, “excluding the car” and “minus the fees” all subtract the same. Before, with the operator in English, the next word became the target and the answer handed you the very figure of what you excluded: the sum came out inverted.",
+        "And an announced exclusion now truly excludes: if your line is called “Renta” and your subcategory is called “Rent”, the name in either language binds the same line, whether or not the line carries the subcategory.",
+        "A person's name that is also a month no longer hijacks the period: “how much did I send to April in May?” answers May, because the preposition marks April as the person. Without the preposition, the month rules as always.",
+      ],
+    },
+  },
+  {
     version: "1.3.473",
     date: "2026-11-26",
     level: "menor",

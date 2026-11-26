@@ -639,7 +639,7 @@ export const QUESTION_BANK: BankFamily[] = [
       es: ["¿Cuánto gasté el último mes en tiendas?", "¿Cuánto gasté esta semana en comida?", "¿Cuánto entró este mes?", "¿Cuánto llevo en gasolina este año?"],
       en: ["How much did I spend last month in stores?", "How much did I spend on food this week?"],
     },
-    answerShape: "La suma de las líneas del período que cumplen el filtro, con el conteo de líneas (la procedencia en miniatura: «de N líneas») y el período dicho en palabras.",
+    answerShape: "La suma de las líneas del período que cumplen el filtro, con el conteo de líneas (la procedencia en miniatura: «de N líneas») y el período dicho en palabras. LA SONDA DEL CODE-SWITCHING (2026-11-25): el operador de exclusión es BILINGÜE (sin, without, except, excluding, minus, con su puente «contar/counting» y los artículos de los dos idiomas) y vive en el ayudante único exclusionIn: antes solo oía «sin» y la palabra tras el operador inglés se volvía el blanco, devolviendo la cifra de lo excluido (la inversión medida en vivo, 4 de 4 formas). El ciudadano excluido se resuelve con la costura bilingüe de citizenByName: el sub se ofrece con su nombre en los dos idiomas y abraza las líneas cuyo concepto es su nombre, lleven o no el sub puesto (la costura de la Ola 51, que filterOf ya tenía).",
     contradiction: "Si el filtro no casa ninguna línea, la respuesta es «$0 — ninguna línea de eso en ese período», que ES una respuesta, no un silencio.",
     silences: ["Sin período ni filtro, «¿cuánto gasté?» a secas es demasiado vago: cae en how o se pide el período."],
   },

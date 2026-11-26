@@ -1977,7 +1977,23 @@ function periodOf(c: Ctx, folded: string): Period {
   // silencio. «¿Cuánto gasté en septiembre?» respondía octubre
   // etiquetado «este mes»: un invento. Ahora: el mes nombrado manda
   // (su ocurrencia más reciente), y «hace N meses» desplaza de verdad.
-  const named = folded.match(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december)\b/);
+  /* LA SONDA DEL CODE-SWITCHING (2026-11-25): el nombre de una
+   * persona que también es un mes (April, Mayo, June) secuestraba
+   * el período: «¿cuánto le envié a April en mayo?» resolvía el
+   * período a ABRIL por la primera coincidencia. La marca de la
+   * persona es su preposición («a April», «to April», «para
+   * April»): una coincidencia de mes reclamada así por una
+   * persona del libro se salta, y manda el siguiente mes dicho.
+   * Sin la preposición, el mes gana como siempre. */
+  const monthPeople = new Set<string>();
+  for (const r of remitByPerson(c.state, c.key).rows) if (r.person) for (const w of foldQ(r.person.name).split(/[^a-z]+/)) if (MONTH_NAMES[w]) monthPeople.add(w);
+  for (const side of ["owed", "owe"] as const) for (const p of peopleOf(c.state, side, c.today)) for (const w of foldQ(p.name).split(/[^a-z]+/)) if (MONTH_NAMES[w]) monthPeople.add(w);
+  let named: RegExpMatchArray | null = null;
+  for (const m of folded.matchAll(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december)\b/g)) {
+    if (monthPeople.has(m[1]) && /(?:\ba|\bto|\bpara)\s$/.test(folded.slice(0, m.index))) continue;
+    named = m;
+    break;
+  }
   if (named) {
     const mm = MONTH_NAMES[named[1]];
     const curY = Number(c.key.slice(0, 4));
@@ -2338,7 +2354,11 @@ function filterOf(c: Ctx, folded: string): ((l: Line) => boolean) | null {
  * rótulo: «la casa» hablada es primero la línea Casa que la partida
  * entera — y el veredicto nombra lo excluido con su cifra, así que
  * la lectura queda a la vista. */
-function citizenByName(state: LedgerState, names: Namer, word: string, pool?: Line[]): { display: string; folded: string; fn: (l: Line) => boolean } | null {
+function otherNamer(state: LedgerState, lang: Lang): Namer {
+  return makeNamer(state.structure, lang === "es" ? "en" : "es");
+}
+
+function citizenByName(state: LedgerState, names: Namer, word: string, pool?: Line[], namesOther?: Namer): { display: string; folded: string; fn: (l: Line) => boolean } | null {
   const seg = foldQ(word).trim();
   if (seg.length < 3) return null;
   const cands: Array<{ display: string; folded: string; fn: (l: Line) => boolean }> = [];
@@ -2346,8 +2366,24 @@ function citizenByName(state: LedgerState, names: Namer, word: string, pool?: Li
     if (l.concept) cands.push({ display: l.concept, folded: foldQ(l.concept), fn: (x) => x.concept === l.concept });
   }
   for (const cat of state.structure.categories) {
-    for (const s of cat.subs) cands.push({ display: names.sub(s.id), folded: foldQ(names.sub(s.id)), fn: (x) => x.subId === s.id });
-    cands.push({ display: names.cat(cat.id), folded: foldQ(names.cat(cat.id)), fn: (x) => x.categoryId === cat.id });
+    for (const s of cat.subs) {
+      /* LA COSTURA BILINGÜE TAMBIÉN AQUÍ (la Ola 51 la puso en
+       * filterOf y este escaneo quedó sin ella; la sonda del
+       * code-switching lo midió): el sub se ofrece con su nombre
+       * en los dos idiomas, y su filtro ABRAZA las líneas cuyo
+       * concepto ES su nombre en cualquiera de los dos — una
+       * línea llamada «Renta» es la renta la lleve o no el sub
+       * puesto. Sin el abrazo, «without rent» resolvía el sub
+       * «Rent» y excluía cero: la exclusión se anunciaba y no
+       * excluía nada. (En canon el hilo llega como QUINTO
+       * argumento: el cuarto es la alberca del desempate de la
+       * Ola 35, que se queda.) */
+      const folds = new Set([foldQ(names.sub(s.id)), ...(namesOther ? [foldQ(namesOther.sub(s.id))] : [])]);
+      const fn = (x: Line) => x.subId === s.id || (!!x.concept && folds.has(foldQ(x.concept)));
+      for (const f of folds) cands.push({ display: names.sub(s.id), folded: f, fn });
+    }
+    const catFolds = new Set([foldQ(names.cat(cat.id)), ...(namesOther ? [foldQ(namesOther.cat(cat.id))] : [])]);
+    for (const f of catFolds) cands.push({ display: names.cat(cat.id), folded: f, fn: (x) => x.categoryId === cat.id });
   }
   for (const p of state.structure.purchases) cands.push({ display: names.purchase(p.id), folded: foldQ(names.purchase(p.id)), fn: (x) => x.kind === "purchase" && x.categoryId === p.id });
   for (const item of state.structure.catalog) cands.push({ display: names.catalog(item.id), folded: foldQ(names.catalog(item.id)), fn: (x) => x.storeId === item.id });
@@ -2379,10 +2415,24 @@ function citizenByName(state: LedgerState, names: Namer, word: string, pool?: Li
 /** La exclusión hablada: «sin la casa», «sin el carro» — el segmento
  * tras «sin» resuelto a un ciudadano del libro. Sin ciudadano, no hay
  * exclusión (un «sin» suelto no excluye nada). */
-function exclusionIn(state: LedgerState, names: Namer, folded: string, pool?: Line[]): { display: string; folded: string; fn: (l: Line) => boolean; strip: string } | null {
-  const m = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
+function exclusionIn(state: LedgerState, names: Namer, folded: string, pool?: Line[], namesOther?: Namer): { display: string; folded: string; fn: (l: Line) => boolean; strip: string } | null {
+  /* LA SONDA DEL CODE-SWITCHING (2026-11-25) midió la clase de
+   * mayor severidad: el operador de exclusión solo oía «sin», y
+   * con «without», «except», «excluding» o «minus» la palabra
+   * siguiente se volvía el BLANCO de la pregunta: «¿cuánto gasté
+   * en octubre without contar la renta?» respondía $800, la renta
+   * misma, cuando lo correcto era $430. Una exclusión no oída
+   * INVIERTE la cifra. El operador es bilingüe desde entonces,
+   * con su puente de conteo («sin contar», «without counting»)
+   * y sus artículos de los dos idiomas; el ciudadano excluido se
+   * resuelve contra el libro igual que antes. (En canon el hilo
+   * del otro idioma llega como quinto argumento: el cuarto es la
+   * alberca del desempate de la Ola 35, que se queda; y el oído
+   * inglés exclusionWithoutIn de la misma ola sigue vivo en su
+   * asiento de historia, ya como segunda puerta del mismo hecho.) */
+  const m = /\b(?:sin|without|excepto|except|excluding|minus) (?:(?:contar|contando|counting) )?(?:for )?(?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(folded);
   if (!m) return null;
-  const hit = citizenByName(state, names, m[1], pool);
+  const hit = citizenByName(state, names, m[1], pool, namesOther);
   if (!hit) return null;
   const at = m[0].indexOf(hit.folded);
   return { ...hit, strip: at >= 0 ? m[0].slice(0, at + hit.folded.length) : m[0] };
@@ -2504,8 +2554,10 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   // filtro — el desempate del ciudadano (citizenByName) la consulta
   // para no atar a un homónimo que en este período no excluye nada.
   const tiePool = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings"));
-  const excl = exclusionIn(c.state, c.names, folded, tiePool)
+  const excl = exclusionIn(c.state, c.names, folded, tiePool, otherNamer(c.state, c.lang))
     // OLA 35 (Q35-1-Cara): el oído inglés de la puerta fresca.
+    // (Desde la sonda del code-switching, exclusionIn ya oye el
+    // inglés por sí mismo; este oído queda como segunda puerta.)
     ?? exclusionWithoutIn(c.state, c.names, folded, tiePool);
   // OLA 34 (Familia 2, Q34-2): LA EXCLUSIÓN FRESCA QUE NO RESUELVE
   // TAMBIÉN MUERE NOMBRADA — el seguimiento con «sin Juan»
@@ -2558,7 +2610,7 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   if (excl) {
     exclList.push(excl);
     foldedClean = folded.replace(excl.strip, " ");
-    const second = exclusionIn(c.state, c.names, foldedClean, tiePool) ?? exclusionWithoutIn(c.state, c.names, foldedClean, tiePool);
+    const second = exclusionIn(c.state, c.names, foldedClean, tiePool, otherNamer(c.state, c.lang)) ?? exclusionWithoutIn(c.state, c.names, foldedClean, tiePool);
     if (second) {
       // La cláusula se retira siempre del texto del filtro; el
       // ciudadano repetido no se aplica dos veces.
@@ -6489,12 +6541,11 @@ function repartoLibroAnswer(c: Ctx, folded: string): BankResult | null {
   let citizen: { display: string; folded: string; fn: (l: Line) => boolean } | null = null;
   for (const w of folded.split(/[^a-z0-9]+/).filter((x) => x.length >= 4)) {
     if (/^(cuanto|puso|cada|uno|quien|gastos|gasto|compartidos|compartido|pague|todos|toca|eramos|somos|fuimos|entre|reparto|repartir|share|shared|expenses|each)$/.test(w)) continue;
-    // ADJUDICACIÓN DE CANON (puerto de la Ola 71): el citizenByName
-    // de canon lleva su firma de tres argumentos — el abrazo
-    // bilingüe (otherNamer, el cuarto argumento de la copia) llega
-    // con la sonda del code-switching, que además actualiza la
-    // llamada de la Ola 68; aquí no se adelanta.
-    citizen = citizenByName(c.state, c.names, w);
+    // ADJUDICACIÓN DE CANON (puerto de la Ola 71, cerrada con la
+    // sonda del code-switching): el abrazo bilingüe llegó con la
+    // sonda — en canon el hilo va como QUINTO argumento, porque el
+    // cuarto es la alberca del desempate de la Ola 35.
+    citizen = citizenByName(c.state, c.names, w, undefined, otherNamer(c.state, c.lang));
     if (citizen) break;
   }
   const src = ["libros.lineas"];
@@ -6759,7 +6810,7 @@ function cargoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   let citizen: { display: string; folded: string; fn: (l: Line) => boolean } | null = null;
   for (const w of folded.split(/[^a-z0-9]+/).filter((x) => x.length >= 4)) {
     if (/^(cargo|cargos|cobro|cobros|charge|charges|charged|veces|twice|donde|where|cuenta|account|tarjeta|card)$/.test(w)) continue;
-    citizen = citizenByName(c.state, c.names, w);
+    citizen = citizenByName(c.state, c.names, w, undefined, otherNamer(c.state, c.lang));
     if (citizen) break;
   }
   let hits: Hit[] = [];
@@ -6884,7 +6935,7 @@ function identidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
     if (/(patrimonio|valor neto|net worth|puntaje|credit score|score de credito)/.test(folded)) return null;
     if (!/^[¿¡\s]*(que es|what is)\b/.test(folded)) return null;
     for (const w of folded.split(/[^a-z0-9]+/).filter((x) => x.length >= 4)) {
-      named = citizenByName(c.state, c.names, w);
+      named = citizenByName(c.state, c.names, w, undefined, otherNamer(c.state, c.lang));
       if (named) break;
     }
     if (!named) return null;
@@ -6905,7 +6956,7 @@ function identidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   } else {
     const words = folded.split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
     for (const w of words) {
-      const ct = citizenByName(c.state, c.names, w);
+      const ct = citizenByName(c.state, c.names, w, undefined, otherNamer(c.state, c.lang));
       if (ct) { hits = all.filter((h) => ct.fn(h.l)); if (hits.length) break; }
     }
   }
@@ -10171,8 +10222,8 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
   const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
   if (f.split(/\s+/).length > 7 && !/^no\b/.test(f)) return null;
   const p2 = periodPhraseIn(f);
-  const exclM = /\bsin (?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(f);
-  const excl = exclM ? citizenByName(state, names, exclM[1]) : null;
+  const exclM = /\b(?:sin|without|excepto|except|excluding|minus) (?:(?:contar|contando|counting) )?(?:for )?(?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(f);
+  const excl = exclM ? citizenByName(state, names, exclM[1], undefined, otherNamer(state, lang)) : null;
   if (exclM && !excl) return null;
   if (excl && frame.family !== "historia") return null;
   // OLA 33 (Familia 1): la detección de la persona se apoya en el
