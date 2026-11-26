@@ -5161,3 +5161,105 @@ describe("banco · ola 68: el cargo suelto (el comercio, el no reconocido, el do
     if (r2.kind === "answer") assert.notEqual(r2.family, "cargo");
   });
 });
+
+describe("banco · ola 69: la tasa de ahorro contra la referencia (la propia y la publicada)", () => {
+  function libroTasa69(): LedgerState {
+    const ledger = createInitial("es", "oscuro");
+    const mk = (key: string, saved: number): Line[] => [
+      line({ id: `sal-${key}`, kind: "income-fixed" as LineKind, concept: "Salario", amountMinor: 100000, bookedOn: `${key}-05`, monthKey: key }),
+      line({ id: `ah-${key}`, kind: "expense-fixed" as LineKind, concept: "Apartado al colchón", amountMinor: saved, categoryId: "f-ahorro", subId: "f.ahorro.colchon", fund: "aparte", bookedOn: `${key}-06`, monthKey: key }),
+      line({ id: `sup-${key}`, kind: "expense-variable" as LineKind, concept: "Súper", amountMinor: 30000, categoryId: "f-alimentos", bookedOn: `${key}-12`, monthKey: key }),
+    ];
+    ledger.months["2026-08"] = { lines: mk("2026-08", 10000) };
+    ledger.months["2026-09"] = { lines: mk("2026-09", 15000) };
+    ledger.months[KEY] = { lines: mk(KEY, 20000) };
+    ledger.settings.display = "USD";
+    return ledger;
+  }
+
+  it("la tasa desnuda: «¿Cuál es mi tasa de ahorro?» es el 20% de este mes, con su derivación", () => {
+    const r = ask(libroTasa69(), "¿Cuál es mi tasa de ahorro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "tasa");
+    assert.ok(r.verdict.includes("20%"), r.verdict);
+    assert.ok(r.verdict.includes("$200.00") && r.verdict.includes("$1,000.00"), r.verdict);
+  });
+
+  it("las dos referencias, en su orden: el promedio propio (15%) primero y la regla publicada nombrada después", () => {
+    const r = ask(libroTasa69(), "¿Cuál es mi tasa de ahorro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.ok(r.verdict.includes("15%"), r.verdict);
+    assert.ok(r.verdict.includes("50·30·20"), r.verdict);
+    assert.ok(r.verdict.indexOf("promedio") < r.verdict.indexOf("50·30·20"), r.verdict);
+    assert.ok(r.verdict.includes("Subió desde el 15%"), r.verdict);
+  });
+
+  it("el porcentaje desviado vuelve a su casa: «¿Qué porcentaje de mi ingreso ahorro?» es tasa, no promedio", () => {
+    const r = ask(libroTasa69(), "¿Qué porcentaje de mi ingreso ahorro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "tasa");
+  });
+
+  it("lo suficiente se juzga con la tasa: «¿Estoy ahorrando lo suficiente?» y «¿Ahorro más que el mes pasado?»", () => {
+    const r1 = ask(libroTasa69(), "¿Estoy ahorrando lo suficiente?");
+    assert.equal(r1.kind, "answer");
+    if (r1.kind === "answer") assert.equal(r1.family, "tasa");
+    const r2 = ask(libroTasa69(), "¿Ahorro más que el mes pasado?");
+    assert.equal(r2.kind, "answer");
+    if (r2.kind === "answer") {
+      assert.equal(r2.family, "tasa");
+      assert.ok(r2.verdict.includes("Subió desde el 15%"), r2.verdict);
+    }
+  });
+
+  it("en inglés: «What is my savings rate?» y «What percentage of my income do I save?»", () => {
+    const l1 = libroTasa69();
+    const r1 = answerBankQuestion(l1, KEY, "en", makeNamer(l1.structure, "en"), "What is my savings rate?", ctx(l1, "en"), TODAY);
+    assert.equal(r1.kind, "answer");
+    if (r1.kind === "answer") {
+      assert.equal(r1.family, "tasa");
+      assert.ok(r1.verdict.includes("20%"), r1.verdict);
+    }
+    const l2 = libroTasa69();
+    const r2 = answerBankQuestion(l2, KEY, "en", makeNamer(l2.structure, "en"), "What percentage of my income do I save?", ctx(l2, "en"), TODAY);
+    assert.equal(r2.kind, "answer");
+    if (r2.kind === "answer") assert.equal(r2.family, "tasa");
+  });
+
+  it("sin ingreso anotado no hay tasa: se dice, sin dividir entre nada", () => {
+    const ledger = createInitial("es", "oscuro");
+    ledger.months[KEY] = { lines: [line({ id: "sup-x", kind: "expense-variable" as LineKind, concept: "Súper", amountMinor: 30000, categoryId: "f-alimentos", bookedOn: "2026-10-12" })] };
+    const r = ask(ledger, "¿Cuál es mi tasa de ahorro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "tasa");
+    assert.ok(r.verdict.includes("No hay tasa que medir"), r.verdict);
+  });
+
+  it("los guardianes: «¿Cuánto debería ahorrar?» sigue siendo ahorros y la regla sigue siendo regla", () => {
+    const ledger = libroTasa69();
+    const r1 = ask(ledger, "¿Cuánto debería ahorrar?");
+    assert.equal(r1.kind, "answer");
+    if (r1.kind === "answer") assert.equal(r1.family, "ahorros");
+    const r2 = ask(ledger, "¿Estoy dentro de la regla 50 30 20?");
+    assert.equal(r2.kind, "answer");
+    if (r2.kind === "answer") assert.equal(r2.family, "regla");
+  });
+
+  it("LA ADJUDICACIÓN DE CANON: con guía propia en el libro, la segunda referencia es la guía del usuario, no la regla publicada", () => {
+    const ledger = libroTasa69();
+    ledger.settings.guideNeedsPct = 60;
+    ledger.settings.guideWantsPct = 25;
+    ledger.settings.guideSavePct = 15;
+    const r = ask(ledger, "¿Cuál es mi tasa de ahorro?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "tasa");
+    assert.ok(r.verdict.includes("Contra tu guía 60·25·15"), r.verdict);
+    assert.ok(!r.verdict.includes("50·30·20"), r.verdict);
+    assert.ok(r.verdict.includes("estás en esa marca o por encima"), r.verdict);
+  });
+});

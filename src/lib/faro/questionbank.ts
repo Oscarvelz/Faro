@@ -828,6 +828,21 @@ export const QUESTION_BANK: BankFamily[] = [
     silences: ["Sin monto, comercio ni nombre que case con el libro, se dice que no se encuentra y se pide el dato exacto.", "La fuente (cuenta o tarjeta) solo se nombra si la línea la trae anotada: si no, se dice que el libro no lo guarda."],
   },
   {
+    id: "tasa",
+    name: { es: "La tasa de ahorro, contra la referencia", en: "The savings rate, against the reference" },
+    cap: { es: "cuál es tu tasa de ahorro y cómo va contra tu propio promedio y contra la guía, este mes o en tu último mes con ingreso", en: "what your savings rate is and how it stands against your own average and against the guide, this month or in your last month with income" },
+    status: "viva",
+    source: ["ahorros.mes", "estudio.regla"],
+    axes: ["la vara (la propia medida × la regla publicada) × el período (este mes × el promedio medido)"],
+    canonical: {
+      es: ["¿Cuál es mi tasa de ahorro?", "¿Qué porcentaje de mi ingreso ahorro?", "¿Estoy ahorrando lo suficiente?", "¿Ahorro más que el mes pasado?"],
+      en: ["What is my savings rate?", "What percentage of my income do I save?", "Am I saving enough?"],
+    },
+    answerShape: "OLA 69 (el plan de los grandes, con el respaldo del estudio académico): la tasa es lo apartado entre lo que entró, con su derivación en piezas, y se juzga contra dos referencias en orden: primero la propia (el promedio medido del usuario) y después la referencia de la guía, nombrada como referencia y nunca como sentencia. La tendencia contra el mes anterior se dice cuando existe. «¿Cuánto debería ahorrar?» sigue siendo de ahorros: su vara es la meta de colchón de Ajustes, no la tasa. ADJUDICACIÓN DE CANON (1.3.464): la segunda referencia se lee de la guía del libro (guideOf) — con guía propia, la referencia es la suya, nombrada como suya; la regla publicada 50·30·20 solo nombra la referencia cuando el libro no trae guía propia.",
+    contradiction: "La regla publicada no manda sobre la vara del usuario: si las dos referencias discrepan, la respuesta las presenta en su orden y la que manda es la propia.",
+    silences: ["Sin ingreso anotado en ningún mes no hay tasa: se dice, sin dividir entre nada.", "La tasa es del apartado anotado, no del residuo del mes: lo que el mes dejó libre sin apartar no cuenta como ahorro."],
+  },
+  {
     id: "seguimiento",
     name: { es: "Seguimiento: la misma pregunta, un eje cambiado", en: "Follow-up: same question, one axis changed" },
     cap: { es: "seguir una respuesta cambiando un solo eje — otro mes, otra cuenta", en: "following up on an answer by changing one axis — another month, another account" },

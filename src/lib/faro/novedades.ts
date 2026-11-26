@@ -40,6 +40,27 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.464",
+    date: "2026-11-26",
+    level: "grande",
+    title: { es: "Tu tasa de ahorro, contra la referencia", en: "Your savings rate, against the reference" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Pregunta «¿cuál es mi tasa de ahorro?» y el Asesor la mide de tu libro: lo apartado entre lo que entró, con su derivación a la vista.",
+        "La tasa se juzga contra dos referencias, en orden: primero tu propio promedio medido, y después la guía — la tuya si fijaste una en tu libro; si no, la regla publicada 50·30·20, nombrada como referencia y nunca como sentencia.",
+        "También responde «¿qué porcentaje de mi ingreso ahorro?» y «¿estoy ahorrando lo suficiente?», y dice la tendencia contra el mes anterior cuando existe.",
+        "Sin ingreso anotado no inventa porcentajes: dice que no hay tasa que medir.",
+      ],
+      en: [
+        "Ask “What is my savings rate?” and the Advisor measures it from your book: what you set aside divided by what came in, with the working shown.",
+        "The rate is judged against two references, in order: first your own measured average, then the guide — yours if you set one in your book; if not, the published 50·30·20 rule, named as a reference and never as a sentence.",
+        "It also answers “What percentage of my income do I save?” and “Am I saving enough?”, and tells the trend against the month before when there is one.",
+        "With no income recorded it invents no percentages: it says there's no rate to measure.",
+      ],
+    },
+  },
+  {
     version: "1.3.463",
     date: "2026-11-26",
     level: "menor",

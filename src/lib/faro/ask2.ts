@@ -84,7 +84,7 @@ export type BankFamilyId =
   | "deudas" | "confirmacion" | "sintesis"
   | "promedio" | "relator" | "frecuencia" | "precio-tiempo" | "regla"
   | "simulador" | "estacionalidad" | "reparto" | "aprendizaje"
-  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion" | "seguro" | "cargo";
+  | "porque" | "falta" | "series" | "factibilidad" | "ingreso" | "deriva" | "ausencia" | "identidad" | "total" | "figurada" | "proyeccion" | "seguro" | "cargo" | "tasa";
 
 export type BankPiece = { label: string; minor: number };
 /* OLA 27 · EL GRAFO QUE EXPLICA (investigación II, mecanismos #1 y
@@ -7461,6 +7461,75 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
  * anotados), nunca sobre el mes en curso disfrazado, y las partes
  * se dicen en frecuencias naturales, con su denominador nombrado
  * («de cada $100 que ganas…»), como manda la batería de utilidad. */
+/** OLA 69 · LA TASA CONTRA LA REFERENCIA (el plan de los grandes,
+ * confirmado por el estudio académico: el ahorro es dominio con
+ * evidencia y su juicio pide una vara): la tasa de ahorro (lo
+ * apartado entre lo que entró) se responde con su derivación y se
+ * juzga contra DOS referencias, en este orden: primero la propia
+ * (el promedio medido del usuario, su vara interna) y después la
+ * referencia de la guía. La tasa es del apartado anotado, no del
+ * residuo: apartar es un acto (la doctrina de ahorros). Sin
+ * ingreso anotado no hay tasa: dividir entre nada no se disfraza.
+ * ADJUDICACIÓN DE CANON (puerto 1.3.464): la segunda referencia se
+ * lee de LA GUÍA DEL LIBRO (guideOf, la misma de la familia regla
+ * desde la 1.3.422) — si el libro trae su guía propia, esa es la
+ * referencia, nombrada como suya («Contra tu guía 60·25·15»); la
+ * regla publicada 50·30·20 solo nombra la referencia cuando el
+ * libro no trae guía propia. CONSISTENCIA: la misma vara en
+ * Estudio y en el Asesor. */
+function tasaAhorroAnswer(c: Ctx, folded: string): BankResult | null {
+  const rateVoice = /(tasa de ahorro|savings rate|mi tasa de ahorro|my savings rate)/.test(folded);
+  const pctVoice = /(porcentaje|por ciento|percent)/.test(folded) && /(ahorr|sav)/.test(folded) && /(ingreso|income|gano|earn|sueldo|salary)/.test(folded);
+  const enoughVoice = /(ahorrando lo suficiente|ahorro lo suficiente|ahorrar lo suficiente|saving enough|ahorro (mas|menos) que|ahorre (mas|menos)|save (more|less) than|saving (more|less) than|ahorro mas|ahorro menos)/.test(folded);
+  if (!rateVoice && !pctVoice && !enoughVoice) return null;
+  const monthKeys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
+  const savInMonth = (key: string) => (c.state.months[key]?.lines ?? []).filter((l) => l.active && roleOf(c.state, l.categoryId) === "savings").reduce((a, l) => a + view(c, l), 0);
+  const incInMonth = (key: string) => summarize(c.state, key, c.lang).income;
+  const pctOf = (sav: number, inc: number) => Math.round((sav / inc) * 1000) / 10;
+  const fmtPct = (p: number) => (Number.isInteger(p) ? `${p}%` : `${p.toFixed(1)}%`);
+  const incKeys = monthKeys.filter((k) => incInMonth(k) > 0);
+  const src = ["ahorros.mes", "estudio.regla"];
+  const door = reportDoor(c, "estudio.regla", "Ver la regla en Estudio", "See the rule in Study");
+  if (!incKeys.length) {
+    return {
+      kind: "answer", family: "tasa",
+      verdict: L(c.lang, "No hay tasa que medir: en tu libro no consta ingreso anotado en ningún mes, y la tasa es lo apartado entre lo que entró. Sin denominador, cualquier porcentaje sería inventado.", "There's no rate to measure: your book has no income recorded in any month, and the rate is what you set aside divided by what came in. With no denominator, any percentage would be invented."),
+      pieces: [], note: null, source: src, lines: 0,
+    };
+  }
+  const headKey = incKeys.includes(c.key) ? c.key : incKeys[incKeys.length - 1];
+  const headSav = savInMonth(headKey);
+  const headInc = incInMonth(headKey);
+  const headRate = pctOf(headSav, headInc);
+  const totSav = incKeys.reduce((a, k) => a + savInMonth(k), 0);
+  const totInc = incKeys.reduce((a, k) => a + incInMonth(k), 0);
+  const avgRate = pctOf(totSav, totInc);
+  const prevKey = incKeys.filter((k) => k < headKey).pop();
+  const prevRate = prevKey ? pctOf(savInMonth(prevKey), incInMonth(prevKey)) : null;
+  const headWhen = headKey === c.key
+    ? L(c.lang, "Este mes", "This month")
+    : L(c.lang, `En ${headKey}, tu último mes con ingreso anotado`, `In ${headKey}, your last month with recorded income`);
+  const trend = prevRate === null ? ""
+    : prevRate === headRate ? L(c.lang, ` Es la misma tasa que el mes anterior (${fmtPct(prevRate)}).`, ` It's the same rate as the month before (${fmtPct(prevRate)}).`)
+      : headRate > prevRate ? L(c.lang, ` Subió desde el ${fmtPct(prevRate)} del mes anterior.`, ` It's up from ${fmtPct(prevRate)} the month before.`)
+        : L(c.lang, ` Bajó desde el ${fmtPct(prevRate)} del mes anterior.`, ` It's down from ${fmtPct(prevRate)} the month before.`);
+  const ownRef = L(c.lang, `Contra tu propia referencia, tu promedio medido de ${incKeys.length} mes${incKeys.length === 1 ? "" : "es"} con ingreso, que es el ${fmtPct(avgRate)}: ${headRate > avgRate ? "este mes vas por encima de tu promedio" : headRate < avgRate ? "este mes vas por debajo de tu promedio" : "este mes vas justo en tu promedio"}.`, `Against your own reference, your measured average over ${incKeys.length} month${incKeys.length === 1 ? "" : "s"} with income, which is ${fmtPct(avgRate)}: ${headRate > avgRate ? "this month you're above your average" : headRate < avgRate ? "this month you're below your average" : "this month you're right at your average"}.`);
+  const guide = guideOf(c.state.settings);
+  const pubRef = guide.custom
+    ? L(c.lang, `Contra tu guía ${guide.needs}·${guide.wants}·${guide.save}, la que fijaste en tu libro, que pone el ahorro en el ${guide.save}% del ingreso: ${headRate >= guide.save ? "estás en esa marca o por encima" : "estás por debajo de esa marca"}. Es tu vara puesta en números: la que manda es la tuya.`, `Against your ${guide.needs}·${guide.wants}·${guide.save} guide, the one you set in your book, which puts saving at ${guide.save}% of income: ${headRate >= guide.save ? "you're at that mark or above it" : "you're below that mark"}. It's your yardstick in numbers: the one that rules is your own.`)
+    : L(c.lang, `Contra la referencia publicada, la regla 50·30·20, que pone el ahorro en el 20% del ingreso: ${headRate >= 20 ? "estás en esa marca o por encima" : "estás por debajo de esa marca"}. La regla es una referencia, no una sentencia: la vara que manda es la tuya.`, `Against the published reference, the 50·30·20 rule, which puts saving at 20% of income: ${headRate >= 20 ? "you're at that mark or above it" : "you're below that mark"}. The rule is a reference, not a sentence: the yardstick that rules is your own.`);
+  return {
+    kind: "answer", family: "tasa",
+    verdict: L(c.lang, `${headWhen} apartaste ${c.money(headSav)} de ${c.money(headInc)} que entraron: tu tasa de ahorro es el ${fmtPct(headRate)}.${trend} ${ownRef} ${pubRef}`, `${headWhen} you set aside ${c.money(headSav)} of the ${c.money(headInc)} that came in: your savings rate is ${fmtPct(headRate)}.${trend} ${ownRef} ${pubRef}`),
+    pieces: [
+      { label: L(c.lang, "Apartado", "Set aside"), minor: headSav },
+      { label: L(c.lang, "Entró", "Came in"), minor: headInc },
+    ],
+    note: L(c.lang, "La tasa se mide sobre el apartado anotado en tus líneas de ahorro, no sobre lo que el mes dejó libre: apartar es un acto, no un residuo.", "The rate is measured on the set-aside recorded in your savings lines, not on what the month left over: setting aside is an act, not a residue."),
+    source: src, lines: 0, actions: door,
+  };
+}
+
 function costoVidaAnswer(c: Ctx, folded: string): BankResult | null {
   const keys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
   if (!keys.length) return null;
@@ -10758,6 +10827,19 @@ function answerSingle(
   const cap = capacidadAnswer(c, folded, rawR);
   if (cap) return cap;
 
+  // 0a1 · LA TASA (ola 69): la tasa de ahorro y su juicio se juzgan
+  // antes que el costo de vida — «¿qué porcentaje de mi ingreso
+  // ahorro?» es la tasa preguntada por su nombre técnico, y el
+  // costo de vida (0a2) la leía como la parte de un nombre que no
+  // trae y respondía que bajo ese nombre no se mueve dinero. La
+  // parte de un nombre SÍ nombrado («¿qué porcentaje de mi
+  // ingreso se va en el súper?») no trae voz de ahorro y sigue
+  // siendo del costo de vida, intacta.
+  {
+    const ts = tasaAhorroAnswer(c, folded);
+    if (ts) return ts;
+  }
+
   // 0a2 · OLA 42 · EL COSTO DE VIDA Y LAS PROPORCIONES: voces
   // estrechas y cercadas (vivir, la parte de lo que gano, cuánto
   // cuesta X al mes, ¿me alcanza con lo que gano?) — antes que
@@ -11448,6 +11530,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(antes o despues|que (fue|paso) primero|which came first|before or after)/, "historia"],
     [/(cuesta|cuestan|costo|margen|comision).{0,24}(remesa|envio|enviar|mandar)|(remesa|envio).{0,24}(cuesta|cuestan|costo|margen|comision)/, "remesas"],
     [/(que (me )?falta|que no aparece|what('s| is) missing|anything missing|what (hasn|haven)|shown up)/, "ausencia"],
+    [/(tasa de ahorro|savings rate|ahorrando lo suficiente|saving enough)/, "tasa"],
     [/(no (lo |la )?reconozco|no reconozco|don't recogn|do not recogn|cobraron dos|charged twice|de donde (salio|vino) (este|ese|el|un) cargo|de que es el cargo|que cargo es|cual (fue|es) el cargo)/, "cargo"],
     [/(que es (este|ese|esta|un|una)|what is (this|that))/, "identidad"],
     [/(como va (el|la|mi|tu)|como esta (el|la|mi) (prestamo|deuda|tarjeta|cuenta|saldo)|estado de|how is|status of)/, "ya-pague"],
