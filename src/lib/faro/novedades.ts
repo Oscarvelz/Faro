@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.459",
+    date: "2026-11-25",
+    level: "grande",
+    title: { es: "El relato, con su tiempo", en: "Your story, with its time" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "La confirmación de tu relato ahora se lee como las tarjetas: cada cosa en su propia línea y el monto separado con dos puntos — «Gasto: Comida: $200.00» — sin textos corridos cosidos con guiones.",
+        "Cada parte de tu relato trae su propia fecha: «el mes pasado», «antier», «hace 2 días», «la semana pasada» — y el número del tiempo nunca se asienta como dinero: el 2 de «hace 2 días» ya no nace como un gasto de $2. Lo mismo en inglés: «2 days ago», «last week».",
+        "Lo que cuentas en futuro no se asienta como si ya hubiera pasado: «mañana pago 60 de internet» se programa una sola vez, con su fecha, y «añadí 300 a mi banco» se oye como lo que es: dinero que entra.",
+      ],
+      en: [
+        "Your story's confirmation now reads like the cards: each thing on its own line and the amount set off with a colon — “Expense: Food: $200.00” — no more run-on text stitched with dashes.",
+        "Each part of your story carries its own date: “last month”, “day before yesterday”, “2 days ago”, “last week” — and the time's number is never posted as money: the 2 in “2 days ago” no longer becomes a $2 expense. The same in Spanish: “hace 2 días”, “la semana pasada”.",
+        "What you tell in the future is not posted as if it had already happened: “tomorrow I'll pay 60 for internet” is scheduled once, with its date, and “I added 300 to my bank” is heard for what it is: money coming in.",
+      ],
+    },
+  },
+  {
     version: "1.3.458",
     date: "2026-11-25",
     level: "menor",

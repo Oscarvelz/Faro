@@ -449,3 +449,93 @@ describe("relato · la campaña de mutaciones de la rama (2026-11-25)", () => {
     assert.equal(r.drafts[0].concept, "Tajadas");
   });
 });
+
+describe("relato · el punto y el temporizador (caza de Oscar, 2026-11-25)", () => {
+  it("el espécimen exacto de Oscar: dos operaciones, cada una con su fecha, sin fantasmas", () => {
+    const r = relato(fixture(), "Gasté $200 en comida el mes pasado. Y añadí 300 a mi banco. The chase. Hace 2 días.");
+    if (r.kind !== "drafts") assert.fail(`debió dar borradores, dio ${r.kind}`);
+    assert.equal(r.drafts.length, 2);
+    const [g, i] = r.drafts;
+    assert.equal(g.op, "gasto");
+    assert.equal(g.concept, "Comida");
+    assert.equal(g.amountMinor, 20000);
+    assert.equal(g.date, "2026-09-22"); // el mes pasado, mismo día
+    assert.equal(i.op, "ingreso");
+    assert.equal(i.amountMinor, 30000);
+    assert.equal(i.concept, "Banco"); // el destino nombra el ingreso; la «Y» inicial jamás es concepto (enmienda de canon 1.3.459, cazada en el banco vivo)
+    assert.equal(i.date, "2026-10-20"); // el «Hace 2 días.» suelto cierra sobre el último sin ancla
+    assert.ok(i.to && i.to.kind === "acct", "el destino es la cuenta");
+    assert.ok(!r.echo.includes("—"), r.echo); // sin guiones largos
+    assert.ok(!r.echo.includes("$2.00"), r.echo); // el 2 de «hace 2 días» no es dinero
+  });
+
+  it("el número del tiempo jamás es dinero: «hace 2 días» no deja un gasto de $2", () => {
+    const r = relato(fixture(), "gasté 200 en comida hace 2 días");
+    if (r.kind !== "drafts") assert.fail("debió dar borradores");
+    assert.equal(r.drafts.length, 1);
+    assert.equal(r.drafts[0].amountMinor, 20000);
+    assert.equal(r.drafts[0].date, "2026-10-20");
+    assert.equal(r.drafts[0].concept, "Comida");
+  });
+
+  it("los anclas del pasado atan por cláusula, en español y en inglés", () => {
+    const a = relato(fixture(), "pagué la luz 45 antier");
+    if (a.kind !== "drafts") assert.fail("antier debió oírse");
+    assert.equal(a.drafts[0].date, "2026-10-20");
+    const b = relato(fixture(), "gasté 100 en el súper la semana pasada");
+    if (b.kind !== "drafts") assert.fail("semana pasada debió oírse");
+    assert.equal(b.drafts[0].date, "2026-10-15");
+    assert.equal(b.drafts[0].concept, "Super");
+    const c = relato(fixture(), "I paid 45 for the light 2 days ago", "en");
+    if (c.kind !== "drafts") assert.fail("2 days ago debió oírse");
+    assert.equal(c.drafts[0].date, "2026-10-20");
+    const d = relato(fixture(), "I spent 100 at the supermarket last week", "en");
+    if (d.kind !== "drafts") assert.fail("last week debió oírse");
+    assert.equal(d.drafts[0].date, "2026-10-15");
+    const e = relato(fixture(), "pagué la luz 45 el mes pasado");
+    if (e.kind !== "drafts") assert.fail("mes pasado debió oírse");
+    assert.equal(e.drafts[0].date, "2026-09-22");
+    assert.equal(e.drafts[0].concept, "Luz");
+  });
+
+  it("añadir a la cuenta es dinero que entra, no un gasto", () => {
+    const r = relato(fixture(), "añadí 300 a mi banco");
+    if (r.kind !== "drafts") assert.fail("debió dar borradores");
+    assert.equal(r.drafts[0].op, "ingreso");
+    assert.equal(r.drafts[0].amountMinor, 30000);
+    const en = relato(fixture(), "I added 300 to my bank", "en");
+    if (en.kind !== "drafts") assert.fail("added debió oírse");
+    assert.equal(en.drafts[0].op, "ingreso");
+  });
+
+  it("el futuro no se asienta como pasado: su casa es el programa, de una sola vez y con su fecha", () => {
+    const r = relato(fixture(), "mañana pago 60 de internet");
+    assert.equal(r.kind, "unknown");
+    const p = programa(fixture(), "mañana pago 60 de internet");
+    if (p.kind !== "schedules") assert.fail("mañana debió programarse");
+    assert.equal(p.drafts[0].cadence, "once");
+    assert.equal(p.drafts[0].firstDate, "2026-10-23");
+    assert.equal(p.drafts[0].amountMinor, 6000);
+    const p2 = programa(fixture(), "en 2 días pago 60 de internet");
+    if (p2.kind !== "schedules") assert.fail("en 2 días debió programarse");
+    assert.equal(p2.drafts[0].firstDate, "2026-10-24");
+    const p3 = programa(fixture(), "gastaré 500 el próximo mes en regalos");
+    if (p3.kind !== "schedules") assert.fail("el próximo mes debió programarse");
+    assert.equal(p3.drafts[0].firstDate, "2026-11-22");
+    const p4 = programa(fixture(), "next month I'll spend 500 on gifts", "en");
+    if (p4.kind !== "schedules") assert.fail("next month debió programarse");
+    assert.equal(p4.drafts[0].firstDate, "2026-11-22");
+    assert.equal(p4.drafts[0].concept, "Gifts");
+    const p5 = programa(fixture(), "tomorrow I'll pay 60 for internet", "en");
+    if (p5.kind !== "schedules") assert.fail("tomorrow debió programarse");
+    assert.equal(p5.drafts[0].firstDate, "2026-10-23");
+  });
+
+  it("el punto protege el decimal: 45.50 es un monto, no dos cláusulas", () => {
+    const r = relato(fixture(), "pagué la luz 45.50. Ayer pagué el agua 30.");
+    if (r.kind !== "drafts") assert.fail("debió dar borradores");
+    assert.equal(r.drafts.length, 2);
+    assert.equal(r.drafts[0].amountMinor, 4550);
+    assert.equal(r.drafts[1].date, "2026-10-21");
+  });
+});

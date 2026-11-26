@@ -91,8 +91,8 @@ function preguntaDonde(state: LedgerState, lang: Lang, names: Namer, p: CrearPro
     kind: "pregunta",
     propuesta: { ...p, pendiente: "donde" },
     question: L(lang,
-      `¿La creo como categoría nueva, aparte, o bajo una que ya tienes${sugerida ? ` — por ejemplo ${names.cat(sugerida.id)}` : ""}?`,
-      `Shall I create it as a new top-level category, or under one you already have${sugerida ? ` — for example ${names.cat(sugerida.id)}` : ""}?`),
+      `¿La creo como categoría nueva, aparte, o bajo una que ya tienes${sugerida ? ` (por ejemplo, ${names.cat(sugerida.id)})` : ""}?`,
+      `Shall I create it as a new top-level category, or under one you already have${sugerida ? ` (for example, ${names.cat(sugerida.id)})` : ""}?`),
   };
 }
 function aDraft(lang: Lang, names: Namer, p: CrearPropuesta): CrearStep {

@@ -187,7 +187,7 @@ export function parseOrden(
       ? L(lang, `«${l.concept}» ya está archivado; no hay nada que hacer.`, `"${l.concept}" is already archived; there's nothing to do.`)
       : [
           L(lang, "Esto es lo que entendí:", "Here's what I understood:"),
-          `• ${L(lang, "Archivar", "Archive")} «${l.concept}» — ${money(l.amountMinor, l.currency)}${order.date ? `, ${fmtDay(order.date, lang)}` : ""}`,
+          `• ${L(lang, "Archivar", "Archive")} «${l.concept}»: ${money(l.amountMinor, l.currency)}${order.date ? `, ${fmtDay(order.date, lang)}` : ""}`,
           L(lang, "¿Lo hago así?", "Shall I do it like this?"),
         ].join("\n");
     return { kind: "order", order, echo };

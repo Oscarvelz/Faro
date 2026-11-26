@@ -69,10 +69,23 @@ const L = (lang: Lang, es: string, en: string) => (lang === "es" ? es : en);
 /* ---------------- los verbos del relato (formas plegadas) ---------------- */
 
 const GASTO = new Set(["pague", "gaste", "compre", "abone", "cancele", "paid", "spent", "bought"]);
-const INGRESO = new Set(["entro", "recibi", "cobre", "pagaron", "llego", "ingreso", "received", "earned"]);
+const INGRESO = new Set(["entro", "recibi", "cobre", "pagaron", "llego", "ingreso", "received", "earned",
+  /* AÑADIR ES DINERO QUE ENTRA (ola del punto y el temporizador,
+   * puerto 1.3.459): «añadí 300 a mi banco» salía como GASTO con
+   * concepto «Anadi»; añadir/agregar/depositar son ingreso con su
+   * destino, en los dos idiomas. */
+  "anadi", "agregue", "deposite", "added", "deposited"]);
 const MOVER = new Set(["movi", "pase", "transferi", "traslade", "meti", "moved", "transferred"]);
 const ALL_VERBS = new Set([...GASTO, ...INGRESO, ...MOVER]);
-const STOP = new Set(["de", "del", "la", "el", "los", "las", "un", "una", "unos", "unas", "en", "por", "para", "a", "al", "me", "mi", "mis", "the", "an", "of", "my", "con", "sin", "i", "for", "on", "at"]);
+const STOP = new Set(["de", "del", "la", "el", "los", "las", "un", "una", "unos", "unas", "en", "por", "para", "a", "al", "me", "mi", "mis", "the", "an", "of", "my", "con", "sin", "i", "for", "on", "at",
+  /* Enmienda de canon al puerto 1.3.459, cazada en el banco vivo:
+   * con el corte por oraciones, una cláusula puede NACER con la
+   * conjunción al frente («. Y añadí 300 a mi banco.») — el corte
+   * de conjunción no la consume porque va en la posición cero, y
+   * sin esto la «y» se asentaba como CONCEPTO del ingreso
+   * («Ingreso: Y: $300.00»). La conjunción es palabra de función,
+   * jamás contenido. */
+  "y", "and"]);
 const CUR_WORDS = new Set(["dolares", "dollars", "pesos", "cordobas", "usd", "nio", "dolar", "reales"]);
 /** Los verbos de precio: la cláusula no dice «pagué» — dice lo que la
  *  cosa VALE («vale 150», «costó 40», «salió en 200»): es un gasto cuyo
@@ -144,13 +157,18 @@ function digitValue(tok: string): number | null {
  *  palabra-número solo cuenta si está certificada (moneda al lado, un
  *  verbo de movimiento en la cláusula, u otro monto en dígitos) — la
  *  misma disciplina de certificación del lector del banco. */
-function amountSpans(toks: string[], dayTok: number, def: Currency = "USD"): Span[] {
+function amountSpans(toks: string[], dayTok: number | ReadonlySet<number>, def: Currency = "USD"): Span[] {
+  // La cerca: un índice suelto (el día de «el 15») o el conjunto de
+  // tokens del ancla de tiempo (dateOf): lo cercado jamás es dinero
+  // (ola del punto y el temporizador, puerto 1.3.459 — el 2 de
+  // «hace 2 días» no es un gasto de $2).
+  const fenced: ReadonlySet<number> = typeof dayTok === "number" ? (dayTok < 0 ? new Set<number>() : new Set([dayTok])) : dayTok;
   const hasVerb = toks.some((t) => ALL_VERBS.has(t));
-  const hasDigit = toks.some((t, i) => i !== dayTok && digitValue(t) !== null);
+  const hasDigit = toks.some((t, i) => !fenced.has(i) && digitValue(t) !== null);
   const spans: Span[] = [];
   let i = 0;
   while (i < toks.length) {
-    if (i === dayTok) { i++; continue; }
+    if (fenced.has(i)) { i++; continue; }
     const dv = digitValue(toks[i]);
     if (dv !== null) {
       let v = dv;
@@ -193,12 +211,94 @@ function shiftDay(today: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Devuelve { date, dayTok } — dayTok es el token que es DÍA («el 15»),
- *  para que el lector de montos no lo lea como dinero. */
-function dateOf(toks: string[], today: string): { date: string; dayTok: number } {
+function shiftMonth(today: string, months: number): string {
+  const [y, m, d] = today.split("-").map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  return `${ny}-${String(nm).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
+function numAt(toks: string[], i: number): { v: number; end: number } | null {
+  if (i >= toks.length) return null;
+  const dv = digitValue(toks[i]);
+  if (dv !== null && Number.isInteger(dv)) return { v: dv, end: i + 1 };
+  const p = parseWordNumber(toks, i);
+  return p ? { v: p.value, end: p.end } : null;
+}
+
+/** EL TEMPORIZADOR DE LA CLÁUSULA (ola del punto y el temporizador,
+ *  caza de Oscar en su teléfono, 2026-11-25, puerto 1.3.459, en
+ *  español y en inglés): cada cláusula trae su propio ancla de
+ *  tiempo y el ancla manda sobre SU cláusula, en pasado y en
+ *  futuro: ayer, antier, anoche, hace N días/semanas/meses, la
+ *  semana pasada, el mes pasado, mañana, en N días, la próxima
+ *  semana, el próximo mes (yesterday, day before yesterday, last
+ *  night, N days/weeks/months ago, last week/month/year, tomorrow,
+ *  day after tomorrow, in N days, next week/month/year). Devuelve
+ *  la fecha, los tokens que el ancla consume (timeToks: cercados
+ *  para el lector de montos, así el 2 de «hace 2 días» jamás se
+ *  lee como $2, y fuera del concepto) y si el ancla es de futuro.
+ *  Sin ancla: hoy, sin consumo. El «el N» de siempre sigue: su
+ *  token es dayTok. */
+function dateOf(toks: string[], today: string): { date: string; dayTok: number; timeToks: Set<number>; future: boolean } {
+  const hit = (date: string, used: number[], future = false): { date: string; dayTok: number; timeToks: Set<number>; future: boolean } =>
+    ({ date, dayTok: -1, timeToks: new Set(used), future });
+  const range = (a: number, b: number): number[] => { const out: number[] = []; for (let j = a; j < b; j++) out.push(j); return out; };
   for (let i = 0; i < toks.length; i++) {
-    if (toks[i] === "ayer" || toks[i] === "yesterday") return { date: shiftDay(today, -1), dayTok: -1 };
-    if (toks[i] === "anteayer") return { date: shiftDay(today, -2), dayTok: -1 };
+    const t = toks[i];
+    const n1 = toks[i + 1] ?? "";
+    const n2 = toks[i + 2] ?? "";
+    if (t === "ayer" || t === "yesterday" || t === "anoche") return hit(shiftDay(today, -1), [i]);
+    if (t === "anteayer" || t === "antier") return hit(shiftDay(today, -2), [i]);
+    if (t === "day" && n1 === "before" && n2 === "yesterday") return hit(shiftDay(today, -2), [i, i + 1, i + 2]);
+    if (t === "pasado" && n1 === "manana") return hit(shiftDay(today, 2), [i, i + 1], true);
+    if (t === "day" && n1 === "after" && n2 === "tomorrow") return hit(shiftDay(today, 2), [i, i + 1, i + 2], true);
+    if (t === "manana" || t === "tomorrow") return hit(shiftDay(today, 1), [i], true);
+    if (t === "hoy" || t === "today") return hit(today, [i]);
+    if (t === "hace" || t === "en" || t === "in") {
+      const num = numAt(toks, i + 1);
+      if (num) {
+        const unit = toks[num.end] ?? "";
+        const sgn = t === "hace" ? -1 : 1;
+        const used = [i, ...range(i + 1, num.end + 1)];
+        if (unit === "dias" || unit === "dia" || unit === "days" || unit === "day") return hit(shiftDay(today, sgn * num.v), used, sgn > 0);
+        if (unit === "semanas" || unit === "semana" || unit === "weeks" || unit === "week") return hit(shiftDay(today, sgn * 7 * num.v), used, sgn > 0);
+        if (unit === "meses" || unit === "mes" || unit === "months" || unit === "month") return hit(shiftMonth(today, sgn * num.v), used, sgn > 0);
+        if (unit === "anos" || unit === "ano" || unit === "years" || unit === "year") return hit(shiftMonth(today, sgn * 12 * num.v), used, sgn > 0);
+      }
+    }
+    {
+      const num = numAt(toks, i);
+      if (num && (toks[num.end + 1] ?? "") === "ago") {
+        const unit = toks[num.end] ?? "";
+        const used = range(i, num.end + 2);
+        if (unit === "days" || unit === "day") return hit(shiftDay(today, -num.v), used);
+        if (unit === "weeks" || unit === "week") return hit(shiftDay(today, -7 * num.v), used);
+        if (unit === "months" || unit === "month") return hit(shiftMonth(today, -num.v), used);
+        if (unit === "years" || unit === "year") return hit(shiftMonth(today, -12 * num.v), used);
+      }
+    }
+    if ((t === "semana" || t === "week") && (n1 === "pasada" || n1 === "pasado")) return hit(shiftDay(today, -7), [i, i + 1]);
+    if ((t === "mes" || t === "month") && (n1 === "pasado" || n1 === "pasada")) return hit(shiftMonth(today, -1), [i, i + 1]);
+    if ((t === "ano" || t === "year") && (n1 === "pasado" || n1 === "pasada")) return hit(shiftMonth(today, -12), [i, i + 1]);
+    if ((t === "semana" || t === "week") && n1 === "proxima") return hit(shiftDay(today, 7), [i, i + 1], true);
+    if ((t === "mes" || t === "month") && n1 === "proximo") return hit(shiftMonth(today, 1), [i, i + 1], true);
+    if ((t === "semana" || t === "week" || t === "mes" || t === "month") && n1 === "que" && n2 === "viene") {
+      return (t === "semana" || t === "week") ? hit(shiftDay(today, 7), [i, i + 1, i + 2], true) : hit(shiftMonth(today, 1), [i, i + 1, i + 2], true);
+    }
+    if (t === "last") {
+      if (n1 === "week") return hit(shiftDay(today, -7), [i, i + 1]);
+      if (n1 === "month") return hit(shiftMonth(today, -1), [i, i + 1]);
+      if (n1 === "year") return hit(shiftMonth(today, -12), [i, i + 1]);
+      if (n1 === "night") return hit(shiftDay(today, -1), [i, i + 1]);
+    }
+    if (t === "proxima" || t === "proximo" || t === "next") {
+      if (n1 === "semana" || n1 === "week") return hit(shiftDay(today, 7), [i, i + 1], true);
+      if (n1 === "mes" || n1 === "month") return hit(shiftMonth(today, 1), [i, i + 1], true);
+      if (n1 === "ano" || n1 === "year") return hit(shiftMonth(today, 12), [i, i + 1], true);
+    }
   }
   for (let i = 0; i + 1 < toks.length; i++) {
     if ((toks[i] === "el" || toks[i] === "the") && /^\d{1,2}$/.test(toks[i + 1])) {
@@ -211,11 +311,11 @@ function dateOf(toks: string[], today: string): { date: string; dayTok: number }
           const prev = new Date(Date.UTC(y, m - 2, day, 12));
           date = prev.toISOString().slice(0, 10);
         }
-        return { date, dayTok: i + 1 };
+        return { date, dayTok: i + 1, timeToks: new Set([i, i + 1]), future: date > today };
       }
     }
   }
-  return { date: today, dayTok: -1 };
+  return { date: today, dayTok: -1, timeToks: new Set(), future: false };
 }
 
 /* ---------------- los lugares (cuentas y bolsillos) ---------------- */
@@ -334,12 +434,32 @@ function fileConcept(residual: string, idx: Map<string, Filing>): Filing {
 
 /* ---------------- el corte por cláusulas ---------------- */
 
-/** Corta el relato en cláusulas: por coma y punto y coma (protegiendo el
+function splitClauses(foldedIn: string, today: string): Array<{ text: string; fresh: boolean }> {
+  /* EL PUNTO CORTA (ola del punto y el temporizador, puerto
+   * 1.3.459): el punto es frontera de ORACIÓN, y la oración nueva
+   * empieza fresca: el verbo heredado no cruza el punto (un
+   * fragmento suelto tras el punto, «The chase.», no hereda el
+   * verbo de la oración anterior ni sale a pedir un monto que
+   * nadie le dio). El punto entre dígitos (45.50, 1.200) no es
+   * frontera: se protege, se corta por oraciones, y se devuelve. */
+  const noDec = foldedIn.replace(/(\d)\.(\d)/g, "$1$2");
+  const sentences = noDec.split(".").map((s) => s.replace(//g, "."));
+  const out: Array<{ text: string; fresh: boolean }> = [];
+  let first = true;
+  for (const s of sentences) {
+    const parts = splitSentence(s, today);
+    parts.forEach((text, j) => out.push({ text, fresh: !first && j === 0 }));
+    if (parts.length) first = false;
+  }
+  return out;
+}
+
+/** Corta UNA oración en cláusulas: por coma y punto y coma (protegiendo el
  *  separador de miles) y por «y»/`and` cuando lo que sigue trae su propio
  *  verbo o monto — sin partir los números en palabras («treinta y cinco»)
  *  ni las enumeraciones sin verbo («luz y agua» queda en su cláusula y la
  *  reparte el lector de montos). */
-function splitClauses(folded: string): string[] {
+function splitSentence(folded: string, today: string): string[] {
   const protectedText = folded.replace(/(\d)[.,](\d{3})\b/g, "$1$2");
   const rawParts = protectedText.split(/[,;]+/).map((s) => s.replace(//g, ",").trim()).filter(Boolean);
   const out: string[] = [];
@@ -361,8 +481,8 @@ function splitClauses(folded: string): string[] {
       // de dos cláusulas para el mismo oído que corta los relatos de
       // lo hecho; sin esto, la segunda cláusula se perdía en silencio
       // dentro de la primera.
-      const afterHas = verbOf(after) !== null || amountSpans(after, -1).length > 0 || after.some((t) => PROG_VERBS.has(t));
-      const beforeHas = verbOf(before) !== null || amountSpans(before, -1).length > 0 || before.some((t) => PROG_VERBS.has(t));
+      const afterHas = verbOf(after) !== null || amountSpans(after, dateOf(after, today).timeToks).length > 0 || after.some((t) => PROG_VERBS.has(t));
+      const beforeHas = verbOf(before) !== null || amountSpans(before, dateOf(before, today).timeToks).length > 0 || before.some((t) => PROG_VERBS.has(t));
       if (afterHas && beforeHas) cuts.push(i);
     }
     /* LA COMA QUE FALTA (campaña de mutaciones de la Rama, puerto
@@ -382,7 +502,7 @@ function splitClauses(folded: string): string[] {
       if (!ALL_VERBS.has(toks[i]) || conjSet.has(i)) continue;
       if ([...conjSet].some((j) => i - j >= 0 && i - j < 3)) continue;
       const before = toks.slice(0, i);
-      if (verbOf(before) !== null && amountSpans(before, -1).length > 0) verbCuts.push(i);
+      if (verbOf(before) !== null && amountSpans(before, dateOf(before, today).timeToks).length > 0) verbCuts.push(i);
     }
     if (!cuts.length && !verbCuts.length) { out.push(part); continue; }
     const verbSet = new Set(verbCuts);
@@ -412,7 +532,7 @@ function askResult(lang: Lang, missing: "monto" | "origen" | "destino" | "concep
   return { kind: "ask", question, missing };
 }
 
-function moverClause(toks: string[], clause: string, date: string, dayTok: number, places: RelatoPlace[], lang: Lang, def: Currency = "USD"): ClauseOut {
+function moverClause(toks: string[], clause: string, date: string, dayTok: ReadonlySet<number>, places: RelatoPlace[], lang: Lang, def: Currency = "USD"): ClauseOut {
   const spans = amountSpans(toks, dayTok, def);
   if (!spans.length) return { ask: askResult(lang, "monto") };
   const text = toks.join(" ");
@@ -446,7 +566,7 @@ function moverClause(toks: string[], clause: string, date: string, dayTok: numbe
 }
 
 function simpleClause(
-  toks: string[], clause: string, verb: Verb, date: string, dayTok: number,
+  toks: string[], clause: string, verb: Verb, date: string, dayTok: ReadonlySet<number>,
   places: RelatoPlace[], idx: Map<string, Filing>, lang: Lang,
   pending: Filing | null, foodCat: string, def: Currency = "USD",
 ): ClauseOut {
@@ -466,10 +586,10 @@ function simpleClause(
   // La cuenta nombrada («del banco», «al banco») se resuelve y sale del concepto.
   const used = new Set<number>();
   spans.forEach((s) => { for (let i = s.start; i < s.end; i++) used.add(i); });
-  toks.forEach((t, i) => { if (ALL_VERBS.has(t) || PRECIO.has(t) || FOOD.has(t) || CUR_WORDS.has(t) || i === dayTok || t === "ayer" || t === "anteayer" || t === "yesterday" || t === "hoy" || t === "today") used.add(i); });
+  toks.forEach((t, i) => { if (ALL_VERBS.has(t) || PRECIO.has(t) || FOOD.has(t) || CUR_WORDS.has(t) || dayTok.has(i)) used.add(i); });
   let place: RelatoPlace | null = null;
   const text = toks.join(" ");
-  const pm = text.match(/(?:del|de la|desde el|desde la|al|a la|from the|from|to the)\s+([a-z]+(?:\s+[a-z]+)?)$/);
+  const pm = text.match(/(?:del|de la|desde el|desde la|al|a la|a mi|from the|from|to the|to my)\s+([a-z]+(?:\s+[a-z]+)?)$/);
   if (pm) {
     const r = resolvePlace(pm[1], places);
     if (r && r !== "amb") {
@@ -510,6 +630,11 @@ function simpleClause(
     // Sin concepto propio, la cláusula hereda LA COSA pendiente («vale
     // 150» tras «me comí un pollo…»); sin cosa pendiente, se pregunta.
     let filed = residual ? filingFor(residual, clause, idx, foodCat) : pending;
+    // El ingreso que nombra su destino y nada más («añadí 300 a mi
+    // banco») se archiva con el nombre del destino: el destino ES
+    // su contenido; preguntar «¿de qué fue?» no clarifica nada
+    // (ola del punto y el temporizador, puerto 1.3.459).
+    if (!filed && verb === "ingreso" && place) filed = { concept: place.label, categoryId: "", subId: "" };
     if (!filed) return { ask: askResult(lang, "concepto") };
     if (!residual) usedPending = true;
     if (foodHint && !filed.categoryId && foodCat) filed = { ...filed, categoryId: foodCat };
@@ -536,20 +661,27 @@ function findDuplicate(state: LedgerState, d: RelatoDraft): string | null {
     const isIncome = l.kind.startsWith("income");
     if ((d.op === "ingreso") !== isIncome) continue;
     if (foldQ(l.concept) === foldQ(d.concept) || (d.subId && l.subId === d.subId)) {
-      return `${l.concept} — ${formatMoney(Math.abs(l.amountMinor), l.currency, "es")}`;
+      return `${l.concept}: ${formatMoney(Math.abs(l.amountMinor), l.currency, "es")}`;
     }
   }
   return null;
 }
 
+/* EL FORMATO DEL ECO (fallo de Oscar, 2026-11-25, desde su
+ * teléfono; puerto 1.3.459): cada cosa en su línea propia, como
+ * las tarjetas de borrador de abajo, y SIN guiones largos cosiendo
+ * el texto: el monto se separa con dos puntos. Un eco corrido en
+ * un solo párrafo se lee confuso aunque cada cifra esté bien. Esta
+ * ley cubre todos los ecos de los escalones (relato, programa,
+ * órdenes, crear). */
 function buildEcho(lang: Lang, drafts: RelatoDraft[], today: string, projectedLine: string | null = null): string {
   const money = (d: RelatoDraft) => formatMoney(d.amountMinor, d.currency, lang);
   const when = (d: RelatoDraft) => (d.date === today ? "" : ` · ${d.date}`);
   const lines = drafts.map((d) => {
     const dup = d.duplicate ? L(lang, " · ya estaba asentado, no lo duplico", " · already posted, I won't duplicate it") : "";
     if (d.op === "mover") return `• ${L(lang, "Mover", "Move")} ${money(d)} ${L(lang, "de", "from")} ${d.from?.label} ${L(lang, "a", "to")} ${d.to?.label}${when(d)}${dup}`;
-    if (d.op === "gasto") return `• ${L(lang, "Gasto", "Expense")}: ${d.concept} — ${money(d)}${d.from ? ` ${L(lang, "desde", "from")} ${d.from.label}` : ""}${when(d)}${dup}`;
-    return `• ${L(lang, "Ingreso", "Income")}: ${d.concept} — ${money(d)}${d.to ? ` ${L(lang, "a", "to")} ${d.to.label}` : ""}${when(d)}${dup}`;
+    if (d.op === "gasto") return `• ${L(lang, "Gasto", "Expense")}: ${d.concept}: ${money(d)}${d.from ? ` ${L(lang, "desde", "from")} ${d.from.label}` : ""}${when(d)}${dup}`;
+    return `• ${L(lang, "Ingreso", "Income")}: ${d.concept}: ${money(d)}${d.to ? ` ${L(lang, "a", "to")} ${d.to.label}` : ""}${when(d)}${dup}`;
   });
   const fresh = drafts.some((d) => !d.duplicate);
   const head = L(lang, "Esto es lo que entendí:", "Here's what I understood:");
@@ -617,7 +749,13 @@ export function parseRelato(
   const figures: FiguraKind[] = [];
   let pending: Filing | null = null;
   let sawPriceOrFood = false;
-  for (const clause of splitClauses(body)) {
+  // El índice del último borrador SIN ancla propia: un fragmento
+  // que es solo tiempo («Hace 2 días.») cierra la narración y su
+  // ancla cae sobre ese borrador, no sobre el aire.
+  let lastUnanchored = -1;
+  for (const part of splitClauses(body, today)) {
+    if (part.fresh) inherited = null; // el punto cierra la oración: su verbo no cruza
+    const clause = part.text;
     // E2 · lo figurado se retira de la cláusula antes de parsear: la
     // figura se escucha (queda registrada en el resultado), no se
     // asienta como estado, no se pide como monto, no se desmiente.
@@ -630,8 +768,20 @@ export function parseRelato(
     figures.push(...clauseFigures);
     const toks = tokenize(clauseText);
     if (!toks.length) continue;
-    const { date, dayTok } = dateOf(toks, today);
-    const spans = amountSpans(toks, dayTok, state.settings.display);
+    const { date, dayTok, timeToks, future } = dateOf(toks, today);
+    // EL FRAGMENTO QUE ES SOLO TIEMPO: no nombra cosa ni trae
+    // verbo; su ancla (si no es de futuro) cae sobre el último
+    // borrador que aún no tenía la suya, y el fragmento no deja
+    // borrador fantasma ni pendiente.
+    if (timeToks.size > 0 && toks.every((t, i) => timeToks.has(i) || STOP.has(t) || t === "y" || t === "and")) {
+      if (!future && lastUnanchored >= 0) drafts[lastUnanchored].date = date;
+      continue;
+    }
+    // La cláusula de FUTURO no se asienta como pasado: su casa es
+    // el programa (parsePrograma la oye por su puerta); aquí se
+    // deja pasar sin tocarla.
+    if (future) continue;
+    const spans = amountSpans(toks, timeToks, state.settings.display);
     // La cláusula cuya única «cantidad» era figurada («gasté una
     // fortuna en zapatos») no deja un monto faltante: era color.
     if (!spans.length && clauseFigures.includes("cantidad-grande")) continue;
@@ -651,11 +801,12 @@ export function parseRelato(
       continue;
     }
     const out = ownVerb === "mover"
-      ? moverClause(toks, clauseText, date, dayTok, places, lang, state.settings.display)
-      : simpleClause(toks, clauseText, verb, date, dayTok, places, idx, lang, pending, foodCat, state.settings.display);
+      ? moverClause(toks, clauseText, date, timeToks, places, lang, state.settings.display)
+      : simpleClause(toks, clauseText, verb, date, timeToks, places, idx, lang, pending, foodCat, state.settings.display);
     if (!out) continue;
     if ("ask" in out) return out.ask;
     drafts.push(...out.drafts);
+    if (timeToks.size === 0 && dayTok < 0 && out.drafts.length) lastUnanchored = drafts.length - 1;
     if (out.usedPending) pending = null;
     if (ownVerb) inherited = ownVerb;
   }
@@ -720,7 +871,11 @@ export type ProgramaResult =
   | { kind: "unknown" };
 
 const PROG_VERBS = new Set(["programa", "programar", "programame", "programalo", "programala", "agenda", "agendame", "agendalo", "recuerdame", "recordame", "recuerda", "apunta", "anota", "schedule", "remind"]);
-const PROG_GASTO = new Set(["pagar", "pague", "paga", "pago", "gastar", "gaste", "gasta", "comprar", "compre", "compra", "pay", "paid"]);
+const PROG_GASTO = new Set(["pagar", "pague", "paga", "pago", "gastar", "gaste", "gasta", "comprar", "compre", "compra", "pay", "paid",
+  /* El futuro dicho como hecho (ola del punto y el temporizador,
+   * puerto 1.3.459): «gastaré 500 el próximo mes» trae el verbo en
+   * futuro y su ancla; «spend» es el presente inglés del gasto. */
+  "pagare", "gastare", "comprare", "spend"]);
 const PROG_INGRESO = new Set(["entra", "entran", "cobrar", "cobro", "cobre", "recibir", "recibo", "recibe", "depositan", "ingresa", "ingresan", "enters", "receive"]);
 /** Salida = todo lo que no es ingreso (el mismo criterio de ask2). */
 function isOut(l: Line): boolean { return !l.kind.startsWith("income"); }
@@ -805,23 +960,35 @@ export function parsePrograma(
   const drafts: ProgramaDraft[] = [];
   let inheritedCad: CadHit | null = null;
   let ask: ProgramaResult | null = null;
-  for (const clause of splitClauses(folded)) {
+  for (const part of splitClauses(folded, today)) {
+    const clause = part.text;
     const toks = tokenize(clause);
     if (!toks.length) continue;
-    const cad = cadenceOf(toks) ?? inheritedCad;
+    // EL FUTURO DICHO COMO HECHO (ola del punto y el temporizador):
+    // «mañana pago 60 de internet», «gastaré 500 el próximo mes en
+    // regalos», «en 2 días pago la luz» no traen verbo de programar
+    // ni cadencia: traen un ANCLA de futuro y un verbo de dinero.
+    // Son un programa de una sola vez con la fecha del ancla.
+    const anchor = dateOf(toks, today);
+    const futureOnce = anchor.future && toks.some((t) => PROG_GASTO.has(t) || PROG_INGRESO.has(t));
+    let cad = cadenceOf(toks) ?? inheritedCad;
     if (cadenceOf(toks)) inheritedCad = cadenceOf(toks);
+    const anchorDate = !cadenceOf(toks) && !inheritedCad && futureOnce ? anchor.date : null;
+    if (!cad && futureOnce) cad = { cadence: "once", dayOfMonth: null, weekday: null, monthDay: null };
     const isProg = toks.some((t) => PROG_VERBS.has(t)) || cad !== null;
     if (!isProg) continue;
     if (!cad) { ask = { kind: "ask", missing: "cuando", question: L(lang, "¿Cada cuánto se repite, o es una sola vez? Sin eso no sé cómo programarlo.", "How often does it repeat, or is it just once? Without that I don't know how to schedule it.") }; continue; }
     // El día nombrado («el 15») no es un monto: se retira antes de leerlos.
     const dayM = /(?:el dia|el)\s*(\d{1,2})\b/.exec(clause);
-    const spans = amountSpans(toks, dayM ? toks.indexOf(dayM[1]) : -1, state.settings.display);
+    const fence = new Set<number>(anchor.timeToks);
+    if (dayM) fence.add(toks.indexOf(dayM[1]));
+    const spans = amountSpans(toks, fence, state.settings.display);
     const op: ProgramaDraft["op"] = toks.some((t) => PROG_INGRESO.has(t)) ? "ingreso" : "gasto";
     const used = new Set<number>();
     spans.forEach((s) => { for (let i = s.start; i < s.end; i++) used.add(i); });
     toks.forEach((t, i) => {
       if (used.has(i)) return;
-      if (PROG_VERBS.has(t) || PROG_GASTO.has(t) || PROG_INGRESO.has(t) || CAD_WORDS.has(t) || CUR_WORDS.has(t) || STOP.has(t) || (dayM && t === dayM[1]) || (cad.monthDay && (t === String(cad.monthDay.d))) || t in WEEKDAY || MESES_ES.includes(t) || MESES_EN.includes(t)) used.add(i);
+      if (PROG_VERBS.has(t) || PROG_GASTO.has(t) || PROG_INGRESO.has(t) || CAD_WORDS.has(t) || CUR_WORDS.has(t) || STOP.has(t) || t === "ll" || t === "re" || t === "ve" || (dayM && t === dayM[1]) || (cad.monthDay && (t === String(cad.monthDay.d))) || t in WEEKDAY || MESES_ES.includes(t) || MESES_EN.includes(t) || anchor.timeToks.has(i)) used.add(i);
     });
     const residual = toks.filter((_, i) => !used.has(i)).join(" ").trim();
     if (!residual) { ask = { kind: "ask", missing: "concepto", question: L(lang, "¿Qué es lo que programo? Nómbrame el pago o el ingreso y lo dejo programado.", "What am I scheduling? Name the payment or the income and I'll schedule it.") }; continue; }
@@ -835,7 +1002,7 @@ export function parsePrograma(
       amountMinor: first ? first.minor : null,
       currency: first ? first.currency : state.settings.display,
       concept: filed.concept, categoryId: filed.categoryId, subId: filed.subId,
-      cadence: cad.cadence, firstDate: firstDateOf(cad, today),
+      cadence: cad.cadence, firstDate: anchorDate ?? firstDateOf(cad, today),
       clause, duplicate: dup ? dup.concept : null,
     });
   }
@@ -856,8 +1023,8 @@ export function parsePrograma(
     const amtTxt = d.clase === "fijo" && d.amountMinor !== null
       ? formatMoney(d.amountMinor, d.currency, lang)
       : L(lang, "sin monto fijo (solo recordatorio)", "no fixed amount (reminder only)");
-    const dupTxt = d.duplicate ? L(lang, ` — ojo: ya tienes «${d.duplicate}» programado igual; no lo duplico`, ` — note: you already have "${d.duplicate}" scheduled the same way; I won't duplicate it`) : "";
-    return `• ${d.concept} — ${amtTxt}, ${cadTxt}${dupTxt}`;
+    const dupTxt = d.duplicate ? L(lang, ` · ojo: ya tienes «${d.duplicate}» programado igual; no lo duplico`, ` · note: you already have "${d.duplicate}" scheduled the same way; I won't duplicate it`) : "";
+    return `• ${d.concept}: ${amtTxt}, ${cadTxt}${dupTxt}`;
   });
   const fresh = drafts.some((d) => !d.duplicate);
   const echo = [
