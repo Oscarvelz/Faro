@@ -10371,7 +10371,11 @@ export function convoAfterFollowUp(state: LedgerState, key: string, names: Namer
   };
 }
 
-const FOLLOWUP_STOP = new Set(["y", "no", "en", "de", "a", "el", "la", "los", "las", "un", "una", "que", "tal", "comparado", "comparada", "con", "por", "favor", "oye", "oiga", "and", "what", "about", "the", "sin", "without"]);
+const FOLLOWUP_STOP = new Set(["y", "no", "en", "de", "a", "el", "la", "los", "las", "un", "una", "que", "tal", "comparado", "comparada", "con", "por", "favor", "oye", "oiga", "and", "what", "about", "the", "sin", "without",
+  // OLA 75: la reformulación del seguimiento trae su voz de pregunta
+  // («¿y cuánto fue el mes pasado?») — son envoltura, no una pregunta
+  // nueva escondida.
+  "cuanto", "fue", "how", "much", "was"]);
 /* OLA 28 · LA PILA DE MARCOS — la sustitución crece de UN eje a N
  * (GUS, 1977: la sobre-respuesta se absorbe entera). El seguimiento
  * puede traer el período Y la exclusión en un solo turno («¿y el mes
@@ -10393,8 +10397,14 @@ const FOLLOWUP_STOP = new Set(["y", "no", "en", "de", "a", "el", "la", "los", "l
  * exclusión anterior solo se retira cuando llega su reemplazo: un
  * seguimiento de período no pierde la exclusión que el marco trae. */
 function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, lang: Lang, today: string): { question: string; echo: string | null; fork?: string } | null {
-  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
-  if (f.split(/\s+/).length > 7 && !/^no\b/.test(f)) return null;
+  /* OLA 75 · LA CORRECCIÓN QUE REEMPLAZA: «en realidad quise decir
+   * septiembre» no es una pregunta nueva ni un ajuste fallido: es el
+   * usuario corrigiendo su propio período. Los marcadores de
+   * corrección se retiran y el eje manda; el eco de la sustitución
+   * declara el período nuevo, como en todo seguimiento. */
+  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim()
+    .replace(/\b(en realidad|quise decir|mejor dicho|perdon|actually|i meant|meant)\b/g, " ").replace(/\s+/g, " ").trim();
+  if (f.split(/\s+/).length > 8 && !/^no\b/.test(f)) return null;
   const p2 = periodPhraseIn(f);
   const exclM = /\b(?:sin|without|excepto|except|excluding|minus) (?:(?:contar|contando|counting) )?(?:for )?(?:el |la |los |las |the )?([a-z0-9][a-z0-9 ]{2,})/.exec(f);
   const excl = exclM ? citizenByName(state, names, exclM[1], undefined, otherNamer(state, lang)) : null;
@@ -10566,6 +10576,47 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
     ? parts[0].solo
     : L(lang, `cambié ${parts.slice(0, -1).map((p) => p.plain).join(", ")} y ${parts[parts.length - 1].plain}`, `I changed ${parts.slice(0, -1).map((p) => p.plain).join(", ")} and ${parts[parts.length - 1].plain}`);
   return { question: q, echo, fork: forkParts.join(" · ") };
+}
+
+/* OLA 75 · LA EXCLUSIÓN QUE SE REVOCA: «con la renta, mejor» sobre un
+ * marco que trae la renta excluida no es una pregunta nueva ni un
+ * silencio: es el usuario reinstaurando lo que excluyó. La forma es
+ * cerrada — «con/with» + el ciudadano EXACTO que el marco excluye,
+ * con solo muletillas alrededor — y la reescritura es la pregunta
+ * guardada sin su franja de exclusión. El eco declara el estado
+ * vigente del filtro, como manda el diseño de la ola. */
+const REVOKE_FILLER75 = new Set(["mejor", "better", "si", "yes", "al", "final", "bueno", "ok", "y", "and", "the"]);
+function revokeRewrite75(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, lang: Lang): { question: string; echo: string } | null {
+  if (!frame.exclusionName) return null;
+  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (f.split(/\s+/).length > 8) return null;
+  const m = /\b(?:con|with)\s+(?:el |la |los |las |the )?(.+)$/.exec(f);
+  if (!m) return null;
+  const cit = citizenByName(state, names, m[1].trim(), undefined, otherNamer(state, lang));
+  if (!cit || cit.folded !== frame.exclusionName) return null;
+  const rest = f.replace(m[0], " ").split(/\s+/).filter((w) => w && !REVOKE_FILLER75.has(w));
+  if (rest.length) return null;
+  let q = frame.question;
+  const idx = q.lastIndexOf(" sin ");
+  if (idx >= 0 && q.slice(idx + 5).replace(/^(el|la|los|las) /, "").startsWith(frame.exclusionName)) q = q.slice(0, idx).trim();
+  return { question: q, echo: L(lang, `volví a contar «${cit.display}»: el filtro quedó sin exclusión`, `I counted "${cit.display}" again: the filter now excludes nothing`) };
+}
+
+/* OLA 75 · LA SUMA QUE AÑADE: «muéstrame septiembre también» no
+ * reemplaza octubre: lo AMPLÍA. La respuesta honesta trae los dos
+ * períodos, cada uno con su cifra, y la nota declara que el primero
+ * no desaparece. La forma es cerrada: marcador de adición + frase de
+ * período + solo envoltura alrededor. */
+const ADDITION_MARK75 = /\b(tambien|ademas|also|too)\b/;
+const ADDITION_STOP75 = new Set([...FOLLOWUP_STOP, "muestrame", "muestra", "show", "me", "tambien", "ademas", "also", "too"]);
+function additionPeriod75(frame: ConvoFrame, raw: string): string | null {
+  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (f.split(/\s+/).length > 8) return null;
+  if (!ADDITION_MARK75.test(f)) return null;
+  const p2 = periodPhraseIn(f);
+  if (!p2 || p2 === frame.periodPhrase) return null;
+  const rest = f.replace(p2, " ").split(/\s+/).filter((w) => w && !ADDITION_STOP75.has(w));
+  return rest.length ? null : p2;
 }
 
 /* OLA 24 · EL OÍDO FINO — el normalizador morfológico del español de
@@ -11502,6 +11553,40 @@ export function answerBankQuestion(
   // cualquier otra lectura — es una pregunta sobre la pregunta
   // anterior, no una pregunta nueva.
   if (!pin && convo) {
+    /* OLA 75: la revocación de la exclusión y la suma que añade se
+     * juzgan ANTES de la sustitución de ejes — la primera no es un
+     * eje nuevo y la segunda no es un reemplazo. Y el eco de todo
+     * seguimiento NOMBRA la pregunta heredada: ante dos herencias
+     * posibles, heredar declarándolo es el resultado válido (el
+     * envenenamiento de contexto se cura con la declaración). */
+    const rv = revokeRewrite75(state, key, names, convo, raw, lang);
+    if (rv) {
+      const r = answerSingle(state, key, lang, names, rv.question, parseCtx, today, undefined, mode, learned);
+      if (r.kind === "answer") {
+        const echo = L(lang, `Viene de tu pregunta anterior («${convo.question}»): ${rv.echo}.`, `From your previous question ("${convo.question}"): ${rv.echo}.`);
+        const nf = buildConvoFrame(state, key, names, rv.question, today, r);
+        return { ...r, note: r.note ? `${echo} ${r.note}` : echo, convo: nf };
+      }
+    }
+    const addP = additionPeriod75(convo, raw);
+    if (addP) {
+      const q2 = convo.periodPhrase ? convo.question.replace(convo.periodPhrase, addP) : `${convo.question} ${addP}`;
+      const r1 = answerSingle(state, key, lang, names, convo.question, parseCtx, today, undefined, mode, learned);
+      const r2 = answerSingle(state, key, lang, names, q2, parseCtx, today, undefined, mode, learned);
+      if (r1.kind === "answer" && r2.kind === "answer") {
+        const decl = L(lang, `Los dos períodos, como pediste: el primero no desaparece.`, `Both periods, as you asked: the first one does not disappear.`);
+        const nf = buildConvoFrame(state, key, names, q2, today, r2);
+        return {
+          kind: "answer", family: r1.family,
+          verdict: `${r1.verdict} ${r2.verdict}`,
+          pieces: [...r1.pieces, ...r2.pieces].slice(0, 5),
+          note: [decl, r1.note, r2.note].filter(Boolean).join(" "),
+          source: [...new Set([...r1.source, ...r2.source])],
+          lines: r1.lines + r2.lines,
+          convo: { ...nf, forkName: [convo.periodPhrase ?? L(lang, "este mes", "this month"), addP].join(" + ") },
+        };
+      }
+    }
     const rw = followUpRewrite(state, key, names, convo, raw, lang, today);
     if (rw) {
       const r = answerSingle(state, key, lang, names, rw.question, parseCtx, today, undefined, mode, learned);
@@ -11511,12 +11596,14 @@ export function answerBankQuestion(
         // nombre (el nombre que buildConvoFrame deriva de la
         // pregunta queda como respaldo).
         const nf = buildConvoFrame(state, key, names, rw.question, today, r);
-        const convo: ConvoFrame = rw.fork ? { ...nf, forkName: rw.fork } : nf;
+        const convoN: ConvoFrame = rw.fork ? { ...nf, forkName: rw.fork } : nf;
         // OLA 32 (Familia 3, Q32-3): sin cambio de eje no hay nota de
         // cambio — la respuesta se sirve tal cual, sin el eco.
-        if (rw.echo === null) return { ...r, convo };
-        const echo = L(lang, `Viene de tu pregunta anterior: ${rw.echo}.`, `From your previous question: ${rw.echo}.`);
-        return { ...r, note: r.note ? `${echo} ${r.note}` : echo, convo };
+        if (rw.echo === null) return { ...r, convo: convoN };
+        // OLA 75: el eco nombra la pregunta HEREDADA (el marco que
+        // entró, no el que sale) — heredar declarándolo.
+        const echo = L(lang, `Viene de tu pregunta anterior («${convo.question}»): ${rw.echo}.`, `From your previous question ("${convo.question}"): ${rw.echo}.`);
+        return { ...r, note: r.note ? `${echo} ${r.note}` : echo, convo: convoN };
       }
     }
   }

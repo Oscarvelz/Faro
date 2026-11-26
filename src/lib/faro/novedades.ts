@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.476",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "La batería del hilo: la conversación aguanta", en: "The thread battery: the conversation holds" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "El seguimiento ya aguanta la reformulación: «¿y cuánto fue el mes pasado?» da la misma cifra y el mismo veredicto que «¿y el mes pasado?». La voz de pregunta es envoltura, no una pregunta nueva escondida.",
+        "La corrección reemplaza: «en realidad quise decir septiembre» cambia el período y el hilo sigue desde ahí, sin caer en el mensaje de reparación. Y la suma añade: «muéstrame septiembre también» responde los dos períodos y declara que el primero no desaparece.",
+        "La exclusión se revoca: tras «sin la renta», un «con la renta, mejor» vuelve a contarla y el eco declara el estado del filtro. Y todo seguimiento ahora nombra la pregunta que hereda («Viene de tu pregunta anterior («…»): …»): heredar declarándolo, nunca en silencio.",
+      ],
+      en: [
+        "Follow-ups now survive rewording: “and how much was it last month?” gives the same figure and the same verdict as “and last month?”. The question voice is wrapping, not a hidden new question.",
+        "Correction replaces: “actually, I meant September” changes the period and the thread continues from there, without falling into the repair message. And addition adds: “show me September too” answers both periods and declares the first one does not disappear.",
+        "Exclusion can be revoked: after “without the rent”, a “with the rent, better” counts it again and the echo declares the filter's state. And every follow-up now names the question it inherits (“From your previous question (“…”): …”): inheriting by declaring it, never in silence.",
+      ],
+    },
+  },
+  {
     version: "1.3.475",
     date: "2026-11-26",
     level: "menor",
