@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.489",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Los gastos compartidos ya se pueden marcar", en: "Shared spending can now be marked" },
+    topic: "f-compartido",
+    points: {
+      es: [
+        "Abre una línea en Libros, en su editor, y en «Compartido» di entre cuántas personas se repartió, contándote, y con quién, si quieres los nombres.",
+        "Con la marca puesta, pregúntale a tu Asesor cuánto puso cada uno: te dice tu parte y lo que pusiste por otros. Tus totales no cambian: el gasto sigue contando entero.",
+      ],
+      en: [
+        "Open a line in Books, in its editor, and under “Shared” say among how many people it was split, counting you, and with whom, if you want the names.",
+        "With the mark set, ask your Advisor how much each person put in: it tells you your share and what you put in for others. Your totals don't change: the spend keeps counting whole.",
+      ],
+    },
+  },
+  {
     version: "1.3.488",
     date: "2026-11-26",
     level: "menor",

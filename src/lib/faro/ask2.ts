@@ -63,7 +63,7 @@ import { periodRange } from "./historial.ts";
 import { foldQ, parseQuestion } from "./lexicon.ts";
 import { convertMinor, formatGuest, formatMoney, formatRate, fromGuestMinor, guestDef, toGuestMinor } from "./money.ts";
 import { QUESTION_BANK } from "./questionbank.ts";
-import { remitByPerson, remitHistory, recipientName } from "./remit-people.ts";
+import { remitByPerson, remitHistory, recipientName, remitPeopleOf } from "./remit-people.ts";
 import { savingsStock } from "./savings.ts";
 import { parsePhrase, type ParseCtx } from "./textparse.ts";
 import type { Currency, Lang, LedgerState, Line } from "./types.ts";
@@ -6994,7 +6994,24 @@ function derivaAnswer(c: Ctx, folded: string): BankResult | null {
  * misma puerta responderá con las partes. La puerta exige voz de
  * reparto sobre el libro: «me toca» solo cuenta con compañía de
  * grupo (éramos, entre, repartir), porque «¿cuánto me toca del
- * aguinaldo?» no es un reparto. */
+ * aguinaldo?» no es un reparto.
+ * 1.3.489: LA MARCA EXISTE (Line.split, construida en el editor de
+ * la línea). Cuando el ámbito trae líneas marcadas, la puerta
+ * responde con las partes por la rama markedAnswer; la forma de
+ * «falta» queda para los ámbitos sin marcas, con la nota que ahora
+ * señala la puerta verdadera del editor. */
+/* 1.3.489: el nombre de una persona del reparto por su id — la
+ * gente de Cobros en las dos direcciones y la de Remesas. Un id
+ * que ya no resuelve no se nombra: su parte cae en «los demás». */
+function splitPersonName(state: LedgerState, id: string): string | null {
+  const lent = lentOf(state).find((l) => l.id === id);
+  if (lent) return lent.person;
+  const loan = loansOf(state).find((l) => l.id === id);
+  if (loan) return loan.lender;
+  const rp = remitPeopleOf(state).find((p) => p.id === id);
+  return rp ? rp.name : null;
+}
+
 function repartoLibroAnswer(c: Ctx, folded: string): BankResult | null {
   const splitVoice = /(cuanto puso cada (uno|quien)|cada (uno|quien) puso|cuanto (salio|toco) a cada (uno|quien)|gastos? compartidos?|pague (yo )?por todos|pagamos entre todos|how much did each|each of us (put|paid)|shared expenses|my share of)/.test(folded);
   const meToca = /(cuanto me toca)/.test(folded) && /(eramos|somos|fuimos|entre|repart)/.test(folded);
@@ -7010,11 +7027,58 @@ function repartoLibroAnswer(c: Ctx, folded: string): BankResult | null {
     if (citizen) break;
   }
   const src = ["libros.lineas"];
-  const unlock = L(c.lang, "Lo que haría falta es una marca en la línea: que fue compartida y entre cuántas personas (y con quién, si se quiere el nombre). Con esa marca, esta misma pregunta te diría tu parte y la de cada uno; sin ella, cualquier parte que te diera sería inventada. La marca quedó especificada para quien la construya en la captura.", "What's missing is a mark on the line: that it was shared, and among how many people (and with whom, if you want names). With that mark, this same question would tell you your share and each person's; without it, any share I gave you would be invented. The mark is specified for whoever builds it into capture.");
+  const unlock = L(c.lang, "La marca vive en la línea misma: ábrela en Libros, en su editor, y márcala como compartida — entre cuántas personas y con quién, si quieres los nombres. Con la marca puesta, esta misma pregunta te dice tu parte y la de cada uno; sin ella, cualquier parte que te diera sería inventada.", "The mark lives on the line itself: open it in Books, in its editor, and mark it as shared — among how many people and with whom, if you want the names. With the mark set, this same question tells you your share and each person's; without it, any share I gave you would be invented.");
+  // 1.3.489 · LA MARCA EXISTE: cuando el ámbito trae líneas
+  // marcadas, la puerta responde con las partes (la especificación
+  // de la Ola 71, ya construida en la captura): el bruto, tu parte
+  // (la suma de monto/n sobre las marcadas) y lo puesto por otros,
+  // con el nombre de cada quien cuando la marca lo trae. Los
+  // totales del libro no se tocan: la parte es una lente de esta
+  // familia, y lo puesto por otros NO se vuelve deuda de Cobros.
+  const markedAnswer = (marked: Line[], unmarked: number, scopeEs: string, scopeEn: string, citizenName?: string): BankResult => {
+    const gross = marked.reduce((s, l) => s + view(c, l), 0);
+    const mine = Math.round(marked.reduce((s, l) => s + view(c, l) / (l.split as { n: number }).n, 0));
+    const others = gross - mine;
+    const pieces: { label: string; minor: number }[] = [
+      { label: L(c.lang, "Lo que salió de tu mano", "What left your hand"), minor: gross },
+      { label: L(c.lang, "Tu parte", "Your share"), minor: mine },
+    ];
+    const byId = new Map<string, number>();
+    for (const l of marked) for (const id of l.split?.withIds ?? []) byId.set(id, (byId.get(id) ?? 0) + view(c, l) / (l.split as { n: number }).n);
+    let namedSum = 0;
+    for (const [id, part] of byId) {
+      const nm = splitPersonName(c.state, id);
+      if (nm) { pieces.push({ label: nm, minor: Math.round(part) }); namedSum += Math.round(part); }
+    }
+    if (byId.size) {
+      const rest = others - namedSum;
+      if (rest > 0) pieces.push({ label: L(c.lang, "Los demás, sin nombrar", "The rest, unnamed"), minor: rest });
+    } else {
+      pieces.push({ label: L(c.lang, "Puesto por otros", "Put in for others"), minor: others });
+    }
+    const ns = new Set(marked.map((l) => (l.split as { n: number }).n));
+    const nTxt = ns.size === 1 ? L(c.lang, `entre ${[...ns][0]} personas`, `among ${[...ns][0]} people`) : L(c.lang, "cada una entre las suyas", "each split among its own people");
+    const head = citizenName
+      ? L(c.lang, `En «${citizenName}» ${scopeEs} hay ${marked.length} ${marked.length === 1 ? "línea marcada" : "líneas marcadas"} como compartida${marked.length === 1 ? "" : "s"} (${nTxt}): salió de tu mano ${c.money(gross)} entero, tu parte es ${c.money(mine)} y pusiste ${c.money(others)} por los demás.`, `On "${citizenName}" ${scopeEn} there ${marked.length === 1 ? "is 1 line" : `are ${marked.length} lines`} marked as shared (${nTxt}): ${c.money(gross)} left your hand whole, your share is ${c.money(mine)} and you put in ${c.money(others)} for the others.`)
+      : L(c.lang, `En tus gastos compartidos ${scopeEs} hay ${marked.length} ${marked.length === 1 ? "línea marcada" : "líneas marcadas"} (${nTxt}): salió de tu mano ${c.money(gross)} entero, tu parte es ${c.money(mine)} y pusiste ${c.money(others)} por los demás.`, `In your shared spending ${scopeEn} there ${marked.length === 1 ? "is 1 marked line" : `are ${marked.length} marked lines`} (${nTxt}): ${c.money(gross)} left your hand whole, your share is ${c.money(mine)} and you put in ${c.money(others)} for the others.`);
+    const unmarkedTxt = unmarked > 0 && citizenName
+      ? L(c.lang, ` Otras ${unmarked} de «${citizenName}» no llevan la marca: esas cuentan enteras como tuyas, sin partes.`, ` ${unmarked} other ${unmarked === 1 ? "line" : "lines"} on "${citizenName}" carry no mark: those count wholly as yours, with no shares.`)
+      : "";
+    return {
+      kind: "answer", family: "reparto",
+      verdict: head + unmarkedTxt,
+      pieces,
+      note: L(c.lang, "La marca es una lente de esta pregunta: tus totales siguen contando el gasto entero, porque el dinero salió entero de tu mano. Y lo puesto por otros no se vuelve deuda de Cobros solo: si quieres cobrarlo, lo anotas tú en Me deben.", "The mark is a lens of this question: your totals keep counting the whole spend, because the money left your hand whole. And what you put in for others does not become a Cobros debt by itself: if you want to collect it, you record it yourself in Owed to me."),
+      source: src, lines: marked.length,
+    };
+  };
+  const isMarked = (l: Line) => !!l.split && l.split.n >= 2;
   if (citizen) {
     const monthLines = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && citizen!.fn(l));
     const allLines = Object.values(c.state.months).flatMap((m) => m.lines).filter((l) => l.active && isOut(l) && citizen!.fn(l));
     const use = monthLines.length ? monthLines : allLines;
+    const marked = use.filter(isMarked);
+    if (marked.length) return markedAnswer(marked, use.length - marked.length, monthLines.length ? "este mes" : "en total", monthLines.length ? "this month" : "in total", citizen.display);
     if (use.length) {
       const total = use.reduce((s, l) => s + view(c, l), 0);
       return {
@@ -7026,9 +7090,13 @@ function repartoLibroAnswer(c: Ctx, folded: string): BankResult | null {
       };
     }
   }
+  const markedMonth = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && isMarked(l));
+  const markedAll = Object.values(c.state.months).flatMap((m) => m.lines).filter((l) => l.active && isOut(l) && isMarked(l));
+  const markedUse = markedMonth.length ? markedMonth : markedAll;
+  if (markedUse.length) return markedAnswer(markedUse, 0, markedMonth.length ? "este mes" : "en total", markedMonth.length ? "this month" : "in total");
   return {
     kind: "answer", family: "falta",
-    verdict: L(c.lang, "De repartos sobre lo anotado no te puedo contar nada todavía: ninguna línea de tu libro está marcada como compartida, así que no hay partes por persona que contar. Lo que sí te digo cuando quieras es el total bruto de cualquier gasto, por su casa.", "About splits over what's recorded I can't tell you anything yet: no line in your book is marked as shared, so there are no per-person shares to tell. What I can tell you anytime is the gross total of any expense, by its home."),
+    verdict: L(c.lang, "De repartos sobre lo anotado no hay partes que contar: ninguna línea de tu libro está marcada como compartida, así que no hay partes por persona que contar. Lo que sí te digo cuando quieras es el total bruto de cualquier gasto, por su casa.", "About splits over what's recorded there are no shares to tell: no line in your book is marked as shared, so there are no per-person shares to tell. What I can tell you anytime is the gross total of any expense, by its home."),
     pieces: [],
     note: unlock,
     source: src, lines: 0,
@@ -9642,11 +9710,12 @@ function casaHowTo72(c: Ctx, folded: string): BankResult | null {
     }
     return { kind: "answer", family: "faro-mismo", verdict, pieces: [], note, source: [id], lines: 0, ...(door ? { actions: reportDoor(c, id, door[0], door[1]) } : {}) };
   };
-  // 1 · la verdad negativa: la marca de compartido no existe todavía.
+  // 1 · la marca de compartido: desde la 1.3.489 existe, en la
+  // línea misma (antes esta era la verdad negativa de la Ola 72).
   if (/(marc\w*|mark|senal\w*).{0,30}(compartid|shared)/.test(folded) || /(fue|es) compartid/.test(folded) && /(como|how)/.test(folded)) {
     return casa("libros.lineas",
-      L(c.lang, "Todavía no se puede: Faro no tiene la marca de gasto compartido (quedó especificada y en construcción). Hoy lo más cercano es escribirlo en la nota de la línea, en Libros: la línea queda tuya entera en los totales, y si me preguntas cuánto puso cada uno, te digo su total y que la marca falta.", "It can't be done yet: Faro doesn't have the shared-expense mark (it's specified and being built). Today's closest step is writing it in the line's note, in Books: the line stays wholly yours in the totals, and if you ask me how much each person put in, I'll tell you its total and that the mark is missing."),
-      L(c.lang, "La marca, cuando exista, vivirá en la línea misma: compartida, entre cuántas personas y con quién.", "The mark, when it exists, will live on the line itself: shared, among how many people, and with whom."),
+      L(c.lang, "Sí se puede: abre la línea en Libros, en su editor, y en «Compartido» enciende «Esto se compartió»: di entre cuántas personas, contándote, y con quién, si quieres los nombres. Con la marca puesta, pregúntame cuánto puso cada uno y te digo tu parte y la de cada uno.", "Yes, you can: open the line in Books, in its editor, and under \"Shared\" turn on \"This was shared\": say among how many people, counting you, and with whom, if you want the names. With the mark set, ask me how much each person put in and I'll tell you your share and each person's."),
+      L(c.lang, "La marca no cambia ningún total: el gasto sigue contando entero, porque salió entero de tu mano. La marca solo me deja partirlo cuando me preguntas.", "The mark changes no total: the spend keeps counting whole, because it left your hand whole. The mark only lets me split it when you ask me."),
       ["Ver las líneas en Libros", "See the lines in Books"]);
   }
   // 2 · el idioma manda sobre la tasa: «cambio» no es siempre moneda.

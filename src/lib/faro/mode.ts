@@ -459,6 +459,11 @@ export const FEATURES = {
    * bloque del editor). El asentamiento mismo es cerebro: corre en
    * todos los modos aunque la cara no se vea en Esencial. */
   "editor.autopay": R,
+  /* 1.3.489: la marca de compartido de la línea (REPARTO-SPEC) se
+   * pone y se quita en el editor, como el «Pagado con»: asiento de
+   * la familia del editor. La marca misma es dato del libro: el
+   * Asesor la lee en todos los modos aunque la cara no se vea. */
+  "editor.split": R,
   "editor.recurrent-toggle": R, "editor.debt-balance": R, "editor.nature": C,
   "editor.person": R, "editor.for-remit": R, "editor.shop-fields": E,
   "editor.shop-fine": C,

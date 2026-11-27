@@ -97,6 +97,7 @@ describe("ola6 · CARA-1: el editor obedece los asientos editor.paid-with / edit
 describe("ola6 · los temas re-asentados viven en el modo de su función", () => {
   const SEATS: [string, Mode, string][] = [
     ["f-pagado-con", "ritmo", "editor.paid-with"],
+    ["f-compartido", "ritmo", "editor.split"],
     ["f-activo", "ritmo", "editor.active-toggle"],
     ["f-recurrente", "ritmo", "editor.recurrent-toggle"],
     ["f-saldo-deuda", "ritmo", "editor.debt-balance"],
@@ -196,10 +197,14 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // (su función es advisor.relato — contar un movimiento es
     // captura, como capture.text). La distribución se mueve a
     // 133 · 108 · 131 sobre 372.
+    // ENMIENDA MARCA DE COMPARTIDO (1.3.489): nace f-compartido en
+    // Ritmo (su función es editor.split — poner la marca es
+    // administrar la línea, como el «Pagado con»). La distribución
+    // se mueve a 133 · 109 · 131 sobre 373.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 372);
+    assert.equal(MANUAL_TOPICS.length, 373);
     assert.equal(count("esencial"), 133);
-    assert.equal(count("ritmo"), 108);
+    assert.equal(count("ritmo"), 109);
     assert.equal(count("completo"), 131);
   });
 });

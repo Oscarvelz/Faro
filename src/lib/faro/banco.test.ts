@@ -5359,7 +5359,10 @@ describe("banco · ola 71: el reparto sobre lo anotado (la marca que falta)", ()
     assert.equal(r.family, "falta");
     assert.ok(r.verdict.includes("$90.00"), r.verdict);
     assert.ok(r.verdict.includes("no marca esa línea como compartida"), r.verdict);
-    assert.ok((r.note ?? "").includes("una marca en la línea"), r.note ?? "");
+    // RE-APUNTE 1.3.489 (con acta): la nota de la falta ya no dice
+    // que la marca «quedó especificada» — la marca existe y la nota
+    // señala su puerta verdadera, el editor de la línea.
+    assert.ok((r.note ?? "").includes("La marca vive en la línea misma"), r.note ?? "");
     assert.deepEqual(r.pieces, [{ label: "Cena", minor: 9000 }]);
   });
 
@@ -5436,12 +5439,16 @@ describe("banco · ola 72: las preguntas de la casa (el cómo se hace, por su pu
     }
   });
 
-  it("la verdad negativa: marcar compartido todavía no se puede, y se dice", () => {
+  it("la verdad de la casa: marcar compartido SÍ se puede desde la 1.3.489, y se dice el cómo", () => {
+    // RE-ESCRITO 1.3.489 (con acta): este espécimen fijaba la
+    // verdad negativa de la Ola 72 («Todavía no se puede»); la
+    // marca llegó en esta ola y la respuesta es el cómo de verdad.
     const r = ask(fixture(), "¿Cómo marco un gasto como compartido?");
     if (r.kind !== "answer") assert.fail("debió responder");
     assert.equal(r.family, "faro-mismo");
-    assert.ok(r.verdict.includes("Todavía no se puede"), r.verdict);
-    assert.ok(r.verdict.includes("nota de la línea"), r.verdict);
+    assert.ok(r.verdict.includes("Sí se puede"), r.verdict);
+    assert.ok(r.verdict.includes("editor"), r.verdict);
+    assert.ok(!r.verdict.includes("Todavía no se puede"), r.verdict);
   });
 
   it("la reparación falsa de la propia ola: «ganado» jamás se repara a «anado»", () => {

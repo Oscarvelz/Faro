@@ -3724,6 +3724,17 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         keys: ["tip.note"],
       },
       {
+        id: "f-compartido",
+        mode: "ritmo",
+        depth: "tip",
+        title: ["Compartido", "Shared"],
+        sum: ["Este gasto se repartió entre varios.", "This spend was split among several people."],
+        what: ["La marca dice entre cuántas personas se repartió este gasto, contándote, y con quién, si nombras a las personas.\nNo cambia ningún total: el dinero salió entero de tu mano y tus libros siguen contándolo entero.\nLa marca es una lente para tu [[Asesor]]: con ella te puede decir tu parte y lo que pusiste por otros; lo puesto por otros no se vuelve deuda de [[Me deben]] solo, eso lo anotas tú si quieres cobrarlo.", "The mark says among how many people this spend was split, counting you, and with whom, if you name the people.\nIt changes no total: the money left your hand whole and your books keep counting it whole.\nThe mark is a lens for your [[Advisor]]: with it, it can tell you your share and what you put in for others; what you put in for others does not become an [[Owed to me]] debt by itself, you record that yourself if you want to collect it."],
+        bubble: ["Entre cuántas personas se repartió este gasto, contándote. No cambia ningún total: es una lente para tu [[Asesor]].", "Among how many people this spend was split, counting you. It changes no total: it is a lens for your [[Advisor]]."],
+        go: { screen: "income", anchor: "book-add", where: ["Libros → + → editor", "Books → + → editor"] },
+        keys: ["tip.split"],
+      },
+      {
         id: "f-activo",
         mode: "ritmo",
         depth: "tip",

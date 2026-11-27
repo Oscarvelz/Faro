@@ -190,6 +190,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["central.due-alerts", E], // 1.3.356 — Ola 6: la tarjeta de Central que anuncia los pagos
   ["central.birthday", E], // 1.3.425 — la tarjeta del cumpleaños en Central: información esencial
   ["editor.autopay", R], // 1.3.356 — Ola 6: el pago automático se configura en el editor de la cuota
+  ["editor.split", R], // 1.3.489 — la marca de compartido se pone en el editor de la línea
   ["advisor.waitlist", E], // 1.3.360 — 5c: la lista de espera del Asesor; anotar y decidir un deseo es declarar, declarado antes que la superficie
   ["settings.wait-time", R], // 1.3.360 — 5c: el plazo de la espera se configura en Ajustes; configurar es administrar (Ritmo)
   ["account.name", E], // 1.3.363 — Pieza 0: la fila «Cómo te nombra Faro» del pliegue Cuenta; corregir el propio nombre es esencial (precedente 1.3.315)

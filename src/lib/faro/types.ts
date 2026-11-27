@@ -220,6 +220,17 @@ export type Line = {
    * en la moneda de la tarjeta, o el libro es anterior. */
   srcMinor?: number;
   srcCurrency?: Currency;
+  /** La marca de compartido (REPARTO-SPEC de la Ola 71, construida
+   * en la 1.3.489): esta salida se repartió entre n personas,
+   * INCLUIDO el usuario (n ≥ 2), en partes iguales. withIds nombra
+   * a las demás cuando se conocen (ids de la gente de Cobros o de
+   * Remesas); el número solo ya desbloquea la parte. La marca es
+   * una LENTE del Asesor sobre la línea: los totales del libro
+   * siguen leyendo el bruto, porque el dinero salió entero de la
+   * mano del usuario, y lo puesto por otros NO se vuelve deuda de
+   * Cobros por sí solo. Ausente = la línea es del usuario solo,
+   * como siempre. */
+  split?: { n: number; withIds?: string[] };
   /** Pago automático (Ola 6, 1.3.356; orden de Oscar 2026-11-20): en una
    * cuota, Faro anota solo el cargo de cada período en su fecha, desde la
    * cuenta elegida. Vive en la instancia más reciente de la serie y las

@@ -11,7 +11,9 @@ import { useFaro } from "./provider";
 import { upsertLine } from "@/lib/faro/reducer";
 import { PersonPick } from "./people";
 import { RemitToField } from "./remit-people";
-import { isRemitCat } from "@/lib/faro/remit-people";
+import { isRemitCat, remitPeopleOf } from "@/lib/faro/remit-people";
+import { lentOf } from "@/lib/faro/debts";
+import { loansOf } from "@/lib/faro/loans";
 import { BrandIconPick, CategoryPick, FreqPick, LookPick, PurchaseCatPick, StorePick, SubPick, type Look } from "./fit-pick";
 import { iconForName, libraryOff, poolName } from "@/lib/faro/subs";
 import { accounts, CASH_SOURCE, importBook, learnPayHint, manualLineRc, payAcctLabel, payHintFor, targets } from "@/lib/faro/bankbook";
@@ -328,6 +330,24 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   // modo no lo toca).
   const [autopay, setAutopay] = useState(existing?.autopay ?? false);
   const [autopayAcct, setAutopayAcct] = useState(existing?.autopayAccountId ?? existing?.sourceId ?? "");
+  // 1.3.489: la marca de compartido (REPARTO-SPEC de la Ola 71) —
+  // asiento editor.split (Ritmo): sin el asiento, el guardado
+  // conserva la marca de la línea, con el patrón de payEff
+  // (principio 2: lo que el modo no muestra, el modo no lo toca).
+  const [splitOn, setSplitOn] = useState(!!existing?.split);
+  const [splitN, setSplitN] = useState(existing?.split?.n ?? 2);
+  const [splitWith, setSplitWith] = useState<string[]>(existing?.split?.withIds ?? []);
+  // La gente que el libro conoce para nombrar el reparto: la de
+  // Cobros en las dos direcciones y la de Remesas, por su id.
+  const splitPeople = (() => {
+    const led = session?.ledger;
+    if (!led) return [] as { id: string; name: string }[];
+    const out: { id: string; name: string }[] = [];
+    for (const l of lentOf(led)) out.push({ id: l.id, name: l.person });
+    for (const l of loansOf(led)) out.push({ id: l.id, name: l.lender });
+    for (const p of remitPeopleOf(led)) out.push({ id: p.id, name: p.name });
+    return out;
+  })();
   const hintRef = useRef("");
   // The accounts the picker offers: the live ones, plus the line's own when it points at one since removed.
   const payAccts = (() => {
@@ -392,7 +412,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
   // contenido (dirty.ts). El «Pagado con» que el sistema rellena solo desde el aviso
   // del comercio no cuenta como toque: la cuenta sigue el aviso vigente si la mano
   // nunca la tocó.
-  const bag = () => ({ concept, amount, currency, note, categoryId, subId, recurring, storeId, providerId, code, url, cadence, nextDue, apr, balance, active, personId, pay, autopay, autopayAcct, to, icon, bookedOn, startedOn, tone, natureKey: fundSubNow ? `${nature ?? ""}|${host}` : "" });
+  const bag = () => ({ concept, amount, currency, note, categoryId, subId, recurring, storeId, providerId, code, url, cadence, nextDue, apr, balance, active, personId, pay, autopay, autopayAcct, to, icon, bookedOn, startedOn, tone, split: splitOn ? `${splitN}:${[...splitWith].sort().join(",")}` : "", natureKey: fundSubNow ? `${nature ?? ""}|${host}` : "" });
   const baseRef = useRef<Record<string, unknown> | null>(null);
   if (baseRef.current === null) baseRef.current = bag();
   const baseBag = baseRef.current;
@@ -486,6 +506,12 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
     // no pudo tocar el campo. Con el asiento despierto, payEff === pay.
     const payEff = has("editor.paid-with") ? pay : (existing?.sourceId ?? "");
     const autopayEff = has("editor.autopay") ? autopay : (existing?.autopay ?? false);
+    // 1.3.489: la marca efectiva, con el mismo patrón — sin el
+    // asiento, la línea conserva la suya; con el asiento, manda la
+    // mano: apagada o sin personas que la sostengan no se guarda.
+    const splitEff = has("editor.split")
+      ? (splitOn && splitN >= 2 ? { n: splitN, ...(splitWith.length ? { withIds: splitWith.slice(0, splitN - 1) } : {}) } : undefined)
+      : existing?.split;
     const autopayAcctEff = has("editor.autopay") ? autopayAcct : (existing?.autopayAccountId ?? "");
     const fresh: Line = {
       id: existing?.id ?? uid(),
@@ -523,6 +549,8 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       ...(to && group && session && isRemitCat(session.ledger, categoryId) ? { to } : {}),
       // Unspecified stays absent: the line keeps exactly the shape it had before this field existed.
       ...(payEff ? { sourceId: payEff } : {}),
+      // 1.3.489: la marca de compartido, solo cuando la mano la dejó puesta.
+      ...(splitEff ? { split: splitEff } : {}),
       // Ola 6: el pago automático solo existe entero — interruptor y cuenta;
       // a medias no se guarda (y el borrado de abajo no lo resucita).
       ...(autopayEff && autopayAcctEff ? { autopay: true, autopayAccountId: autopayAcctEff } : {}),
@@ -546,6 +574,7 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
       // el esparcido no resucita lo que el usuario quitó a propósito.
       if (!personId) { delete line.personId; delete line.occasionId; }
       else if (existing.personId !== personId) delete line.occasionId;
+      if (!splitEff) delete line.split;
       if (!(to && group && session && isRemitCat(session.ledger, categoryId))) delete line.to;
       if (!payEff) delete line.sourceId;
       if (!(autopayEff && autopayAcctEff)) {
@@ -789,6 +818,36 @@ export function LineForm({ kind, existing, onClose, preset, money, onMoney, seed
           {head(t("note"), "f-nota")}
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
+        {has("editor.split") && !kind.startsWith("income") ? (
+          <div className="label fit-f is-wide" data-f="split">
+            {head(lang === "en" ? "Shared" : "Compartido", "f-compartido")}
+            <div className="fit-split">
+              <label className="form-toggle fit-chip is-inline">
+                <input type="checkbox" checked={splitOn} onChange={(e) => setSplitOn(e.target.checked)} />
+                <span>{lang === "en" ? "This was shared" : "Esto se compartió"}</span>
+              </label>
+              {splitOn ? (
+                <>
+                  <div className="fit-split-n">
+                    <span>{lang === "en" ? "Among" : "Entre"}</span>
+                    <MarkSelect value={String(splitN)} onChange={(v) => { const n = Number(v); setSplitN(n); setSplitWith((w) => w.slice(0, Math.max(0, n - 1))); }} options={[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({ value: String(n), label: lang === "en" ? `${n} people, you included` : `${n} personas, contándote` }))} />
+                  </div>
+                  {splitPeople.length ? (
+                    <div className="fit-split-people">
+                      <span className="fit-split-lab">{lang === "en" ? "With whom (only if you want the names)" : "Con quién (solo si quieres los nombres)"}</span>
+                      {splitPeople.map((p) => (
+                        <label key={p.id} className="form-toggle fit-chip is-inline">
+                          <input type="checkbox" checked={splitWith.includes(p.id)} onChange={(e) => setSplitWith((w) => (e.target.checked ? [...w, p.id].slice(0, Math.max(0, splitN - 1)) : w.filter((x) => x !== p.id)))} />
+                          <span>{p.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         {kind === "subscription" && has("editor.active-toggle") ? (
           <label className="form-toggle fit-chip is-inline">
             <input type="checkbox" checked={active} onChange={(e) => askToggle("active", e.target.checked)} />
