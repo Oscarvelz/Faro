@@ -66,12 +66,12 @@
 
 /* Toggles: one tidy row of equal chips. */
 .form-block.is-fit .fit-toggles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin: 0 !important; }
-.form-block.is-fit .fit-chip, .form-block.is-fit .fit-chip:has(input:checked) { display: flex; align-items: center; gap: 8px !important; min-width: 0; height: 40px; padding: 0 8px 0 10px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); font-size: .86rem; font-weight: 620; white-space: nowrap; justify-self: stretch; }
+.form-block.is-fit .fit-chip, .form-block.is-fit .fit-chip:has(input:checked) { display: flex; align-items: center; gap: 10px !important; min-width: 0; height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--fg) 10%, var(--line)); background: color-mix(in oklab, var(--fg) 3%, var(--surface)); font-size: .86rem; font-weight: 620; white-space: nowrap; justify-self: stretch; }
 .form-block.is-fit .fit-chip:has(input:checked) { border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); background: color-mix(in oklab, var(--accent) 8%, var(--surface)); }
 .form-block.is-fit .fit-chip > span { min-width: 0; }
 .form-block.is-fit .fit-chip .ftip { margin-left: auto !important; transform: none !important; }
-.form-block.is-fit .fit-chip input { width: 30px; height: 18px; }
-.form-block.is-fit .fit-chip input::after { width: 14px; height: 14px; }
+.form-block.is-fit .fit-chip input { width: 32px; height: 20px; }
+.form-block.is-fit .fit-chip input::after { width: 16px; height: 16px; }
 .form-block.is-fit .fit-chip input:checked::after { transform: translateX(12px); }
 
 .form-block.is-fit .fit-err { margin: -4px 0 0; }
@@ -302,8 +302,14 @@
    el enlace de gestión, en tinta tenue: anuncia el porqué de la preselección y nada más. */
 .fit-suggest { display: block; margin-top: 6px; color: var(--faint); font-size: .8rem; }
 /* 1.3.489: la marca de compartido en el editor — el interruptor, el
-   número de personas y los nombres, en el idioma de la forma. */
-.form-block.is-fit .fit-split { display: flex; flex-direction: column; gap: 10px; }
-.form-block.is-fit .fit-split-n { display: flex; align-items: center; gap: 10px; font-size: .86rem; }
-.form-block.is-fit .fit-split-people { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+   número de personas y los nombres, en el idioma de la forma.
+   1.3.492 (Oscar, sobre su foto del teléfono): el bloque no dejaba
+   respirar — botones y texto pegados a la caja interior. El remedio
+   es aire: más relleno simétrico dentro de cada interruptor (regla
+   .fit-chip de arriba, que es de toda la familia del editor) y más
+   distancia entre las filas de este bloque. La altura de 40px no se
+   toca: es el ritmo de la forma entera. */
+.form-block.is-fit .fit-split { display: flex; flex-direction: column; gap: 14px; }
+.form-block.is-fit .fit-split-n { display: flex; align-items: center; gap: 12px; font-size: .86rem; }
+.form-block.is-fit .fit-split-people { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .form-block.is-fit .fit-split-lab { width: 100%; color: var(--muted); font-size: .8rem; }

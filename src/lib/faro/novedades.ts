@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.492",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Los botones del editor respiran", en: "The editor's buttons breathe" },
+    topic: "f-compartido",
+    points: {
+      es: [
+        "Los interruptores del editor — el de «Esto se compartió», los nombres de «Con quién» y también «Activo» y «Recurrente» — iban pegados a su caja por dentro; ahora llevan aire simétrico a los lados y el texto ya no toca los bordes.",
+        "El bloque de «Compartido» separa más sus filas: el interruptor, el número de personas y los nombres ya no se amontonan.",
+      ],
+      en: [
+        "The editor's toggles — “This was shared”, the “With whom” names and also “Active” and “Recurring” — were glued to their box from inside; they now carry even air on both sides and the text no longer touches the edges.",
+        "The “Shared” block spaces its rows further apart: the toggle, the people count and the names no longer crowd together.",
+      ],
+    },
+  },
+  {
     version: "1.3.491",
     date: "2026-11-26",
     level: "menor",
