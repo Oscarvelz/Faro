@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.510",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Cada persona, su color en la gráfica", en: "Each person gets their own color in the chart" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "En la gráfica de barras del Asesor, cada persona lleva ahora su propio color, y el mismo color aparece junto a su nombre en la lista: el segmento y la persona se leen de un vistazo, sin adivinar por la posición.",
+      ],
+      en: [
+        "In the Advisor's bar chart, each person now carries their own color, and the same color appears next to their name in the list: the segment and the person read at a glance, with no guessing by position.",
+      ],
+    },
+  },
+  {
     version: "1.3.509",
     date: "2026-11-27",
     level: "menor",

@@ -68,6 +68,15 @@ function Escala({ figure, fmt }: { figure: BankFigure; fmt: (n: number) => strin
 /** LAS BARRAS QUE SUMAN: si todas las piezas son no negativas y
  * suman el total, UNA barra partida en segmentos; si la figura es
  * una resta (piezas con signo), una fila por pieza. */
+/* EL COLOR DE CADA PIEZA (fallo de Oscar, 2026-11-27, sobre la
+ * foto del reparto): cada persona su color específico, para leer
+ * la gráfica — la familia sale del acento del tema por pasos de
+ * matiz (el acento mismo, +50, +100…), así cada tema pinta la
+ * suya y ningún segmento comparte color con otro. Si el motor no
+ * entiende el color relativo, manda la regla de la clase (el
+ * acento) y la barra se lee como antes. */
+const segColor = (i: number): string =>
+  i === 0 ? "var(--accent)" : `hsl(from var(--accent) calc(h + ${i * 50}) s l)`;
 function Barras({ figure, fmt }: { figure: BankFigure; fmt: (n: number) => string }) {
   const total = figure.band?.total ?? figure.points.reduce((a, p) => a + p.minor, 0);
   const sum = figure.points.reduce((a, p) => a + p.minor, 0);
@@ -77,13 +86,13 @@ function Barras({ figure, fmt }: { figure: BankFigure; fmt: (n: number) => strin
       <div className="ask-fig-barras">
         <div className="ask-fig-stack">
           {figure.points.map((p, i) => (
-            <span key={i} className={`ask-fig-seg${i % 2 ? " is-alt" : ""}`} style={{ width: `${pct(p.minor, total)}%` }} />
+            <span key={i} className="ask-fig-seg" style={{ width: `${pct(p.minor, total)}%`, background: segColor(i) }} />
           ))}
         </div>
         <div className="ask-fig-legend">
           {figure.points.map((p, i) => (
             <div key={i} className="ask-fig-legrow">
-              <span>{p.label}</span>
+              <span className="ask-fig-legname"><span className="ask-fig-dot" style={{ background: segColor(i) }} />{p.label}</span>
               <strong className="num">{fmt(p.minor)}</strong>
             </div>
           ))}

@@ -645,7 +645,8 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .ask-fig-mark.is-premisa { background: color-mix(in oklab, var(--accent) 26%, transparent); box-shadow: inset 0 0 0 2px var(--accent); }
 .ask-fig-stack { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: color-mix(in oklab, var(--fg) 10%, transparent); }
 .ask-fig-seg { display: block; height: 100%; background: var(--accent); }
-.ask-fig-seg.is-alt { background: color-mix(in oklab, var(--accent) 55%, transparent); }
+.ask-fig-legname { display: inline-flex; align-items: center; }
+.ask-fig-dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 7px; flex: none; }
 .ask-fig-svg { width: 100%; height: auto; display: block; }
 .ask-fig-path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .ask-fig-zero { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
