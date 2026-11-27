@@ -643,8 +643,8 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .ask-fig-mark { position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--accent); }
 .ask-fig-mark.is-piso { background: var(--fg); }
 .ask-fig-mark.is-premisa { background: color-mix(in oklab, var(--accent) 26%, transparent); box-shadow: inset 0 0 0 2px var(--accent); }
-.ask-fig-stack { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: color-mix(in oklab, var(--fg) 10%, transparent); }
-.ask-fig-seg { display: block; height: 100%; background: var(--accent); }
+.ask-fig-stack { display: flex; gap: 2px; height: 12px; border-radius: 99px; overflow: hidden; background: color-mix(in oklab, var(--fg) 10%, transparent); }
+.ask-fig-seg { display: block; height: 100%; flex: 1 1 0; background: var(--accent); }
 .ask-fig-legname { display: inline-flex; align-items: center; }
 .ask-fig-dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 7px; flex: none; }
 .ask-fig-svg { width: 100%; height: auto; display: block; }

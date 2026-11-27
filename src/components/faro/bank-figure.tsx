@@ -74,9 +74,13 @@ function Escala({ figure, fmt }: { figure: BankFigure; fmt: (n: number) => strin
  * matiz (el acento mismo, +50, +100…), así cada tema pinta la
  * suya y ningún segmento comparte color con otro. Si el motor no
  * entiende el color relativo, manda la regla de la clase (el
- * acento) y la barra se lee como antes. */
+ * acento) y la barra se lee como antes. La intensidad va un pelo
+ * por debajo de la del acento (fallo de Oscar, el mismo día: la
+ * familia a saturación plena gritaba): la saturación se corta al
+ * 80% en todas las piezas, la del acento incluida, para que la
+ * familia entera respire igual. */
 const segColor = (i: number): string =>
-  i === 0 ? "var(--accent)" : `hsl(from var(--accent) calc(h + ${i * 50}) s l)`;
+  `hsl(from var(--accent) calc(h + ${i * 50}) calc(s * 0.8) l)`;
 function Barras({ figure, fmt }: { figure: BankFigure; fmt: (n: number) => string }) {
   const total = figure.band?.total ?? figure.points.reduce((a, p) => a + p.minor, 0);
   const sum = figure.points.reduce((a, p) => a + p.minor, 0);
@@ -86,7 +90,7 @@ function Barras({ figure, fmt }: { figure: BankFigure; fmt: (n: number) => strin
       <div className="ask-fig-barras">
         <div className="ask-fig-stack">
           {figure.points.map((p, i) => (
-            <span key={i} className="ask-fig-seg" style={{ width: `${pct(p.minor, total)}%`, background: segColor(i) }} />
+            <span key={i} className="ask-fig-seg" style={{ flexGrow: p.minor, background: segColor(i) }} />
           ))}
         </div>
         <div className="ask-fig-legend">

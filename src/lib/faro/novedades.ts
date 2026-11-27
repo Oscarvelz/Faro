@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.511",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Los colores de la gráfica, un pelo más suaves", en: "The chart colors, a touch softer" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Los colores con que la gráfica distingue a cada persona bajan un pelo su intensidad: la familia entera se lee igual de clara, sin gritar.",
+      ],
+      en: [
+        "The colors the chart uses to tell each person apart drop a touch in intensity: the whole family reads just as clearly, without shouting.",
+      ],
+    },
+  },
+  {
     version: "1.3.510",
     date: "2026-11-27",
     level: "menor",
