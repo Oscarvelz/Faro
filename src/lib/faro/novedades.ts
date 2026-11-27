@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.502",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El botón de la casa, en voz baja", en: "The house button, in a lower voice" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "El botón «¿Qué puede hacer el asesor?» ya no lleva el fondo lleno de color: vuelve a su color de siempre, dicho en un tinte suave, con su borde y su letra en ese color.",
+        "Su forma y su brújula se quedan como estaban; solo baja la voz.",
+      ],
+      en: [
+        "The “What can the Advisor do?” button no longer wears the solid fill of color: it goes back to its usual color, spoken in a soft tint, with its border and text in that color.",
+        "Its shape and its compass stay as they were; only the voice comes down.",
+      ],
+    },
+  },
+  {
     version: "1.3.501",
     date: "2026-11-27",
     level: "menor",

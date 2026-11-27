@@ -520,9 +520,17 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
    la voz de la casa: el color --house, que cada tema dice con su
    propia paleta (en Cyberpunk, su magenta; en Ion, su resplandor;
    en los demás, la tinta del tema), y la brújula del Asesor al
-   frente. La confirmación conserva el acento lleno, solo suyo. */
-.ask-chip.is-house { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: transparent; background: var(--house, var(--fg)); color: var(--house-fg, var(--bg)); font-weight: 650; }
-.ask-chip.is-house:hover { border-color: transparent; filter: brightness(1.07); }
+   frente. La confirmación conserva el acento lleno, solo suyo.
+   1.3.502 (fallo de Oscar): el fondo LLENO era exorbitante —
+   realzaba demasiado. La forma y el diseño se quedan; el color
+   se dice ahora en sutil: un tinte, su borde y su letra en ese
+   color, sin fondo lleno. Y su segunda palabra sobre la misma
+   foto: el magenta de la casa DA FALSA ALARMA — la voz vuelve al
+   amarillo que el botón tenía, el acento del tema, dicho en el
+   tinte sutil; lo que la separa de la confirmación llena ya no
+   es otro color, es el diseño: tinte contra lleno. */
+.ask-chip.is-house { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); font-weight: 650; }
+.ask-chip.is-house:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 /* 1.3.369: el administrador de las preguntas a la mano (pliegue de Ajustes). */
 .ap-wrap { display: flex; flex-direction: column; gap: 12px; }
 .ap-note { margin: 0; font-size: .86rem; color: var(--muted); line-height: 1.45; }
