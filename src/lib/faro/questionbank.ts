@@ -986,6 +986,21 @@ export const QUESTION_BANK: BankFamily[] = [
     contradiction: "Un mes raro solo NO es un aviso: si el usuario señala un mes caro, la respuesta distingue el salto (un mes) de la deriva (la suma paciente) — y si ninguno pasa la vara, lo dice.",
     silences: ["Con menos de cinco meses de serie en una categoría, su deriva no se juzga: no hay base con qué medirla."],
   },
+  {
+    id: "presupuesto",
+    cap: { es: "tu gasto contra el presupuesto que tú fijaste para una categoría o para el mes: cuánto llevas, cuánto te queda y si te pasaste", en: "your spending against the budget you set for a category or the month: how much you've used, what's left and whether you're over" },
+    name: { es: "El presupuesto fijado: tu gasto contra tu tope", en: "The set budget: your spending against your cap" },
+    status: "viva",
+    source: ["libros.lineas"],
+    axes: ["el alcance (una categoría × el mes entero) × el estado (bajo el tope × pasado, y por cuánto)"],
+    canonical: {
+      es: ["¿Ya me pasé de mi presupuesto?", "¿En qué categorías me pasé del presupuesto?"],
+      en: ["How much of my food budget do I have left?", "Am I over budget this month?"],
+    },
+    answerShape: "FAMILIA CANDIDATA (registrada el 2026-11-27 a pedido de Oscar; estudio en ESTUDIO-PRESUPUESTO.md): el gasto del mes en curso contra un TOPE QUE EL USUARIO FIJA por categoría o para el mes — cuánto lleva, cuánto le queda del tope, si se pasó y por cuánto, y la lista de categorías pasadas. FASE 1 · LA CERCA (1.3.519, el sí de Oscar con la adenda de Grok): el libro todavía NO guarda ningún tope (el tipo Category no trae campo de presupuesto y ningún ajuste guarda uno; lo único con ese nombre es el reparto 50·30·20 de regla, una proporción, no una cifra fijada), así que la puerta responde la verdad del dato ausente — «no tienes presupuesto fijado para eso» — y cuenta la mitad que sí se puede (el gasto del mes en la categoría nombrada, como pieza), por la doctrina de «falta». La cerca existe porque sin ella la frase caía en la queda del mes (left: «¿Cuánto me queda de mi presupuesto de comida?»), en la mitad sin vara (historia) o en identidad. LA CUENTA CONTRA EL TOPE llega con el dato (capMinor + capCurrency en la categoría, fijable desde su ficha en Estructura), tras el documento de diseño que Oscar apruebe; el tope del mes entero va aparte y después. En el corpus de cobertura (2.147) la familia no aparece ni una vez: el corpus se generó desde las familias existentes y no puede verla; la mitad viva de su pregunta vive en historia con 38 formas «¿cuánto llevo…?», que no cambian de familia mientras no haya tope.",
+    contradiction: "Un tope calculado del historial («sueles gastar unos 300») NO es un presupuesto: si el usuario no lo fijó, la respuesta no lo disfraza de tope — eso es promedio, otra familia.",
+    silences: ["Sin tope fijado para lo nombrado, la única respuesta honesta es la ausencia dicha (la cerca de la fase 1): jamás un tope inventado ni la queda del mes disfrazada.", "«¿Cuánto puedo gastar en…?» sin tope nombrado es factibilidad; «¿cuánto llevo en…?» sin la palabra presupuesto o tope es historia: la palabra manda."],
+  },
 ];
 
 /** Las familias vivas o heredadas: las únicas que un motor puede

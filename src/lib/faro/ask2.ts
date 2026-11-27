@@ -78,7 +78,7 @@ type Namer = {
 export type BankFamilyId =
   | "ahorros" | "gustos" | "ya-pague" | "cuenta-origen" | "recencia"
   | "agenda" | "ranking" | "remesas" | "remesas-periodo" | "historia" | "comparar"
-  | "futuro" | "faro-mismo" | "conteo" | "extremos" | "capacidades" | "limites"
+  | "futuro" | "faro-mismo" | "conteo" | "extremos" | "capacidades" | "limites" | "presupuesto"
   | "hipotetico" | "calculadora" | "acciones" | "conversor" | "calendario"
   | "contrafactual" | "respaldo" | "meta"
   | "deudas" | "confirmacion" | "sintesis"
@@ -10901,6 +10901,41 @@ function capacidadesProbeAnswer(c: Ctx, folded: string): BankResult | null {
   return null;
 }
 
+/* LA CERCA DE PRESUPUESTO (1.3.519; el sí de Oscar y la adenda de
+ * Grok, 2026-11-27): mientras el libro no guarda ningún tope, la
+ * frase que nombra presupuesto o tope recibe la verdad del dato
+ * ausente — nunca la queda del mes disfrazada (left la robaba:
+ * «¿Cuánto me queda de mi presupuesto de comida?»), nunca la mitad
+ * viva sin declarar la vara (historia: «¿Cuánto llevo de mi
+ * presupuesto?»), nunca la identidad de otra cosa. La mitad que sí
+ * se puede contar se cuenta (la doctrina de la familia «falta»):
+ * si la frase nombra una categoría, su gasto de este mes va como
+ * pieza. La familia firma «presupuesto» desde esta cerca; la
+ * cuenta contra el tope llega con el dato, tras el diseño que
+ * Oscar apruebe. */
+function presupuestoAnswer(c: Ctx, folded: string): BankResult | null {
+  if (!/(presupuest|budget|\btope\b|\btopes\b)/.test(folded)) return null;
+  const hit = filterHitOf(c, folded);
+  const monthLines = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
+  if (hit?.desc) {
+    const sum = monthLines.filter(hit.fn).reduce((a, l) => a + convertMinor(l.amountMinor, l.currency, c.display, c.rateE4), 0);
+    return {
+      kind: "answer", family: "presupuesto",
+      verdict: L(c.lang, `No tienes presupuesto fijado para ${hit.desc.label}: tu libro no guarda ningún tope todavía. Lo que sí consta: llevas ${c.money(sum)} en ${hit.desc.label} este mes.`, `You have no budget set for ${hit.desc.label}: your book doesn't keep any cap yet. What is recorded: you've spent ${c.money(sum)} on ${hit.desc.label} this month.`),
+      pieces: sum > 0 ? [{ label: hit.desc.label, minor: sum }] : [],
+      note: L(c.lang, "El dato que falta es el tope: hoy el libro no lo guarda en ninguna categoría.", "The missing datum is the cap: today the book doesn't keep one for any category."),
+      source: ["libros.lineas"], lines: monthLines.filter(hit.fn).length,
+    };
+  }
+  return {
+    kind: "answer", family: "presupuesto",
+    verdict: L(c.lang, "No tienes presupuesto fijado: tu libro no guarda ningún tope todavía — ni por categoría ni para el mes.", "You have no budget set: your book doesn't keep any cap yet — not per category and not for the month."),
+    pieces: [],
+    note: L(c.lang, "El dato que falta es el tope: hoy el libro no lo guarda en ninguna categoría.", "The missing datum is the cap: today the book doesn't keep one for any category."),
+    source: ["libros.lineas"], lines: 0,
+  };
+}
+
 function capacidadesAnswer(c: Ctx): BankResult {
   const live = QUESTION_BANK.filter((f) => f.status !== "declarada");
   return {
@@ -12679,6 +12714,11 @@ const GATE_WORDS: string[] = [
    * hostil: la palabra que la puerta oye tiene que estar en
    * el vocabulario que el reparador defiende. */
   "alguna", "algun",
+  /* 1.3.519: la cerca de presupuesto oye estas dos palabras;
+   * sin fijarlas, sus mutaciones («presupueto», «budgt»)
+   * caían fuera de la puerta y la ausencia volvía a
+   * disfrazarse de queda o de mitad sin vara. */
+  "presupuesto", "budget",
   /* HUECO 6 · CAPACIDADES (2026-11-27): «hace» caía a
    * «chase» en los libros que traen la tarjeta de ese banco
    * (el nombre protegido atrae al verbo por letra de más) —
@@ -13828,6 +13868,15 @@ function answerSingle(
    * la tasa). */
   {
     const r = capacidadesProbeAnswer(c, folded);
+    if (r) return r;
+  }
+  /* LA CERCA DE PRESUPUESTO (1.3.519), antes de la proyección y
+   * de todo lo genérico: la frase que nombra presupuesto o tope
+   * recibe la verdad del dato ausente — la queda del mes la
+   * robaba más abajo y la historia la respondía sin declarar la
+   * vara que falta. */
+  {
+    const r = presupuestoAnswer(c, folded);
     if (r) return r;
   }
   /* HUECO 6 · LA PROYECCIÓN, antes del asiento de ahorros: la

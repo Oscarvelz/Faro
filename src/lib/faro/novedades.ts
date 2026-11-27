@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.519",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Preguntar por tu presupuesto ya no cae en otra respuesta", en: "Asking about your budget no longer lands on another answer" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Si preguntas por tu presupuesto o tu tope («¿Cuánto me queda de mi presupuesto de alimentos?», «¿Ya me pasé de mi presupuesto?»), el Asesor ya no lo disfraza de la queda del mes: te dice la verdad — todavía no tienes presupuesto fijado, porque tu libro aún no guarda topes — y te cuenta la mitad que sí sabe, lo que llevas gastado en esa categoría este mes.",
+      ],
+      en: [
+        "If you ask about your budget or your cap (“How much of my food budget do I have left?”, “Am I over budget?”), the Advisor no longer dresses it up as the month's left: it tells you the truth — you have no budget set yet, because your book doesn't keep caps yet — and counts the half it does know, what you've spent in that category this month.",
+      ],
+    },
+  },
+  {
     version: "1.3.518",
     date: "2026-11-27",
     level: "menor",

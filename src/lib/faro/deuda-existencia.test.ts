@@ -29,7 +29,7 @@ function fixture(withDebt: boolean): LedgerState {
   let ledger = createInitial("es", "oscuro");
   ledger.months[KEY] = { lines: [] };
   if (withDebt) {
-    ledger = addLoan(ledger, { id: "loan1", person: "Mamá", kind: "plain", amountMinor: 50000, currency: "USD", aprBps: 0, startedOn: "2026-09-01", dueOn: "2026-12-01", note: "" });
+    ledger = addLoan(ledger, { id: "loan1", lender: "Mamá", who: "person", kind: "plain", amountMinor: 50000, currency: "USD", aprBps: 0, takenOn: "2026-09-01", book: "fixed", note: "" });
     ledger = addLent(ledger, { id: "lent1", person: "Carlos", kind: "plain", amountMinor: 30000, currency: "USD", aprBps: 0, startedOn: "2026-09-01", dueOn: "2026-12-01", note: "" });
   }
   ledger.settings.display = "USD";
