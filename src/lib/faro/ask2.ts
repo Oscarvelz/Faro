@@ -8436,7 +8436,16 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
   // («en ahorros», «para gastar», «que hacer») es de otra familia,
   // y la clase nombrada ya cerró esta puerta arriba.
   const bareHave = /^(cuanto tengo|cuanto dinero tengo|how much do i have|how much money do i have)$/.test(bare);
-  if (classNamed || (!moneyHow && !bareMoney && !bareHave)) return null;
+  // LA PUERTA DEL SALDO (batería de significado, 2026-11-27):
+  // «¿cuál es mi saldo?» callaba entera — «saldo» era palabra del
+  // clasificador y de las canónicas, pero ninguna puerta del motor
+  // la oía, y la familia entraba solo por «¿cuánto tengo?». Formas
+  // DESNUDAS exactas, como el bareHave de la P4: cualquier cola
+  // («de mi tarjeta», «en PayPal», «de mi seguro») es de otra
+  // familia y nunca casa aquí; la cuenta llamada Saldo sigue
+  // yendo por su puerta de ahorros, que oye el «en».
+  const bareSaldo = /^(cual es (mi|el) saldo|cuanto es (mi|el) saldo|cuanto tengo de saldo|cuanto hay de saldo|cuanto saldo tengo|mi saldo|saldo|what is my balance|how much is my balance|my balance)$/.test(bare);
+  if (classNamed || (!moneyHow && !bareMoney && !bareHave && !bareSaldo)) return null;
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
   const stock = savingsStock(c.state, c.key);
   const nb = netBalance(c.state, c.today);
@@ -9309,6 +9318,24 @@ function noSuchPerson(c: Ctx, cand: string, side: "owe" | "owed"): BankResult {
   };
 }
 
+/* LA PERSONA QUE ESTÁ, SIN DEUDA (batería de significado,
+ * 2026-11-27): el espejo de noSuchPerson. Si el nombre vive en
+ * el libro por otra puerta (una remesa, por ejemplo) pero no
+ * hay deuda en ningún lado, la respuesta lo dice — ni la
+ * ausencia falsa de noSuchPerson ni el silencio que quedaba:
+ * «¿cuánto le debo a Luz?» con Luz de remesas callaba entera. */
+function noDebtWith(c: Ctx, cand: string, side: "owe" | "owed"): BankResult {
+  const display = cand.charAt(0).toUpperCase() + cand.slice(1);
+  const srcId = side === "owe" ? "cobros.debo" : "cobros.mideben";
+  return {
+    kind: "answer", family: "deudas",
+    verdict: side === "owe"
+      ? L(c.lang, `A ${display} no le debes nada: está en tu libro, pero no hay ninguna deuda con ${display} anotada.`, `You owe ${display} nothing: they're in your book, but there's no debt with ${display} recorded.`)
+      : L(c.lang, `${display} no te debe nada: está en tu libro, pero no hay ningún préstamo a ${display} anotado.`, `${display} owes you nothing: they're in your book, but there's no loan to ${display} recorded.`),
+    pieces: [], note: null, source: [srcId], lines: 0,
+  };
+}
+
 function deudasAnswer(c: Ctx, folded: string): BankResult | null {
   // OLA 28 (Familia 2, E28-2): «¿en cuál / which … más / most?» no
   // es una deuda plana: es el RANKING de las deudas, y esta familia
@@ -9349,6 +9376,7 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
     // libro entero — se dice, no se cae al listado ni al silencio.
     const candOwed = debtNameAfter(folded, /(?:me debe|owes me)\s+([a-z]+(?:\s+[a-z]+){0,2})/);
     if (candOwed && !personInBook(c, foldQ(candOwed))) return noSuchPerson(c, candOwed, "owed");
+    if (candOwed && personInBook(c, foldQ(candOwed))) return noDebtWith(c, candOwed, "owed");
     // Sin persona nombrada no es esta rama: «¿quién me debe?» cae a la
     // rama del listado, no al silencio.
   }
@@ -9378,6 +9406,7 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
     // silencio.
     const candOwe = debtNameAfter(folded, /(?:le debo|debo)\s+a\s+([a-z]+(?:\s+[a-z]+){0,2})/) ?? debtNameAfter(folded, /(?:i owe)\s+([a-z]+(?:\s+[a-z]+){0,2})/);
     if (candOwe && !personInBook(c, foldQ(candOwe))) return noSuchPerson(c, candOwe, "owe");
+    if (candOwe && personInBook(c, foldQ(candOwe))) return noDebtWith(c, candOwe, "owe");
     // OLA 18 (batería II): la cerca «a » sin frontera cazaba dentro de
     // las palabras — «mi TARJETA cuanto debo» leía su «a » final como
     // la preposición y la rama del total moría en silencio. La
@@ -13066,7 +13095,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(de que cuenta (saco|pago|tomo)|cual cuenta (uso|conviene)|de donde saco)/, "cuenta-origen"],
     [/(50.?30.?20|la regla|the rule|deberia gastar en|cuanto deberia (gastar|ahorrar))/, "regla"],
     [/(cuanto necesito (al mes|para vivir)|necesito para vivir|cuanto (me )?cuesta vivir|que (porcentaje|parte) de (lo que gano|mi sueldo|mi salario)|cuanto (me |nos )?(cuesta|cuestan) .{1,30} al mes|cuanto gastamos en|me alcanza con lo que gano|alcanza mi sueldo|how much do i need to live|what (percentage|share) of my income|how much does .{1,30} cost)/, "promedio"],
-    [/(cuanto (dinero )?tengo en total|cuanto (dinero|billete|efectivo) hay|todo mi dinero|^cuanto tengo$|^how much do i have$|how much money do i have in total|how much (money|cash) is there)/, "total"],
+    [/(cuanto (dinero )?tengo en total|cuanto (dinero|billete|efectivo) hay|todo mi dinero|^cuanto tengo$|^how much do i have$|how much money do i have in total|how much (money|cash) is there|^cual es (mi|el) saldo$|^cuanto es (mi|el) saldo$|^cuanto tengo de saldo$|^cuanto hay de saldo$|^mi saldo$|^what is my balance$|^how much is my balance$)/, "total"],
     [/(promedio|gasto fijo|cuanto puedo gastar hoy|seguro gastar)/, "promedio"],
     [/(gustos|antojos|puedo gastar|darme el gusto|capricho)/, "gustos"],
     // OLA 25: la verificación nombra «promedio» en el oído — DESPUÉS

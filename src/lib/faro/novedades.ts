@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.497",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El saldo ya se puede preguntar", en: "You can ask for your balance now" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«¿Cuál es mi saldo?», «¿cuánto tengo de saldo?» y «¿mi saldo?» ya reciben su respuesta: el Asesor suma tu queda, tu ahorro y lo que te deben.",
+        "Y si preguntas por una persona que está en tu libro sin deuda — por un envío, por ejemplo — el Asesor lo dice: no le debes nada, en vez de callar.",
+      ],
+      en: [
+        "“What is my balance?”, “how much balance do I have?” and “my balance” now get their answer: the Advisor adds your left, your savings and what you are owed.",
+        "And if you ask about a person who is in your book with no debt — from a remittance, say — the Advisor says so: you owe them nothing, instead of staying silent.",
+      ],
+    },
+  },
+  {
     version: "1.3.496",
     date: "2026-11-27",
     level: "menor",
