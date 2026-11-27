@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.487",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Las comparaciones, a igual tramo", en: "Comparisons, over the same stretch" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Cuando preguntas si gastaste más este mes o el pasado, tu Asesor compara a igual tramo: del día 1 a hoy contra los mismos días del mes pasado. El mes pasado completo va en la nota.",
+        "Si el mes pasado fue más corto, el corte se nombra; si no hay mes pasado (es el primer mes de tu libro, o el pasado quedó sin anotar), se dice así, nunca se compara contra cero.",
+      ],
+      en: [
+        "When you ask whether you spent more this month or last, your Advisor compares over the same stretch: the 1st to today against the same days of last month. Last month in full goes in the note.",
+        "If last month was shorter, the cut is named; if there is no last month (it's your book's first month, or last month has nothing recorded), it says so — it never compares against zero.",
+      ],
+    },
+  },
+  {
     version: "1.3.486",
     date: "2026-11-26",
     level: "menor",

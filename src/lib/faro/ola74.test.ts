@@ -228,11 +228,19 @@ describe("banco · ola 74 · la exclusión con excepción y el cruce con la comp
     assert.equal(total74(c), 68000, "«excepto» como primer operador es la exclusión misma");
   });
   it("la comparación con exclusión compara los dos meses con la exclusión aplicada", () => {
+    /* REESCRITO 2026-11-26 por el fallo de los meses de Oscar (a
+     * propuesta de Hark): la comparación es A IGUAL TRAMO. La forma
+     * vieja sumaba el mapa entero de este mes ($680) contra el mes
+     * pasado; el tramo justo (del 1 al 22) deja fuera la línea de
+     * $30 fechada después de hoy: este mes $650. La cerca nueva vive
+     * en comparacion-tramos.test.ts; aquí queda el cruce con la
+     * exclusión bajo la regla nueva. */
     const l = libro74();
     const r = ans(l, "¿Cuánto gasté este mes sin la renta, comparado con el mes pasado?");
     assert.equal(r.family, "comparar");
     assert.match(r.verdict, /Sin contar «Renta»/);
-    assert.match(r.verdict, /este mes \$680\.00 y el mes pasado \$120\.00/);
+    assert.match(r.verdict, /a igual tramo/);
+    assert.match(r.verdict, /este mes \$650\.00 y el mes pasado \$120\.00/);
   });
 });
 

@@ -3328,6 +3328,40 @@ function remesasAnswer(c: Ctx, folded = ""): BankResult {
 /* COMPARAR — dos patas del mismo motor, lado a lado.                 */
 /* ------------------------------------------------------------------ */
 function compararAnswer(c: Ctx, folded: string): BankResult | null {
+  /* FALLO DE OSCAR (2026-11-26, a propuesta de Hark): LA COMPARACIÓN
+   * ES A IGUAL TRAMO. Lo que va del mes contra el mes pasado COMPLETO
+   * hacía ver «gastando menos» a mitad de mes por construcción. El
+   * tramo justo es del día 1 al día de hoy contra los mismos días del
+   * mes pasado (la rama «mejor o peor» ya medía así), y el mes pasado
+   * completo va en la nota, detrás. Cuando el tramo no muerde (el
+   * pasado no trae líneas después del día de hoy, ni este mes después
+   * de hoy), cada rama responde palabra por palabra como antes. */
+  const dayNow = Number(c.today.slice(8, 10));
+  const spanOut = (key: string, pred?: (l: Line) => boolean) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && Number(lineDate(l).slice(8, 10)) <= dayNow && (!pred || pred(l))).reduce((a, l) => a + view(c, l), 0);
+  const fullNote = (fullB: number, spanB: number, prefix = "") => spanB !== fullB
+    ? L(c.lang, `${prefix}el mes pasado completo sumó ${c.money(fullB)}.`, `${prefix}last month in full added up to ${c.money(fullB)}.`)
+    : null;
+  /* EL BORDE DE HARK (2026-11-26): el día 31 contra un mes de 30 o
+   * contra febrero — el tramo del pasado se corta en SU último día
+   * y el veredicto lo nombra así; las sumas ya caían ahí (ningún
+   * día pasa del último del mes), lo que mentía era el nombre. */
+  const daysInPrev = new Date(Number(prevKey(c.key).slice(0, 4)), Number(prevKey(c.key).slice(5, 7)), 0).getDate();
+  const pastCap = Math.min(dayNow, daysInPrev);
+  const tramoTxt = pastCap === dayNow
+    ? L(c.lang, `del 1 al ${dayNow} contra del 1 al ${dayNow}`, `the 1st to the ${dayNow}th vs the 1st to the ${dayNow}th`)
+    : L(c.lang, `del 1 al ${dayNow} contra del 1 al ${pastCap}, su último día`, `the 1st to the ${dayNow}th vs the 1st to the ${pastCap}th, its last day`);
+  const pastLbl = L(c.lang, `Mes pasado, al día ${pastCap}`, `Last month, by day ${pastCap}`);
+  /* EL TERCER BORDE (Hark, 2026-11-26): el mes pasado con el libro
+   * recién nacido — si el primer registro del libro cae dentro del
+   * mes pasado y no es el día 1, su tramo nació cortado y la nota
+   * lo dice, en vez de comparar como si estuviera completo. Vale
+   * en los dos caminos, el de tramo y el clásico. */
+  const bookStart = allLines(c).reduce((m, l) => { const d = lineDate(l); return m === "" || d < m ? d : m; }, "");
+  const pastPartial = bookStart.slice(0, 7) === prevKey(c.key) && Number(bookStart.slice(8, 10)) > 1;
+  const partialTxt = pastPartial
+    ? L(c.lang, `Tu libro empieza el día ${Number(bookStart.slice(8, 10))} del mes pasado: su tramo no está completo, porque antes de ese día no hay nada anotado.`, `Your book starts on day ${Number(bookStart.slice(8, 10))} of last month: its stretch isn't complete, because nothing is recorded before that day.`)
+    : null;
+  const withPartial = (note: string | null) => [note, partialTxt].filter(Boolean).join(" ") || null;
   // OLA 18 (batería II): «¿gasté mucho este mes?» es una comparación
   // sin segundo término nombrado — el término es su propio ingreso y
   // su propio pasado. Se responde con las dos medidas, sin adjetivos
@@ -3336,6 +3370,13 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
     const now = summarize(c.state, c.key, c.lang);
     const before = summarize(c.state, prevKey(c.key), c.lang);
     const pct = now.income > 0 ? Math.round((now.spend / now.income) * 100) : null;
+    /* A igual tramo: la pata del pasado se mide del 1 al día de hoy;
+     * el mes completo va en la nota. La pata de este mes es la medida
+     * del libro (la misma que usa la proyección de la Ola 43). */
+    const spanBefore18 = spanOut(prevKey(c.key));
+    const pastTxt18 = spanBefore18 !== before.spend
+      ? L(c.lang, `En el mismo tramo del mes pasado (del 1 al ${pastCap}${pastCap < dayNow ? ", su último día" : ""}) gastaste ${c.money(spanBefore18)}: ${now.spend === spanBefore18 ? "van parejos" : now.spend > spanBefore18 ? `${c.money(now.spend - spanBefore18)} más` : `${c.money(spanBefore18 - now.spend)} menos`}.`, `Over the same stretch of last month (the 1st to the ${pastCap}th${pastCap < dayNow ? ", its last day" : ""}) you spent ${c.money(spanBefore18)}: ${now.spend === spanBefore18 ? "they're tied" : now.spend > spanBefore18 ? `${c.money(now.spend - spanBefore18)} more` : `${c.money(spanBefore18 - now.spend)} less`}.`)
+      : L(c.lang, `El mes pasado gastaste ${c.money(before.spend)}: ${now.spend === before.spend ? "van parejos" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} más` : `${c.money(before.spend - now.spend)} menos`}.`, `Last month you spent ${c.money(before.spend)}: ${now.spend === before.spend ? "they're tied" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} more` : `${c.money(before.spend - now.spend)} less`}.`);
     /* OLA 43: la tercera medida — el mes típico del propio usuario.
      * A mitad de mes, el gasto corrido se PROYECTA al mes entero y
      * se compara contra su mediana: el juicio es contra su vara,
@@ -3344,7 +3385,7 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
     let typicalTxt = "";
     const piecesJ: Array<{ label: string; minor: number }> = [
       { label: L(c.lang, "Este mes", "This month"), minor: now.spend },
-      { label: L(c.lang, "Mes pasado", "Last month"), minor: before.spend },
+      { label: spanBefore18 !== before.spend ? pastLbl : L(c.lang, "Mes pasado", "Last month"), minor: spanBefore18 !== before.spend ? spanBefore18 : before.spend },
     ];
     if (keysJ.length >= 2) {
       const outs = keysJ.map((k) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings").reduce((a, l) => a + view(c, l), 0)).sort((a, b) => a - b);
@@ -3358,9 +3399,9 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
     }
     return {
       kind: "answer", family: "comparar",
-      verdict: L(c.lang, `Este mes has gastado ${c.money(now.spend)}${pct !== null ? ` — el ${pct}% de los ${c.money(now.income)} que entraron` : ""}. El mes pasado gastaste ${c.money(before.spend)}: ${now.spend === before.spend ? "van parejos" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} más` : `${c.money(before.spend - now.spend)} menos`}.${typicalTxt} Si es mucho o poco, con esas medidas lo juzgas tú: yo no te vendo un adjetivo.`, `This month you've spent ${c.money(now.spend)}${pct !== null ? ` — ${pct}% of the ${c.money(now.income)} that came in` : ""}. Last month you spent ${c.money(before.spend)}: ${now.spend === before.spend ? "they're tied" : now.spend > before.spend ? `${c.money(now.spend - before.spend)} more` : `${c.money(before.spend - now.spend)} less`}.${typicalTxt} Whether that's a lot or a little, with those measures you judge it: I won't sell you an adjective.`),
+      verdict: L(c.lang, `Este mes has gastado ${c.money(now.spend)}${pct !== null ? ` — el ${pct}% de los ${c.money(now.income)} que entraron` : ""}. ${pastTxt18}${typicalTxt} Si es mucho o poco, con esas medidas lo juzgas tú: yo no te vendo un adjetivo.`, `This month you've spent ${c.money(now.spend)}${pct !== null ? ` — ${pct}% of the ${c.money(now.income)} that came in` : ""}. ${pastTxt18}${typicalTxt} Whether that's a lot or a little, with those measures you judge it: I won't sell you an adjective.`),
       pieces: piecesJ,
-      note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+      note: withPartial(fullNote(before.spend, spanBefore18)), source: ["libros.lineas", "estudio.flujo"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
       figure: {
         kind: "lado",
@@ -3390,28 +3431,49 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
     const excl67 = exclusionIn(c.state, c.names, folded, undefined, otherNamer(c.state, c.lang));
     const f67 = filterOf(c, excl67 ? folded.replace(excl67.strip, " ") : folded);
     if (!f67 && excl67) {
-      const sumE = (key: string) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && !excl67.fn(l)).reduce((a, l) => a + view(c, l), 0);
-      const nowE = sumE(c.key);
-      const beforeE = sumE(prevKey(c.key));
+      const sumE = (key: string, capped: boolean) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && !excl67.fn(l) && (!capped || Number(lineDate(l).slice(8, 10)) <= dayNow)).reduce((a, l) => a + view(c, l), 0);
+      const nowE = sumE(c.key, true);
+      const beforeE = sumE(prevKey(c.key), true);
+      const fullBE = sumE(prevKey(c.key), false);
+      const biteE = beforeE !== fullBE || nowE !== sumE(c.key, false);
+      if (biteE) {
+        return {
+          kind: "answer", family: "comparar",
+          verdict: L(c.lang, `Sin contar «${excl67.display}», a igual tramo (${tramoTxt}): este mes ${c.money(nowE)} y el mes pasado ${c.money(beforeE)} — ${nowE === beforeE ? "van parejos" : nowE > beforeE ? `${c.money(nowE - beforeE)} más este mes` : `${c.money(beforeE - nowE)} menos este mes`}.`, `Not counting "${excl67.display}", over the same stretch (${tramoTxt}): this month ${c.money(nowE)} and last month ${c.money(beforeE)} — ${nowE === beforeE ? "they're tied" : nowE > beforeE ? `${c.money(nowE - beforeE)} more this month` : `${c.money(beforeE - nowE)} less this month`}.`),
+          pieces: [{ label: L(c.lang, `Este mes, al día ${dayNow}`, `This month, by day ${dayNow}`), minor: nowE }, { label: pastLbl, minor: beforeE }],
+          note: withPartial(fullNote(fullBE, beforeE, L(c.lang, `Sin contar «${excl67.display}», `, `Not counting "${excl67.display}", `))), source: ["libros.lineas", "estudio.flujo"], lines: 0,
+          actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+        };
+      }
       return {
         kind: "answer", family: "comparar",
         verdict: L(c.lang, `Sin contar «${excl67.display}»: este mes ${c.money(nowE)} y el mes pasado ${c.money(beforeE)} — ${nowE === beforeE ? "van parejos" : nowE > beforeE ? `${c.money(nowE - beforeE)} más este mes` : `${c.money(beforeE - nowE)} menos este mes`}.`, `Not counting "${excl67.display}": this month ${c.money(nowE)} and last month ${c.money(beforeE)} — ${nowE === beforeE ? "they're tied" : nowE > beforeE ? `${c.money(nowE - beforeE)} more this month` : `${c.money(beforeE - nowE)} less this month`}.`),
         pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: nowE }, { label: L(c.lang, "Mes pasado", "Last month"), minor: beforeE }],
-        note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        note: withPartial(null), source: ["libros.lineas", "estudio.flujo"], lines: 0,
         actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
       };
     }
     if (f67) {
-      const sum67 = (key: string) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && f67(l) && !(excl67 && excl67.fn(l))).reduce((a, l) => a + view(c, l), 0);
-      const now67 = sum67(c.key);
-      const before67 = sum67(prevKey(c.key));
+      const sum67 = (key: string, capped: boolean) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && f67(l) && !(excl67 && excl67.fn(l)) && (!capped || Number(lineDate(l).slice(8, 10)) <= dayNow)).reduce((a, l) => a + view(c, l), 0);
+      const now67 = sum67(c.key, true);
+      const before67 = sum67(prevKey(c.key), true);
+      const fullB67 = sum67(prevKey(c.key), false);
       const wm = folded.match(/(?:en|in)\s+([a-z]{3,})/);
       const w67 = wm ? wm[1][0].toUpperCase() + wm[1].slice(1) : L(c.lang, "Ese gasto", "That spending");
+      if (before67 !== fullB67 || now67 !== sum67(c.key, false)) {
+        return {
+          kind: "answer", family: "comparar",
+          verdict: L(c.lang, `En ${w67}, a igual tramo (${tramoTxt}): este mes ${c.money(now67)} y el mes pasado ${c.money(before67)} — ${now67 === before67 ? "van parejos" : now67 > before67 ? `${c.money(now67 - before67)} más este mes` : `${c.money(before67 - now67)} menos este mes`}.`, `On ${w67}, over the same stretch (${tramoTxt}): this month ${c.money(now67)} and last month ${c.money(before67)} — ${now67 === before67 ? "they're tied" : now67 > before67 ? `${c.money(now67 - before67)} more this month` : `${c.money(before67 - now67)} less this month`}.`),
+          pieces: [{ label: L(c.lang, `Este mes, al día ${dayNow}`, `This month, by day ${dayNow}`), minor: now67 }, { label: pastLbl, minor: before67 }],
+          note: withPartial(fullNote(fullB67, before67, L(c.lang, `En ${w67}, `, `On ${w67}, `))), source: ["libros.lineas", "estudio.flujo"], lines: 0,
+          actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+        };
+      }
       return {
         kind: "answer", family: "comparar",
         verdict: L(c.lang, `En ${w67}: este mes ${c.money(now67)} y el mes pasado ${c.money(before67)} — ${now67 === before67 ? "van parejos" : now67 > before67 ? `${c.money(now67 - before67)} más este mes` : `${c.money(before67 - now67)} menos este mes`}.`, `On ${w67}: this month ${c.money(now67)} and last month ${c.money(before67)} — ${now67 === before67 ? "they're tied" : now67 > before67 ? `${c.money(now67 - before67)} more this month` : `${c.money(before67 - now67)} less this month`}.`),
         pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: now67 }, { label: L(c.lang, "Mes pasado", "Last month"), minor: before67 }],
-        note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        note: withPartial(null), source: ["libros.lineas", "estudio.flujo"], lines: 0,
         actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
       };
     }
@@ -3490,13 +3552,23 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
     // ESTE MES que el pasado» trae el filtro y el período en medio, y
     // la frase se lee entera: «más … que el pasado» con su distancia.
     if (filterT && /(mas que antes|mas que el (mes )?pasado|mas.{0,32}que el (mes )?pasado|gastando mas|ha subido|gaste mas que|more than (before|last)|spending more)/.test(folded)) {
-      const t = (key: string) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && filterT(l)).reduce((a, l) => a + view(c, l), 0);
-      const [now, before] = [t(c.key), t(prevKey(c.key))];
+      const t = (key: string, capped: boolean) => allLines(c).filter((l) => l.monthKey === key && isOut(l) && roleOf(c.state, l.categoryId) !== "savings" && filterT(l) && (!capped || Number(lineDate(l).slice(8, 10)) <= dayNow)).reduce((a, l) => a + view(c, l), 0);
+      const [now, before] = [t(c.key, true), t(prevKey(c.key), true)];
+      const fullBT = t(prevKey(c.key), false);
+      if (before !== fullBT || now !== t(c.key, false)) {
+        return {
+          kind: "answer", family: "comparar",
+          verdict: L(c.lang, `En eso, a igual tramo (${tramoTxt}): este mes ${c.money(now)}, el mes pasado ${c.money(before)} — ${now === before ? "lo mismo" : now > before ? `${c.money(now - before)} más` : `${c.money(before - now)} menos`} que el pasado.`, `On that, over the same stretch (${tramoTxt}): this month ${c.money(now)}, last month ${c.money(before)} — ${now === before ? "the same" : now > before ? `${c.money(now - before)} more` : `${c.money(before - now)} less`} than last month.`),
+          pieces: [{ label: L(c.lang, `Este mes, al día ${dayNow}`, `This month, by day ${dayNow}`), minor: now }, { label: pastLbl, minor: before }],
+          note: withPartial(fullNote(fullBT, before, L(c.lang, "En eso, ", "On that, "))), source: ["libros.lineas", "estudio.flujo"], lines: 0,
+          actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+        };
+      }
       return {
         kind: "answer", family: "comparar",
         verdict: L(c.lang, `En eso: este mes ${c.money(now)}, el mes pasado ${c.money(before)} — ${now === before ? "lo mismo" : now > before ? `${c.money(now - before)} más` : `${c.money(before - now)} menos`} que el pasado.`, `On that: this month ${c.money(now)}, last month ${c.money(before)} — ${now === before ? "the same" : now > before ? `${c.money(now - before)} more` : `${c.money(before - now)} less`} than last month.`),
         pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: now }, { label: L(c.lang, "Mes pasado", "Last month"), minor: before }],
-        note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        note: withPartial(null), source: ["libros.lineas", "estudio.flujo"], lines: 0,
         actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
       };
     }
@@ -3546,9 +3618,9 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
     const better = a <= b;
     return {
       kind: "answer", family: "comparar",
-      verdict: L(c.lang, `A igual tramo (día ${day} contra día ${day}), vas ${better ? "mejor" : "peor"} que el mes pasado: llevas ${c.money(a)} de gasto contra ${c.money(b)} a estas alturas del pasado.`, `At the same stretch (day ${day} vs day ${day}), you're doing ${better ? "better" : "worse"} than last month: ${c.money(a)} spent so far vs ${c.money(b)} at this point last month.`),
-      pieces: [{ label: L(c.lang, "Este mes, al día " + day, "This month, by day " + day), minor: a }, { label: L(c.lang, "El pasado, al día " + day, "Last month, by day " + day), minor: b }],
-      note: L(c.lang, "Mejor o peor se mide aquí solo por el gasto a igual tramo: es una pata de la comparación, dicha como tal.", "Better or worse is measured here only by spending at the same stretch: one leg of the comparison, stated as such."),
+      verdict: L(c.lang, `A igual tramo (día ${day} contra día ${pastCap}), vas ${better ? "mejor" : "peor"} que el mes pasado: llevas ${c.money(a)} de gasto contra ${c.money(b)} a estas alturas del pasado.`, `At the same stretch (day ${day} vs day ${pastCap}), you're doing ${better ? "better" : "worse"} than last month: ${c.money(a)} spent so far vs ${c.money(b)} at this point last month.`),
+      pieces: [{ label: L(c.lang, "Este mes, al día " + day, "This month, by day " + day), minor: a }, { label: L(c.lang, "El pasado, al día " + pastCap, "Last month, by day " + pastCap), minor: b }],
+      note: L(c.lang, "Mejor o peor se mide aquí solo por el gasto a igual tramo: es una pata de la comparación, dicha como tal.", "Better or worse is measured here only by spending at the same stretch: one leg of the comparison, stated as such.") + (partialTxt ? ` ${partialTxt}` : ""),
       source: ["historial.stream", "estudio.flujo"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
     };
@@ -3581,18 +3653,73 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
   if (/(cuanto mas|cuanto menos|la diferencia|how much more|how much less|difference)/.test(folded) && /(este mes|mes pasado|this month|last month)/.test(folded) && !filterOf(c, folded)) {
     const a = summarize(c.state, c.key, c.lang);
     const b = summarize(c.state, prevKey(c.key), c.lang);
+    /* EL BORDE DE HARK: sin mes pasado en el libro no hay
+     * comparación — declararla contra $0 sería inventar el mes. */
+    if (!c.state.months[prevKey(c.key)]) {
+      const firstEver = !Object.keys(c.state.months).some((k) => k < c.key);
+      return {
+        kind: "answer", family: "comparar",
+        verdict: firstEver
+          ? L(c.lang, `Es el primer mes de tu libro: este mes llevas ${c.money(a.spend)} de gasto y no hay un mes pasado con qué compararlo.`, `This is your book's first month: this month you're at ${c.money(a.spend)} of spending, and there's no last month to compare it with.`)
+          : L(c.lang, `El mes pasado no tiene nada anotado en tu libro, así que no hay comparación que hacer: este mes llevas ${c.money(a.spend)} de gasto.`, `Last month has nothing recorded in your book, so there's no comparison to make: this month you're at ${c.money(a.spend)} of spending.`),
+        pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: a.spend }],
+        note: null, source: ["libros.lineas", "libros.neto"], lines: 0,
+        actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      };
+    }
+    const spanA = spanOut(c.key);
+    const spanB = spanOut(prevKey(c.key));
+    if (spanA !== a.spend || spanB !== b.spend) {
+      const diffS = spanA - spanB;
+      return {
+        kind: "answer", family: "comparar",
+        verdict: L(c.lang, diffS === 0 ? `A igual tramo (${tramoTxt}) van parejos: ${c.money(spanA)} contra ${c.money(spanB)}.` : diffS > 0 ? `A igual tramo (${tramoTxt}), gastaste ${c.money(diffS)} más este mes que el pasado (${c.money(spanA)} contra ${c.money(spanB)}).` : `A igual tramo (${tramoTxt}), gastaste ${c.money(-diffS)} menos este mes que el pasado (${c.money(spanA)} contra ${c.money(spanB)}).`, diffS === 0 ? `Over the same stretch (${tramoTxt}) they're tied: ${c.money(spanA)} vs ${c.money(spanB)}.` : diffS > 0 ? `Over the same stretch (${tramoTxt}), you spent ${c.money(diffS)} more this month than last (${c.money(spanA)} vs ${c.money(spanB)}).` : `Over the same stretch (${tramoTxt}), you spent ${c.money(-diffS)} less this month than last (${c.money(spanA)} vs ${c.money(spanB)}).`),
+        pieces: [{ label: L(c.lang, `Este mes, al día ${dayNow}`, `This month, by day ${dayNow}`), minor: spanA }, { label: pastLbl, minor: spanB }],
+        note: withPartial(fullNote(b.spend, spanB)), source: ["libros.lineas", "libros.neto"], lines: 0,
+        actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      };
+    }
     const diff = a.spend - b.spend;
     return {
       kind: "answer", family: "comparar",
       verdict: L(c.lang, diff >= 0 ? `Gastaste ${c.money(diff)} más este mes que el pasado (${c.money(a.spend)} contra ${c.money(b.spend)}).` : `Gastaste ${c.money(-diff)} menos este mes que el pasado (${c.money(a.spend)} contra ${c.money(b.spend)}).`, diff >= 0 ? `You spent ${c.money(diff)} more this month than last (${c.money(a.spend)} vs ${c.money(b.spend)}).` : `You spent ${c.money(-diff)} less this month than last (${c.money(a.spend)} vs ${c.money(b.spend)}).`),
       pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: a.spend }, { label: L(c.lang, "Mes pasado", "Last month"), minor: b.spend }],
-      note: null, source: ["libros.lineas", "libros.neto"], lines: 0,
+      note: withPartial(null), source: ["libros.lineas", "libros.neto"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
     };
   }
-  if (/este mes o el pasado|mes pasado|this month or last/.test(folded) && !filterOf(c, folded)) {
+  if (/este mes o el pasado|este mes que el (pasado|anterior)|mes pasado|this month or last|this month than last/.test(folded) && !filterOf(c, folded)) {
     const a = summarize(c.state, c.key, c.lang);
     const b = summarize(c.state, prevKey(c.key), c.lang);
+    if (!c.state.months[prevKey(c.key)]) {
+      const firstEver = !Object.keys(c.state.months).some((k) => k < c.key);
+      return {
+        kind: "answer", family: "comparar",
+        verdict: firstEver
+          ? L(c.lang, `Es el primer mes de tu libro: este mes llevas ${c.money(a.spend)} de gasto y no hay un mes pasado con qué compararlo.`, `This is your book's first month: this month you're at ${c.money(a.spend)} of spending, and there's no last month to compare it with.`)
+          : L(c.lang, `El mes pasado no tiene nada anotado en tu libro, así que no hay comparación que hacer: este mes llevas ${c.money(a.spend)} de gasto.`, `Last month has nothing recorded in your book, so there's no comparison to make: this month you're at ${c.money(a.spend)} of spending.`),
+        pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: a.spend }],
+        note: null, source: ["libros.lineas", "libros.neto"], lines: 0,
+        actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      };
+    }
+    const spanA = spanOut(c.key);
+    const spanB = spanOut(prevKey(c.key));
+    if (spanA !== a.spend || spanB !== b.spend) {
+      return {
+        kind: "answer", family: "comparar",
+        verdict: L(c.lang, spanA === spanB ? `A igual tramo (${tramoTxt}) van parejos: ${c.money(spanA)} contra ${c.money(spanB)}.` : `A igual tramo (${tramoTxt}), gastaste ${spanA > spanB ? "más este mes" : "más el mes pasado"}: ${c.money(spanA)} contra ${c.money(spanB)} (diferencia de ${c.money(Math.abs(spanA - spanB))}).`, spanA === spanB ? `Over the same stretch (${tramoTxt}) they're tied: ${c.money(spanA)} vs ${c.money(spanB)}.` : `Over the same stretch (${tramoTxt}), you spent ${spanA > spanB ? "more this month" : "more last month"}: ${c.money(spanA)} vs ${c.money(spanB)} (a difference of ${c.money(Math.abs(spanA - spanB))}).`),
+        pieces: [
+          { label: L(c.lang, `Este mes, al día ${dayNow}`, `This month, by day ${dayNow}`), minor: spanA },
+          { label: pastLbl, minor: spanB },
+        ],
+        note: withPartial(fullNote(b.spend, spanB)), source: ["libros.lineas", "libros.neto"], lines: 0,
+        actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+        // §20: la respuesta de tramo deja el mismo marco que la
+        // clásica — los dos meses comparados, con sus totales.
+        frame: { kind: "compare2", monthA: c.key, monthB: prevKey(c.key), labelA: L(c.lang, "este mes", "this month"), labelB: L(c.lang, "el mes pasado", "last month"), totalA: a.spend, totalB: b.spend, filter: null },
+      };
+    }
     const more = a.spend >= b.spend;
     return {
       kind: "answer", family: "comparar",
@@ -3601,7 +3728,7 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
         { label: L(c.lang, "Este mes", "This month"), minor: a.spend },
         { label: L(c.lang, "Mes pasado", "Last month"), minor: b.spend },
       ],
-      note: null, source: ["libros.lineas", "libros.neto"], lines: 0,
+      note: withPartial(null), source: ["libros.lineas", "libros.neto"], lines: 0,
       actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
       // §20 (re-cosido en la integración, 1.3.383): la comparación
       // canónica deja su marco — los dos meses y sus totales — para
