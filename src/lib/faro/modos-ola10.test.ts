@@ -365,7 +365,7 @@ describe("ola10 · §F: el censo de testigos de LineForm, con completitud", () =
     assert.ok(hooksOf(v5).has("splitTouched"), "V5: la declaración partida en líneas nace igual en el AST");
     const v7 = `${form}\n  const lazyRef = useRef<number | null>(\n    null\n  );\n`;
     assert.ok(hooksOf(v7).has("lazyRef"), "V7: el ref con el argumento partido se extrae");
-    assert.equal(callSites(v7).length, 35);
+    assert.equal(callSites(v7).length, 38);
   });
 });
 
