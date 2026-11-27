@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.518",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "«¿Tengo alguna deuda?» ya se responde", en: "“Do I have any debt?” now gets an answer" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "La pregunta más sencilla de las deudas ya tiene respuesta: «¿Tengo alguna deuda?», «¿Debo algo?», «¿Estoy endeudado?» y sus hermanas reciben el sí o el no con tu cifra total (préstamos, tarjetas y saldos anotados, de la misma fuente única de siempre).",
+      ],
+      en: [
+        "The simplest debt question now has an answer: “Do I have any debt?”, “Do I owe anything?”, “Am I in debt?” and their siblings get the yes or no with your total figure (loans, cards and recorded balances, from the same single source as always).",
+      ],
+    },
+  },
+  {
     version: "1.3.517",
     date: "2026-11-27",
     level: "menor",

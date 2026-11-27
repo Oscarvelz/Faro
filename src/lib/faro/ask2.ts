@@ -10424,6 +10424,34 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
     const cardsPart = cardsOwe.length ? L(c.lang, `En tarjetas y saldos de deuda debes ${c.money(cardsOwe.reduce((a, x) => a + x.bal, 0))}: ${cardsOwe.slice(0, 3).map((x) => `«${x.name}» ${c.money(x.bal)}`).join(", ")}.`, `On cards and debt balances you owe ${c.money(cardsOwe.reduce((a, x) => a + x.bal, 0))}: ${cardsOwe.slice(0, 3).map((x) => `"${x.name}" ${c.money(x.bal)}`).join(", ")}.`) : "";
     return { kind: "answer", family: "deudas", verdict: [peoplePart, cardsPart].filter(Boolean).join(" "), pieces: [...owe.slice(0, 3).map((p) => ({ label: p.name, minor: p.left })), ...cardsOwe.slice(0, 3).map((x) => ({ label: x.name, minor: x.bal }))], note: null, source: ["cobros.debo", "cobros.tarjetas"], lines: owe.reduce((a, p) => a + p.active, 0) };
   }
+  /* LA EXISTENCIA DESNUDA (fallo de Oscar, 2026-11-27): «¿Tengo
+   * alguna deuda?» — la pregunta más sencilla de la familia —
+   * no la oía ninguna rama: todas piden cuánto, quién o a quién,
+   * y la existencia a secas caía en «no lo sé responder». La
+   * rama responde sí o no con la cifra de la fuente única (la
+   * misma del total de la Ola 44), y de paso cierra la trampa
+   * inglesa: «Do I owe anything?» leía «anything» como un
+   * nombre y respondía que no había deuda con ese nombre. Sin
+   * superlativo (eso es ranking) y sin nombre resuelto (eso es
+   * de las ramas con persona). */
+  if (!/(mas|most)/.test(folded) && !findIn(owed) && !findIn(owe)
+    && /(tengo (alguna |algun |algún )?deudas?\b|tengo (algun |algún )?prestamos?\b|debo (algo|dinero)\b|estoy endeudad[oa]\b|do i have any (debt|debts|loans?)\b|do i owe (anything|any money)\b|am i in debt\b)/.test(folded)) {
+    const nb = netBalance(c.state, c.today);
+    const total = nb.owe;
+    const parts: string[] = [];
+    if (nb.loans > 0) parts.push(L(c.lang, `${c.money(nb.loans)} en préstamos`, `${c.money(nb.loans)} in loans`));
+    if (nb.cards > 0) parts.push(L(c.lang, `${c.money(nb.cards)} en tarjetas`, `${c.money(nb.cards)} on cards`));
+    if (nb.lines > 0) parts.push(L(c.lang, `${c.money(nb.lines)} en saldos anotados en líneas de deuda`, `${c.money(nb.lines)} in balances recorded on debt lines`));
+    const topDebts = planDebts(c.state, c.today).filter((d) => d.left > 0).sort((a, b) => b.left - a.left).slice(0, 4);
+    return {
+      kind: "answer", family: "deudas",
+      verdict: total > 0
+        ? L(c.lang, `Sí: en total debes ${c.money(total)} — ${parts.join(", ")}.`, `Yes: in total you owe ${c.money(total)} — ${parts.join(", ")}.`)
+        : L(c.lang, "No debes nada anotado: ni préstamos recibidos, ni saldos de tarjeta, ni saldos anotados en líneas de deuda.", "You owe nothing recorded: no loans taken, no card balances, and no balances recorded on debt lines."),
+      pieces: topDebts.map((d) => ({ label: d.name, minor: d.left })),
+      note: null, source: ["cobros.debo", "cobros.tarjetas"], lines: owe.reduce((a, p) => a + p.active, 0),
+    };
+  }
   if (/(le debo|debo a|cuanto debo|i owe)/.test(folded)) {
     const p = findIn(owe);
     if (p) return { kind: "answer", family: "deudas", verdict: L(c.lang, `A ${p.name} le debes ${c.money(p.left)}.`, `You owe ${p.name} ${c.money(p.left)}.`), pieces: [{ label: p.name, minor: p.left }], note: null, source: ["cobros.debo"], lines: p.active };
@@ -12644,6 +12672,13 @@ const GATE_WORDS: string[] = [
    * «entro» y mataba el horizonte «dentro de N meses» a mitad
    * de frase. */
   "dentro",
+  /* LA EXISTENCIA DE LA DEUDA (1.3.518): «alguna» y «algun»
+   * entran el día que la pregunta desnuda «¿tengo alguna
+   * deuda?» gana su rama — sin ellas, la errata «algna» y la
+   * cruzada «agluna» dejaban la promesa rota en la onda
+   * hostil: la palabra que la puerta oye tiene que estar en
+   * el vocabulario que el reparador defiende. */
+  "alguna", "algun",
   /* HUECO 6 · CAPACIDADES (2026-11-27): «hace» caía a
    * «chase» en los libros que traen la tarjeta de ese banco
    * (el nombre protegido atrae al verbo por letra de más) —

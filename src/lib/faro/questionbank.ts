@@ -336,8 +336,8 @@ export const QUESTION_BANK: BankFamily[] = [
     source: ["cobros.debo", "cobros.mideben"],
     axes: ["lado (yo debo × me deben) × alcance (una persona nombrada × el total con tarjetas)"],
     canonical: {
-      es: ["¿Cuánto debo en total?", "¿Cuánto me debe Ana?", "¿Cuánto le debo a Carlos?", "¿Quién me debe?", "¿Cuánto me deben en total?"],
-      en: ["How much do I owe in total?", "How much does Ana owe me?", "Who owes me?", "How much am I owed in total?"],
+      es: ["¿Cuánto debo en total?", "¿Tengo alguna deuda?", "¿Cuánto me debe Ana?", "¿Cuánto le debo a Carlos?", "¿Quién me debe?", "¿Cuánto me deben en total?"],
+      en: ["How much do I owe in total?", "Do I have any debt?", "How much does Ana owe me?", "Who owes me?", "How much am I owed in total?"],
     },
     answerShape: "El saldo vivo de peopleOf por lado (préstamos recibidos / préstamos dados) más los saldos de tarjeta en el total; por persona, su saldo — y si el nombre vive en el lado contrario, la respuesta lo dice: la contradicción de dirección es parte de la respuesta.",
     contradiction: "«¿Cuánto le debo a Carlos?» cuando Carlos te debe a ti se responde al revés y dicho: la dirección correcta con su cifra.",
