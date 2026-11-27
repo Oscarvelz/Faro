@@ -9598,6 +9598,12 @@ function tasaAhorroAnswer(c: Ctx, folded: string): BankResult | null {
    * promedio?») tampoco, y sigue en promedio; la pregunta de
    * poder («¿puedo apartar...?») cede entera a factibilidad. */
   if (/\b(puedo|podria|can i|can we)\b/.test(folded)) return null;
+  /* HUECO 6 · CAPACIDADES: la sonda sobre el poder mismo
+   * («¿me ayudas con la tasa de ahorro o solo con gastos?»)
+   * pregunta si la tasa está entre mis lecturas, no pide la
+   * tasa: cede a la puerta de capacidades. La marca es el
+   * marco de ayuda o la alternativa «o solo». */
+  if (/(ayudas|ayudar|ayudarme|ayuda) con la tasa|o solo (con|de) (gastos|sumar)/.test(folded)) return null;
   /* EL COSTO DE ESTA AMPLIACIÓN, COBRADO POR LA CUENTA Y
    * CURADO EN LA MISMA PIEZA (2026-11-27): las voces de la
    * parte también oyen la DISTRIBUCIÓN DEL MONTÓN («¿qué
@@ -10714,6 +10720,159 @@ function accionesAnswer(c: Ctx, folded: string, raw: string): BankResult | null 
 /* de lo que no puede, de las declaradas — así la respuesta no puede  */
 /* prometer lo que el banco no tiene, ni esconder lo que le falta.    */
 /* ------------------------------------------------------------------ */
+/* HUECO 6 · LA PUERTA DE CAPACIDADES, ENSANCHADA: la familia
+ * existía (capacidadesAnswer, ola 3) pero su puerta solo oía
+ * «qué puedes hacer» al pie de la letra, y el habla de la
+ * familia es otra: el menú pedido de veinte maneras («enumera
+ * los tipos de análisis», «hazme un menú», «q sabes hacer»),
+ * la sonda de un poder nombrado («¿puedes detectar
+ * tendencias o solo sacar totales?», «¿sabes repartir una
+ * cuenta?», «¿cuánto vale mi hora, lo sabes?»), el «aparte de
+ * sumar» y la frontera («¿qué no podés responder?»). La sonda
+ * confirma el poder y nombra su pregunta de ejemplo; no
+ * calcula la cifra — eso lo hace la familia dueña cuando el
+ * usuario la pide con su dato. Las guardas: una sonda con
+ * monto u horizonte es la pregunta de verdad de su familia
+ * (la proyección corre después y la oye), y una sonda de un
+ * poder que no está en la tabla cae en silencio honesto. */
+function capacidadesProbeAnswer(c: Ctx, folded: string): BankResult | null {
+  const q = folded;
+  const power = (verdictEs: string, verdictEn: string, noteEs: string, noteEn: string): BankResult => ({
+    kind: "answer", family: "capacidades",
+    verdict: L(c.lang, verdictEs, verdictEn),
+    pieces: [], note: L(c.lang, noteEs, noteEn),
+    source: ["asesor.lectura"], lines: 0,
+  });
+  // LA FRONTERA, firmada por esta familia en el corpus: lo que
+  // no puede responder, dicho con las familias declaradas.
+  if (/(que|cu[aá]les|cuales) (cosas|preguntas|temas|datos) no (puedes|podes|sabes) (responder|contestar)/
+      .test(q)
+    || /fuera de tu alcance|que (queda|esta|hay) fuera de/.test(q)) {
+    const declared = QUESTION_BANK.filter((f) => f.status === "declarada");
+    return {
+      kind: "answer", family: "capacidades",
+      verdict: L(c.lang, "Hay preguntas que no puedo responder: las que piden una cifra que ningún motor de tu libro calcula, o un dato que tu libro no guarda. Prefiero decirlo a inventar.",
+        "There are questions I cannot answer: those asking for a figure no engine of your book computes, or a fact your book does not hold. I'd rather say so than make it up."),
+      pieces: declared.map((f) => ({ label: L(c.lang, `Todavía no: ${f.name.es}`, `Not yet: ${f.name.en}`), minor: 0 })),
+      note: L(c.lang, "Y tampoco opino de inversiones ni muevo tu dinero: a lo sumo dejo un borrador en la bandeja. Pregúntame qué sí puedo hacer y te muestro la lista entera.",
+        "And I don't give investment opinions or move your money: at most I leave a draft in the tray. Ask me what I CAN do and I'll show you the whole list."),
+      source: ["asesor.lectura"], lines: 0,
+    };
+  }
+  // EL ALCANCE: ¿el negocio o solo lo personal?
+  if (/negocio o solo|solo (lo|para lo) personal|para (el|mi) negocio o/.test(q)) {
+    return power(
+      "Para lo que anotes: si tu libro trae el negocio, lo analizo igual que lo personal — las mismas preguntas, sobre tus líneas anotadas. No separo mundos que tu libro no separa.",
+      "For whatever you write down: if your book holds the business, I analyze it just like the personal side — the same questions, over your recorded lines. I don't split worlds your book doesn't split.",
+      "Lo que no está anotado no existe para mí: esa es la frontera.",
+      "What isn't written down doesn't exist for me: that's the boundary.");
+  }
+  // EL MENÚ Y EL «APARTE DE SUMAR»: la lista entera.
+  if (/aparte de (sumar|contar)|ademas de sumar|que mas (puedes|podes|haces)|para que te uso/.test(q)
+    || /(que|cu[aá]les|cuales) (cosas|tipos?|temas|preguntas|funciones|analisis|clases) (puedes|podes|sabes|puede|haces|me (puedes|podes)|sabes tu) (analizar|responder|contestar|calcular|hacer|manejar|ver)?/.test(q)
+    || /(que|cu[aá]les|cuales) (puedes|podes|sabes) (analizar|responder|contestar|calcular|hacer|manejar|responderme)/.test(q)
+    || /\b(que|q) preguntas (entiendes|te puedo hacer|puedo hacerte|puedo preguntarte|sabes contestar|sabes responder|puedes responder|te puedo preguntar)/.test(q)
+    || /(dime|decime|enumera|dame|hazme|tirame|ense[ñn]ame|muestrame|explicame) (todo |todas |la |el |un )?.{0,28}(capacidades|funciones|menu|lista|tipos de analisis|lo que (puedes|podes|sabes)|que (puedes|podes|sabes|puedo) (hacer|preguntarte|preguntar))/.test(q)
+    || /(tus|mis) (capacidades|funciones)|capacidades principales|tipos de analisis (que manejas|hace|del asesor|que hace)|que temas manejas|que funciones (tiene|tenes|tienes)|funciones (del asesor|que (tenes|tienes))|todo lo que sabes hacer|que sabes hacer|q sabes hacer|que (podes|puedes) responder(me)?( del| sobre)?( el| mi)? (libro|dinero)|que cosas (me )?(puedes|podes) responder|que cosas (nuevas )?sabes (calcular|hacer)|que tipo de (preguntas|cosas) (sabes|puedes|podes)|what can you (do|answer|analyze)|what kind of advisor|what (questions|things) (can|do) you/.test(q)) {
+    return capacidadesAnswer(c);
+  }
+  // LA SONDA DE UN PODER: exige el verbo de capacidad; con
+  // monto u horizonte la pregunta es de su familia, no sonda.
+  if (!/(puedes|podes|sabes|haces|hace|ayudas|ayudarme|sirves|alcanzas|alcance|llegas|contestas|respondes|comparas|detectas|proyectas)/.test(q)) return null;
+  const hasAmt = amountsIn(q).length > 0;
+  const hasHor = horizonOf(q, c.today) !== null;
+  // DETECTAR Y AVISAR (la deriva).
+  if (/(detectar|detectas|detecta|avisar|avisas|avisa|darme cuenta)/.test(q)
+    && /(tendencia|cuando|sube|subiendo|disparando|dispara|empieza|aumenta|solo|gasto|categoria)/.test(q)) {
+    return power(
+      "Sí: vigilo tus series mes a mes y te digo cuándo una viene subiendo, bajando o se disparó de golpe — no solo saco totales.",
+      "Yes: I watch your series month by month and tell you when one is climbing, falling or suddenly spiked — I don't just add up totals.",
+      "Pregúntame «¿qué viene subiendo?» o por una serie con nombre: «¿cómo va la renta?».",
+      "Ask me «what's been climbing?» or name a series: «how's the rent going?»");
+  }
+  // COMPARAR PERÍODOS.
+  if (/(comparar|comparas|comparaciones|compares|comparo)/.test(q)
+    && /(periodo|mes|meses|semana|trimestre|ano|entre)/.test(q)) {
+    return power(
+      "Sí: comparo períodos a igual tramo — este mes contra el pasado a la misma altura, o dos meses que me nombres.",
+      "Yes: I compare periods over the same span — this month against last month at the same point, or two months you name.",
+      "Pregúntame «¿gasté más este mes o el pasado?» y te lo muestro lado a lado.",
+      "Ask me «did I spend more this month or last?» and I'll show it side by side.");
+  }
+  // PROYECTAR (sin monto ni horizonte: la sonda).
+  if (!hasAmt && !hasHor
+    && /(proyect|proyeccion|proyecciones|ahorro a futuro|ahorrado en el futuro|voy a tener ahorrado|cuanto voy a tener)/.test(q)) {
+    return power(
+      "Sí: proyecto tu guardado — lo que tienes apartado más tu ritmo o el aporte que me digas, hasta la fecha que me nombres, sin interés y con el supuesto dicho.",
+      "Yes: I project your savings — what you have set aside plus your pace or the contribution you give me, up to the date you name, with no interest and the assumption stated.",
+      "Pregúntame «¿cuánto tendré en diciembre si sigo así?» y te lo calculo.",
+      "Ask me «how much will I have by December if I keep this up?» and I'll work it out.");
+  }
+  // EL PRECIO EN HORAS (precio-tiempo).
+  if (/horas de trabajo|cuanto vale mi hora|vale mi hora|cuanto vale (una|tu) hora/.test(q)) {
+    return power(
+      "Sí: traduzco un precio a tu tiempo — cuántas horas o días de tu ingreso cuesta una cosa, con tu ingreso anotado como la vara.",
+      "Yes: I translate a price into your time — how many hours or days of your income a thing costs, with your recorded income as the yardstick.",
+      "Pregúntame «¿cuántas horas de trabajo me cuesta el celular nuevo?» con su precio.",
+      "Ask me «how many hours of work does the new phone cost me?» with its price.");
+  }
+  // REPARTIR (sin monto: la sonda).
+  if (!hasAmt && /(repartir|repartes|dividir|dividis|dividir una|repartir una)/.test(q)
+    && /(cuenta|entre|gasto|monto|varios|varias)/.test(q)) {
+    return power(
+      "Sí: reparto una cuenta entre las personas que me nombres — en partes iguales o con el aporte de cada quien.",
+      "Yes: I split a bill among the people you name — in equal parts or with what each one put in.",
+      "Pregúntame «reparte 300 entre Ana y Luis» y te doy la parte de cada uno.",
+      "Ask me «split 300 between Ana and Luis» and I'll give each one's share.");
+  }
+  // REMESAS. La palabra sola no basta: «hace cuánto no le
+  // cae remesa a mi tío» es una pregunta de remesas, no una
+  // sonda — las ramas de TEMA (remesas, tasa, retiro) exigen
+  // el verbo de capacidad verdadero, no el «hace» del gate.
+  const capVerb = /(puedes|podes|sabes|ayudas|ayudarme|sirves|contestas|respondes)/.test(q);
+  if (capVerb && /remesa/.test(q)) {
+    return power(
+      "Sí: las remesas de tu libro son una serie como cualquier otra — cuánto enviaste, a quién, cada cuánto y cómo viene cambiando.",
+      "Yes: your book's remittances are a series like any other — how much you sent, to whom, how often and how it's been changing.",
+      "Pregúntame «¿cuánto mandé en remesas este año?» y te lo sumo de tus líneas.",
+      "Ask me «how much did I send in remittances this year?» and I'll add it up from your lines.");
+  }
+  // LA TASA DE AHORRO.
+  if (capVerb && /tasa de ahorro|saving rate|savings rate/.test(q)) {
+    return power(
+      "Sí: tu tasa de ahorro es una de mis lecturas — lo que apartaste entre lo que te entró, contra tu propio promedio.",
+      "Yes: your savings rate is one of my readings — what you set aside over what came in, against your own average.",
+      "Pregúntame «¿qué tasa de ahorro llevo?» y te la calculo de tu libro.",
+      "Ask me «what's my savings rate so far?» and I'll compute it from your book.");
+  }
+  // EL RETIRO.
+  if (capVerb && /retiro|retirement/.test(q) && /(ahorro|preguntas|contestas|puedes|sabes|ayudas)/.test(q)) {
+    return power(
+      "Sí: tu apartado de retiro es un fondo con nombre en tu libro — su saldo, su ritmo y su proyección se leen como los de cualquier meta.",
+      "Yes: your retirement set-aside is a named fund in your book — its balance, pace and projection read like any goal's.",
+      "Pregúntame «¿cuánto tengo apartado para el retiro?» y te lo muestro.",
+      "Ask me «how much do I have set aside for retirement?» and I'll show you.");
+  }
+  // LA CADENCIA (frecuencia).
+  if (/cada cuanto|cada cuando/.test(q)) {
+    return power(
+      "Sí: leo la cadencia de tus líneas — cada cuánto gastas en algo, con las fechas reales de tu libro.",
+      "Yes: I read the cadence of your lines — how often you spend on something, with the real dates from your book.",
+      "Pregúntame «¿cada cuánto pago el internet?» y te lo digo de tus fechas.",
+      "Ask me «how often do I pay for internet?» and I'll tell you from your dates.");
+  }
+  // EL ORIGEN DE LAS CIFRAS (el porqué).
+  if (/(de donde|de que) salen|explicar(me)? (de donde|el origen)|sabes explicar/.test(q)
+    && /(numero|cifra|cuenta|resultado)/.test(q)) {
+    return power(
+      "Sí: cada cifra que te doy puede decirte de dónde sale — las líneas que la forman, con su fecha y su monto. Nada sale de memoria ni se inventa.",
+      "Yes: every figure I give you can tell you where it came from — the lines that form it, with their date and amount. Nothing comes from memory or gets made up.",
+      "Tras cualquier respuesta, pregúntame «¿de dónde sale eso?» y te muestro las líneas.",
+      "After any answer, ask me «where does that come from?» and I'll show you the lines.");
+  }
+  return null;
+}
+
 function capacidadesAnswer(c: Ctx): BankResult {
   const live = QUESTION_BANK.filter((f) => f.status !== "declarada");
   return {
@@ -12485,6 +12644,21 @@ const GATE_WORDS: string[] = [
    * «entro» y mataba el horizonte «dentro de N meses» a mitad
    * de frase. */
   "dentro",
+  /* HUECO 6 · CAPACIDADES (2026-11-27): «hace» caía a
+   * «chase» en los libros que traen la tarjeta de ese banco
+   * (el nombre protegido atrae al verbo por letra de más) —
+   * «¿qué tipos de análisis hace el Asesor?» perdía su verbo
+   * y con él la puerta entera. «Hace» es verbo de todos los
+   * días; se fija como las demás. Y su cadena se cierra en
+   * la misma pieza: fijar «hace» lo volvía atractor de
+   * «hacer» por letra caída («q sabes hacer» quedaba «q
+   * sabes hace» y el menú se perdía otra vez), así que el
+   * infinitivo entra con él. Y la cadena sigue un eslabón
+   * más, cazado por la cuenta de capacidades: con «hace»
+   * fijado, el imperativo con clítico «hazme» caía a «hace»
+   * por letra caída en su forma canónica («hazme un menú»
+   * quedaba «hace un menú»); «hazme» entra también. */
+  "hace", "hacer", "hazme",
 ];
 /* LA TANDA DEL AGENTE (puerto de la Rama, 1.3.457): los verbos y
  * las palabras de los cinco escalones, el modismo semilla y las
@@ -12555,6 +12729,15 @@ const NEVER_REPAIR = new Set([
   "del", "sin", "con", "por", "las", "los", "eso", "esa", "ese", "esto", "esta",
   "live", "learned", "learning", "set", "get", "got", "put", "ten", "day", "may", "yet", "per",
   "end", "ending", "ended", "sending", "costo", "costos",
+  /* HUECO 6 · CAPACIDADES (2026-11-27): «has» entra el mismo
+   * día que «hace» se fija en GATE_WORDS, y por su culpa: el
+   * auxiliar inglés quedó a una letra de más en fonética del
+   * verbo fijado (as/ase), y la mutación de «hasn't» por
+   * letra caída («has't») se reparaba a «hace't» y la
+   * promesa de ausencia caía en la onda hostil. «Has» es
+   * palabra real en los dos idiomas (tú has, has you): nunca
+   * es errata, como «one» en su día. */
+  "has",
   /* OLA 67 · LAS PALABRAS-NÚMERO TAMPOCO SON ERRATAS: al entrar
    * «dices» al diccionario, «diez» quedó a una letra caída en
    * fonética (dies/dises) y el diez por ciento se volvió «dices
@@ -13175,7 +13358,14 @@ export function answerBankQuestion(
      * la procedencia de una cifra del asesor: trae la forma de
      * cargo con monto, y su casa es el cargo suelto (4b9). */
     const chargeShape68 = /(cargo|cargos|charge|charges)/.test(rawGate) && amountsIn(raw).length > 0;
-    if (!chargeShape68 && (/^(y )?(por que|porque)$/.test(bare)
+    /* HUECO 6 · CAPACIDADES: «¿sabes explicar de dónde salen
+     * tus números?» no interroga una cifra anterior: pregunta
+     * si sé explicarlo — es la sonda de un poder y su casa es
+     * la puerta de capacidades, no esta. La marca es el
+     * «sabes explicar»: el «¿de dónde sale ese número?» a
+     * secas sigue entrando aquí. */
+    const capProbe = /(sabes|podes) explicar/.test(rawGate) && /de donde/.test(rawGate);
+    if (!chargeShape68 && !capProbe && (/^(y )?(por que|porque)$/.test(bare)
       || /(por que (dices|dijiste|dice|sale|es|seria)|de donde (sale|salio|viene)|como (calculaste|lo calculaste|hiciste esa cuenta|se calcula)|why (do you say|did you say|is (it|that))|where does (that|the|this) (number|figure|total|amount) come from|how did you (get|calculate|figure|work out))/.test(rawGate)
       // OLA 27: con grafo vivo, un «¿por qué…?» corto y con blanco
       // («¿por qué el ritmo?», «¿por qué $75?») interroga al grafo.
@@ -13592,6 +13782,17 @@ function answerSingle(
   // confirma o se corrige con la cifra real.
   {
     const r = confirmacionAnswer(c, folded, rawR);
+    if (r) return r;
+  }
+  /* HUECO 6 · LAS CAPACIDADES, antes de la proyección y de
+   * historia: la pregunta SOBRE el Asesor (el menú, la sonda
+   * de un poder, la frontera) no es una pregunta de dinero —
+   * sus formas son cerradas y ninguna trae la cifra de una
+   * familia, así que corre antes de las puertas que la
+   * robaban por una palabra suelta (tendencias, la lista,
+   * la tasa). */
+  {
+    const r = capacidadesProbeAnswer(c, folded);
     if (r) return r;
   }
   /* HUECO 6 · LA PROYECCIÓN, antes del asiento de ahorros: la

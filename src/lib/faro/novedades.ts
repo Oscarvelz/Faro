@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.517",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Preguntar qué puede hacer el Asesor ya funciona en tus palabras", en: "Asking what the Advisor can do now works in your words" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "La pregunta sobre el Asesor mismo ya se oye como la haces: «¿qué sabes hacer?», «enumera tus funciones», «¿puedes decirme quién me debe?» o «¿qué no puedes hacer?» reciben el menú, la confirmación del poder con su ejemplo, o la frontera dicha — sin calcular ninguna cifra.",
+      ],
+      en: [
+        "Asking about the Advisor itself is now heard the way you say it: “what do you know how to do?”, “list your functions”, “can you tell me who owes me?” or “what can't you do?” get the menu, the named power confirmed with its example question, or the boundary stated — without computing any figure.",
+      ],
+    },
+  },
+  {
     version: "1.3.516",
     date: "2026-11-27",
     level: "menor",
