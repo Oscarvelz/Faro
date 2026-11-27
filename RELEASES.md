@@ -4690,3 +4690,11 @@ Fallo de Oscar sobre la foto del banco del reparto: la distribución de colores 
 - bank-figure.tsx: cada segmento de la barra apilada lleva su propio color — la familia se deriva del acento del tema por pasos de matiz (el acento mismo, +50, +100, … con la sintaxis de color relativo), así cada tema pinta la suya y ningún segmento comparte color con otro; si un motor no entiende el color relativo, manda la regla de la clase y la barra se lee como antes.
 - La leyenda gana la muestra: un cuadrito con el color de cada pieza junto a su nombre, para leer segmento y persona de un vistazo.
 - Verificación: cercas enfocadas 482/482; suite completa en cuatro grupos 4,161/4,161; typecheck con solo los 3 errores de base. Banco a la vista: el reparto de $90 entre Mamá, Carlos y Tú pinta amarillo, verde y turquesa, cada uno con su muestra en la leyenda. Publicación verificada en vivo: sw faro-1.3.510, referencias iguales a las del dist y precache 28/28.
+
+## 1.3.511 — Los colores, un pelo más suaves, y separadores (2026-11-27)
+
+Dos fallos de Oscar sobre la foto de la 510, el mismo día: bajar un pelo la intensidad de los colores y añadir separadores entre los colores.
+
+- bank-figure.tsx: la familia de colores por persona corta su saturación al 80% en todas las piezas, la del acento incluida (hsl(from var(--accent) calc(h + i·50) calc(s · 0.8) l)), para que la familia entera respire igual sin gritar.
+- La barra apilada separa sus segmentos con una rendija de 2px por la que se ve el fondo de la pista; las piezas se reparten el ancho por su peso (flex-grow según su cifra), así las proporciones se conservan con separadores y todo.
+- Verificación: suite completa en cuatro grupos sobre la forma final 4,161/4,161; typecheck con solo los 3 errores de base. Banco a la vista: los tres segmentos se leen separados y la familia se ve un pelo más suave. Publicación verificada en vivo: sw faro-1.3.511, referencias iguales a las del dist y precache 28/28.
