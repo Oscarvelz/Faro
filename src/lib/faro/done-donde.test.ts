@@ -49,9 +49,40 @@ function ctx(ledger: LedgerState, lang: "es" | "en" = "es"): ParseCtx {
 function askEn(ledger: LedgerState, raw: string) {
   return answerBankQuestion(ledger, KEY, "en", makeNamer(ledger.structure, "en"), raw, ctx(ledger, "en"), TODAY);
 }
+function askEs(ledger: LedgerState, raw: string) {
+  return answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), raw, ctx(ledger, "es"), TODAY);
+}
 function pipe(raw: string): string {
   return normalizeEs(repairGateTypos(foldQ(raw)));
 }
+function pipeEs(raw: string): string {
+  return normalizeEs(repairGateTypos(foldQ(raw), undefined, "es"));
+}
+
+describe("el hueco «done» · la errata en español (cerca de Hark, 2026-11-27)", () => {
+  it("dentro de una frase en español, «done» se sigue leyendo «donde»", () => {
+    assert.equal(pipeEs("¿done gasté más?"), "¿donde gaste mas?");
+    assert.equal(pipeEs("done compré eso"), "donde compre eso");
+    assert.equal(pipeEs("¿done se fue mi dinero?"), "¿donde se fue mi dinero?");
+    assert.equal(pipeEs("¿done quedó eso?"), "¿donde quedo eso?");
+  });
+  it("la forma con errata corre la misma suerte que la palabra sana", () => {
+    for (const [sana, errata] of [
+      ["¿Dónde gasté más?", "¿Done gasté más?"],
+      ["¿Dónde compré eso?", "Done compré eso"],
+    ] as const) {
+      const a = askEs(libroCargo(), sana);
+      const b = askEs(libroCargo(), errata);
+      assert.equal(b.kind, a.kind, `${errata} contra ${sana}`);
+      if (a.kind === "answer" && b.kind === "answer") assert.equal(b.family, a.family);
+    }
+  });
+  it("y en inglés la palabra sigue intacta, con su idioma declarado", () => {
+    const out = normalizeEs(repairGateTypos(foldQ("when am I done"), undefined, "en"));
+    assert.ok(out.includes("done"), out);
+    assert.ok(!out.includes("donde"), out);
+  });
+});
 
 describe("el hueco «done» · la palabra y sus dos flancos", () => {
   it("«done» ya no se mueve a «donde» en el pipeline entero", () => {

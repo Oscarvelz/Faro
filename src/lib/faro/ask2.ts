@@ -11655,7 +11655,19 @@ export function repairGateTypos(folded: string, protect?: Set<string>, lang?: La
    * las palabras del propio libro (protect) — un nombre mal
    * escrito («Payal») se repara contra el nombre verdadero del
    * libro, no solo contra el diccionario. */
-  const candSet = protect && protect.size ? new Set([...GATE_SET, ...protect]) : GATE_SET;
+  /* EL PAR «done»/«donde» SE DESEMPATA POR EL IDIOMA DE LA
+   * CONVERSACIÓN (fallo de Hark, 2026-11-27, el mismo
+   * desempate que save/sabe): en una frase en español,
+   * «done» es la errata de «dónde» sin su segunda d, y debe
+   * seguir leyéndose «donde»; en inglés, «done» es la
+   * palabra misma y no se toca. Por eso, con lang «es»,
+   * «done» sale del conjunto de candidatas y del atajo de
+   * palabra del vocabulario, y el token vuelve al escaneo,
+   * donde «donde» lo reclama a una letra caída. La copia es
+   * de esta llamada: GATE_SET jamás se muta. */
+  const candSet = lang === "es"
+    ? new Set([...(protect && protect.size ? [...GATE_SET, ...protect] : GATE_SET)].filter((w) => w !== "done"))
+    : protect && protect.size ? new Set([...GATE_SET, ...protect]) : GATE_SET;
   /* EL HUECO «done» (registro DONE-DONDE, 2026-11-27) · LAS
    * CONTRACCIONES CONOCIDAS SE BLINDAN ANTES DE REPARAR: el
    * reparador tokeniza por letras y «don't» se partía en
@@ -11692,7 +11704,7 @@ export function repairGateTypos(folded: string, protect?: Set<string>, lang?: La
      * «sent aside». El libro protege sus propios nombres: las
      * personas, los bolsillos, las cuentas y los conceptos que el
      * usuario sí tiene anotados jamás son erratas. */
-    if (tok.length < 3 || GATE_SET.has(tok) || NEVER_REPAIR.has(tok) || (protect && protect.has(tok))) return tok;
+    if (tok.length < 3 || (GATE_SET.has(tok) && !(lang === "es" && tok === "done")) || NEVER_REPAIR.has(tok) || (protect && protect.has(tok))) return tok;
     const ct = phonFold(tok);
     /* LA DEFORMACIÓN TIENE FUERZAS, y la más fuerte manda: sonar
      * igual (0) pesa más que dos letras cambiadas de sitio (1), y

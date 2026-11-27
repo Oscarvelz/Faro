@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.506",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "«Done» y «donde» ya no se confunden", en: "“Done” and “donde” no longer get mixed up" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Si escribes en español «¿done gasté más?», el Asesor lo lee como «¿dónde gasté más?»: el par se desempata por el idioma de la conversación.",
+        "En inglés, «done» sigue siendo «done», intacta: el desempate solo corre en las frases en español.",
+      ],
+      en: [
+        "If you type “¿done gasté más?” in Spanish, the Advisor reads it as “¿dónde gasté más?”: the pair is settled by the language of the conversation.",
+        "In English, “done” stays “done”, untouched: the tie-break only runs on Spanish sentences.",
+      ],
+    },
+  },
+  {
     version: "1.3.505",
     date: "2026-11-27",
     level: "menor",
