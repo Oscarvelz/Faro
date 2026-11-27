@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.509",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El reparto ya oye dividir y suma los aportes con nombre", en: "Splitting now hears dividing and adds up named contributions" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«Divide la cuenta entre Ana, Luis y yo» y «¿a cuánto salimos si somos cuatro?» ya responden: el reparto lee los nombres tal como los traes, aunque no estén en tu libro, y lo dice en la nota.",
+        "Los aportes con nombre también suman: «Ramón 40, Lissette 25 y yo 45» da el total con cada aporte a la vista, sin anotar nada.",
+      ],
+      en: [
+        "“Divide the bill between Ana, Luis and me” and “how much does each of us owe if there are four of us?” now answer: the split reads the names just as you bring them, even if they're not in your book, and says so in the note.",
+        "Named contributions add up too: “Ramón 40, Lissette 25 and me 45” gives the total with each contribution in view, recording nothing.",
+      ],
+    },
+  },
+  {
     version: "1.3.508",
     date: "2026-11-27",
     level: "menor",

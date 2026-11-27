@@ -4776,6 +4776,13 @@ function periodsBetween(today: string, horizon: string, cad: "weekly" | "biweekl
 }
 
 function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): BankResult | null {
+  /* EL HUECO 3 DE COBERTURA: la firma del reparto con su lista
+   * («¿a cuánto quedamos del regalo de 200 si somos Noelia,
+   * Kevin, Mía y yo?») no es una premisa: el «si somos» abría
+   * esta puerta y el monto se caminaba como escenario. Con la
+   * firma y la lista a la vista, cede al reparto. */
+  if (/(a cuanto salimos|a cuanto quedamos|cuanto pone cada|pone cada uno|le toca a cada|cuanto le toca a)/.test(folded)
+    && /(entre|somos|eramos|vamos)\s+\S+(,|\s+y\s+)/.test(raw)) return null;
   const amounts = amountsIn(raw, c.display);
   // OLA 58/59: el lector con verbo certifica montos que amountsIn
   // no certifica («ahorro doscientos» a secas) — sin ninguno de
@@ -6078,7 +6085,7 @@ function repartoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   // repartos NOMBRADOS («40 para mamá, 30 para Carlos y 50 para mí,
   // ¿cuánto es el total?») son un reparto aunque la pregunta no traiga
   // el verbo repartir; y la lista puede venir tras «éramos».
-  const hasVerb = /(repart|toca|tocan|la cuenta|pagamos entre|split|eramos|somos|fuimos)/.test(folded);
+  const hasVerb = /(repart|divid|distribu|parti|parte|partes|desglos|corresponde|recibe|reciben|queda|quedan|toca|tocan|pone|ponen|la cuenta|pagamos entre|split|eramos|somos|fuimos|a cuanto|por cabeza|x cabeza|salimos|quedamos)/.test(folded);
   const amounts = amountsIn(raw, c.display);
   if (!amounts.length) return null;
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
@@ -6122,31 +6129,187 @@ function repartoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
       },
     };
   }
+  /* EL HUECO 3 DE COBERTURA · LOS APORTES (fallo de Oscar,
+   * 2026-11-27: reparto incluye sumar los aportes de personas
+   * con nombre): «Ramón 40, Lissette 25, Junior 30 y yo 45»,
+   * «Josué dio 50, mi tía Lidia 75», «Toño, Lalo y Memo: 30, 20
+   * y 25». La Forma 1 solo veía los aportes cuyo nombre el
+   * libro resolvía; aquí el nombre se toma como la pregunta lo
+   * trae, como en la Forma 2, y la suma es el total. */
+  if (/(suma|sumame|sumamelo|junt|pusimos|dieron|pusieron)/.test(folded)) {
+    const aportes: Array<{ name: string; minor: number }> = [];
+    const curA = /\b(cordobas|córdoba|nio)\b|c\$/i.test(raw) ? "NIO" : "USD";
+    const toDisp = (v: number) => convertMinor(Math.round(v * 100), curA as Currency, c.display, c.rateE4);
+    const capTail = (chunk: string): string | null => {
+      const t = chunk.trim();
+      if (/\byo\b/i.test(t)) return L(c.lang, "Tú", "You");
+      const all = [...t.matchAll(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?: [A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/g)].map((x) => x[1]);
+      return all.length ? all[all.length - 1] : null;
+    };
+    const colonAt = raw.lastIndexOf(":");
+    if (colonAt > 0 && /\d/.test(raw.slice(colonAt))) {
+      const leftNames = raw.slice(0, colonAt).split(/,|\s+y\s+|\s+e\s+/).map(capTail).filter((x): x is string => !!x);
+      const rightNums = (raw.slice(colonAt + 1).match(/\d[\d.,]*/g) ?? []).map((s) => parseNumberToken(s)).filter((v) => Number.isFinite(v) && v > 0);
+      if (leftNames.length >= 2 && leftNames.length === rightNums.length) {
+        leftNames.forEach((n, i) => aportes.push({ name: personName(n) ?? n, minor: toDisp(rightNums[i]) }));
+      }
+    }
+    if (aportes.length < 2) {
+      aportes.length = 0;
+      for (const ch of raw.split(/,|\s+y\s+|\s+e\s+/)) {
+        const t = ch.trim();
+        const m = t.match(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?: [A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)\s+(?:dio|puso|dieron|pusieron|aporto|aportó|trajo)\s+\$?\s*(\d[\d.,]*)/)
+          ?? t.match(/^.*?([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?: [A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)\s+\$?\s*(\d[\d.,]*)\s*(?:dolares|dólares|cordobas|córdoba|pesos)?\s*\.?\s*$/)
+          ?? t.match(/\byo\s+(?:di|puse)\s+\$?\s*(\d[\d.,]*)/i)
+          ?? t.match(/\byo\s+\$?\s*(\d[\d.,]*)/i);
+        if (m) {
+          const v = parseNumberToken(m[2] ?? m[1]);
+          if (Number.isFinite(v) && v > 0) aportes.push({ name: m[2] ? (personName(m[1]) ?? m[1]) : L(c.lang, "Tú", "You"), minor: toDisp(v) });
+        }
+      }
+    }
+    if (aportes.length >= 2) {
+      const sumA = aportes.reduce((s, x) => s + x.minor, 0);
+      return {
+        kind: "answer", family: "reparto",
+        verdict: L(c.lang, `El total es ${c.money(sumA)}: ${aportes.map((s) => `${s.name} ${c.money(s.minor)}`).join(" · ")}.`, `The total is ${c.money(sumA)}: ${aportes.map((s) => `${s.name} ${c.money(s.minor)}`).join(" · ")}.`),
+        pieces: aportes.map((s) => ({ label: s.name, minor: s.minor })),
+        note: L(c.lang, "Es la suma de los aportes que trajiste, con los nombres como los trajiste: nada se ha enviado ni anotado.", "It's the sum of the contributions you brought, with the names as you brought them: nothing has been sent or recorded."),
+        source: ["cobros.mideben", "cobros.debo"], lines: 0,
+        actions: reportDoor(c, "remesas.personas", "Verlo en Remesas", "See it in Remittances"),
+      };
+    }
+  }
   if (!hasVerb && shares.length < 2) return null;
   // Forma 2: el reparto igual entre una lista nombrada («entre mamá,
   // Carlos y yo», «éramos mamá, Carlos y yo») — el total traído se
   // divide entre los nombrados.
-  const rosterM = folded.match(/(?:entre|con|eramos|somos|fuimos|between|among)\s+([a-záéíóúñ ,y]+?)(?:\?|$|\.|,?\s*(?:cuanto|como|que))/);
-  if (rosterM && total !== null) {
-    const names = rosterM[1].split(/\s*,\s*|\s+y\s+|\s+and\s+/).map((t) => personName(t)).filter((x): x is string => !!x);
+  /* EL HUECO 3 DE COBERTURA: la lista se pierde en dos pasos — el
+   * verbo «divide» no estaba en la puerta, y la lista solo
+   * resolvía contra las personas del libro, así que los nombres
+   * traídos (los de la pregunta, no los del libro) dejaban la
+   * lista en menos de dos y la forma moría. La cura conserva la
+   * doctrina en su mitad sana: el libro manda primero (el puente
+   * de parentesco y las personas de Cobros resuelven como
+   * siempre); el nombre que el libro no conoce se toma TAL COMO
+   * LA PREGUNTA LO TRAE, con la mayúscula del texto crudo como
+   * señal de nombre propio. Ninguna persona nace en el libro por
+   * esto: es el reparto que el usuario trajo, dividido con sus
+   * nombres, y la nota lo dice. La palabra de relleno de la
+   * lista (mis, hijos, los, personas) no es un nombre, y el
+   * reparto por cuenta sin nombres («entre tres personas»)
+   * sigue siendo de la calculadora, como falló la Ola 16. */
+  const total2 = total ?? (amounts.length === 1 ? disp(amounts[0]) : null);
+  /* La lista se lee del texto CRUDO, no del plegado: el reparador
+   * de erratas puede mover un nombre que el libro no protege
+   * («Ana» se volvía «gana» en el texto plegado, medido en esta
+   * cura) y la lista plegada nombraba a otra persona. En el crudo
+   * la señal del nombre propio es su mayúscula. */
+  const spanFrom = (from: number): string | null => {
+    let rest = raw.slice(from);
+    const cut = rest.search(/\?|\.|,?\s*(?:cuánto|cuanto|cómo|como|qué|que|mitad)\b|\s+de\s+\d|\s+si\s+/i);
+    if (cut >= 0) rest = rest.slice(0, cut);
+    const commaCut = [...rest.matchAll(/,\s*(mitad|cuanto|cuánto|como|cómo|que|qué|si|de|en|para)\b/gi)][0];
+    if (commaCut && commaCut.index !== undefined) rest = rest.slice(0, commaCut.index);
+    return rest.trim() || null;
+  };
+  /* Los disparadores de lista se prueban por prioridad y, dentro
+   * de cada clase, de la última aparición a la primera: «toca a»
+   * es el más débil (su tramo arrastra «cada uno…» delante de la
+   * lista verdadera) y «entre» manda sobre él. El primer tramo
+   * que resuelve entero es el que vale; la resolución vive abajo
+   * y esta lista solo ordena los intentos. */
+  const triggerStarts: number[] = [];
+  {
+    const strong = [...raw.matchAll(/(?:entre|con|[eé]ramos|somos|fuimos|vamos|parte de|between|among)\s+/gi)].map((m) => (m.index ?? 0) + m[0].length);
+    const weak = [...raw.matchAll(/toca a\s+/gi)].map((m) => (m.index ?? 0) + m[0].length);
+    triggerStarts.push(...strong.reverse(), ...weak.reverse());
+  }
+  /* Sin preposición de lista, la firma del reparto con la lista
+   * desnuda a la vista («Kenia, Josué y yo, ¿a cuánto salimos?»)
+   * también trae su lista: se busca la corrida MÁS LARGA de
+   * nombres con mayúscula unidos por comas y por «y» (la primera
+   * corrida puede ser una sola palabra suelta: «El carro…»). */
+  const rawSpanB = /(a cuanto salimos|a cuanto quedamos|cuanto pone|cuanto le toca|cuanto salimos|cuanto quedamos|cuanto x cabeza|cuanto por cabeza)/.test(folded)
+    ? ([...raw.matchAll(/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s*,\s*[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*(?:\s*,?\s*y\s+(?:yo|[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+))?)/g)].map((m) => m[1]).filter((s) => /,|\sy\s/.test(s)).sort((a, b) => b.length - a.length)[0] ?? null)
+    : null;
+  const trySpan = (spanUse: string): BankResult | null => {
+    if (total2 === null) return null;
+    const FILLER = /^(a|mi|mis|el|la|los|las|de|del|al|tres|dos|cuatro|cinco|seis|hijos|hijas|hermano|hermana|hermanos|hermanas|primos|primas|amigos|amigas|personas|gente)$/;
+    const KINSHIP = /^(papa|mama|padre|madre|hermano|hermana|tio|tia|abuelo|abuela|esposo|esposa|hijo|hija|primo|prima|novio|novia|suegro|suegra|cunado|cunada)$/;
+    const NOUN_GUARD = /^(cada|uno|una|unos|unas|quien|quienes|todo|todos|todas|otro|otra|otros|otras|semana|mes|ano|dia|noche|manana|tarde|lunes|martes|miercoles|jueves|viernes|sabado|domingo|casa|carro|coche|banco|cuenta|tarjeta|viaje|comida|cena|pizza|fiesta|hotel|cuarto|sala|cocina|bano|patio|calle|ciudad|pais|mundo|luz|agua|renta|alquiler|gasolina|super|mercado|trabajo|escuela|colegio|oficina|tienda|playa|regalo|dinero|plata|dolares|cordobas|pesos|cabeza|partes|mitad|total|gasto|gastos|pago|pagos|cobro|cobros|cargos|compras|ventas|deudas|prestamo|credito|debito|efectivo|transferencia|apartamento|cuota|iglesia|local|negocio|brunch|airbnb|uber|netflix|spotify|cable|internet|celular|telefono)$/;
+    let usedBrought = false;
+    /* Cada trozo de la lista resuelve a uno o más nombres ([] si
+     * es puro relleno), o la lista entera se declara incierta
+     * (null): partir entre menos personas de las nombradas daría
+     * una cifra equivocada con seguridad, peor que el silencio.
+     * El trozo se corta en su primera cifra y en su primer verbo
+     * de compra o pago («yo pagamos la cuna de 315» — la lista va
+     * antes del verbo). El nombre en minúscula se acepta solo si
+     * no es una cosa del mundo de la lista de guarda: en el chat
+     * la gente escribe los nombres sin mayúscula, y la posición
+     * en la lista es la señal. */
+    const resolveChunk = (chunk: string): string[] | null => {
+      let t = chunk.trim();
+      if (t.includes(":")) t = t.slice(t.lastIndexOf(":") + 1).trim();
+      t = t.replace(/\s+\d.*$/, "").trim();
+      t = t.replace(/\s+(pagamos|compramos|pague|compre|pagaron|compraron|salio|fueron|fue|costo|cuesta|compramos|metio|puso|dieron).*$/i, "").trim();
+      if (!t) return [];
+      const words0 = t.split(/\s+/).filter(Boolean);
+      const f0 = words0.map((w) => foldQ(w));
+      while (f0.length > 1 && FILLER.test(f0[0])) { f0.shift(); words0.shift(); }
+      while (f0.length > 1 && FILLER.test(f0[f0.length - 1])) { f0.pop(); words0.pop(); }
+      const joined = words0.join(" ");
+      const fromBook = personName(joined);
+      if (fromBook) return [fromBook];
+      if (!words0.length || f0.every((w) => FILLER.test(w))) return [];
+      if (f0.length === 1 && KINSHIP.test(f0[0])) { usedBrought = true; return [words0[0][0].toUpperCase() + words0[0].slice(1)]; }
+      const isCap = (w: string) => /^[A-ZÁÉÍÓÚÑ]/.test(w);
+      if (!f0.some((w) => FILLER.test(w))) {
+        if (words0.every(isCap)) { usedBrought = true; return [words0.join(" ")]; }
+        if (words0.length <= 2 && f0.every((w) => !NOUN_GUARD.test(w) && !FILLER.test(w))) { usedBrought = true; return [...words0]; }
+        return null;
+      }
+      const li = words0.length - 1;
+      if (!FILLER.test(f0[li]) && isCap(words0[li])) { usedBrought = true; return [words0[li]]; }
+      return null;
+    };
+    const rawNames = spanUse.split(/\s*,\s*|\s+y\s+|\s+and\s+/i).map(resolveChunk);
+    const names = rawNames.some((x) => x === null) ? [] : rawNames.flatMap((x) => x ?? []);
     if (names.length >= 2) {
-      const each = Math.floor(total / names.length);
-      const rem = total - each * names.length;
+      const each = Math.floor(total2 / names.length);
+      const rem = total2 - each * names.length;
       const pieces = names.map((n, i) => ({ label: n, minor: each + (i < rem ? 1 : 0) }));
+      const notes: string[] = [];
+      if (rem > 0) notes.push(L(c.lang, "El centavo que no se puede partir se reparte de uno en uno desde el primero: por eso alguna pieza lleva un centavo más.", "The indivisible cent is dealt one by one from the first: that's why some pieces carry one cent more."));
+      if (usedBrought) notes.push(L(c.lang, "Los nombres son los que trajiste en la pregunta: el reparto se hace con ellos y nada queda anotado.", "The names are the ones you brought in the question: the split is made with them and nothing is recorded."));
       return {
         kind: "answer", family: "reparto",
-        verdict: L(c.lang, `La cuenta de ${c.money(total)} entre ${names.length}: ${pieces.map((p) => `${p.label} ${c.money(p.minor)}`).join(" · ")}.`, `The ${c.money(total)} bill split ${names.length} ways: ${pieces.map((p) => `${p.label} ${c.money(p.minor)}`).join(" · ")}.`),
-        pieces, note: rem > 0 ? L(c.lang, "El centavo que no se puede partir se reparte de uno en uno desde el primero: por eso alguna pieza lleva un centavo más.", "The indivisible cent is dealt one by one from the first: that's why some pieces carry one cent more.") : null,
+        verdict: L(c.lang, `La cuenta de ${c.money(total2)} entre ${names.length}: ${pieces.map((p) => `${p.label} ${c.money(p.minor)}`).join(" · ")}.`, `The ${c.money(total2)} bill split ${names.length} ways: ${pieces.map((p) => `${p.label} ${c.money(p.minor)}`).join(" · ")}.`),
+        pieces, note: notes.length ? notes.join(" ") : null,
         source: ["cobros.mideben", "cobros.debo"], lines: 0,
         actions: reportDoor(c, "remesas.personas", "Verlo en Remesas", "See it in Remittances"),
+        // ASIENTO DE CANON (figuras de la 449/450): la Forma 2 de
+        // canon dibuja sus barras — las piezas de la figura suman
+        // el total, centavo a centavo (cerca del banco en canon).
         figure: {
           kind: "barras",
           points: pieces.map((p) => ({ label: p.label, minor: p.minor })),
-          band: { floor: 0, total },
+          band: { floor: 0, total: total2 },
           note: null,
         },
       };
     }
+    return null;
+  };
+  if (total2 !== null) {
+    for (const start of triggerStarts) {
+      const span = spanFrom(start);
+      if (!span) continue;
+      const r = trySpan(span);
+      if (r) return r;
+    }
+    if (rawSpanB) { const r = trySpan(rawSpanB); if (r) return r; }
   }
   return null;
 }
@@ -8012,6 +8175,13 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   // SÍ es de capacidad, el monto se convierte con la tasa del libro
   // y la conversión se NOMBRA en la nota — nunca en silencio.
   if (/(divid|repart|en (dos|tres|cuatro|cinco|seis|\d+) partes|entre \d+|split)/.test(folded)) return null;
+  /* EL HUECO 3 DE COBERTURA: las firmas del reparto con nombre
+   * («¿cuánto le toca a cada uno de los 380…?», «¿cuánto pone
+   * cada uno?», «¿a cuánto salimos?») no son un juicio de
+   * capacidad aunque traigan un monto y un gasto: esta rama las
+   * leía como «¿puedes con ese gasto?» y respondía factibilidad
+   * sobre una pregunta de división. Ceden al reparto. */
+  if (/(cuanto le toca|le toca a cada|cuanto toca a|cuanto pone cada|pone cada uno|a cuanto salimos|cuanto salimos|a cuanto quedamos|cuanto por cabeza|cuanto x cabeza)/.test(folded)) return null;
   if (/%|por ciento|porcentaje|percent/.test(folded)) return null;
   // La diferencia entre montos traídos es de la calculadora: la
   // pregunta compara, no pide un juicio de capacidad.
@@ -11550,7 +11720,7 @@ function convoFrameFloor(frame: ConvoFrame): { reached: (m: BookMode) => boolean
 const GATE_WORDS: string[] = [
   "cuanto", "cuanta", "cuantos", "cuantas", "cuando", "donde", "quien", "quienes",
   "gasto", "gastos", "gaste", "gastado", "gastando", "gasolina", "ingreso", "ingresos", "ingrese", "ingreso",
-  "fuente", "fuentes", "source", "sources", "brought", "least", "came", "each", "any", "done", "compara",
+  "fuente", "fuentes", "source", "sources", "brought", "least", "came", "each", "any", "done", "compara", "pone", "ponen",
   "entro", "entran", "entraron", "gane", "ganar", "ganas", "salario", "sueldo",
   "ahorro", "ahorros", "ahorrado", "ahorrar", "aparte", "apartado", "apartados", "aparte", "aparto", "aparte",
   "retiro", "retiros", "retirar", "emergencia", "emergencias", "meta", "metas", "fondo", "fondos",
@@ -12744,7 +12914,7 @@ function answerSingle(
   // «need to save» (meta) y «split» (reparto). Cada familia se
   // sigue juzgando a sí misma ahí dentro: la puerta ancha no roba,
   // porque quien no es de la casa devuelve null y la cascada sigue.
-  if (/\bsi\b|if i|divid|repart|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b|\btengo\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b|\btuviera\b|\btuviese\b|\b\d+\s+(por|x|entre|menos|times)\s+\d+\b|\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(por|entre|times)\s+(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b|\b(a|to)\s+(cordobas|dolares|pesos|dollars)\b/.test(folded)) {
+  if (/\bsi\b|if i|divid|repart|parti|parten|partes|la parte de|recibe|reciben|cada quien|a cuanto salimos|a cuanto quedamos|cuanto salimos|cuanto quedamos|cuanto pone cada|cuanto x cabeza|cuanto por cabeza|sumame|sumamelo|suma lo que|pusimos|dieron|pusieron|por ciento|porcentaje|percent|%|cuanto es|cuanto son|cuanto seria|convert|conviert|how much is|how many months|runway|what day|what date|split|need to save|cuantos dias|en cuantos|que dia|que fecha|a la semana|al mes|dejo|dejara|colchon|respaldo|cuantos meses|cuanto.*ahorrar|tardaria|juntar|a como esta|tipo de cambio|me entraron|me depositaron|eramos|la cuenta fue|cuanto.{0,12}toca|aguanto|sin ingresos|sin trabajo|pierdo mi|me despiden|how long|without income|lose my job|no me entra|no entra|me bajan|bajan el sueldo|salary (drops|cut)|pay cut|doesn|come in|no vendo|vendo|how much|how many|\bplus\b|\+|\bmas\b|\btengo\b[^?]{0,50}\b(gasto|gastaria|gastara|gastare|compr|pago|pague|spend|spent)\b|\btuviera\b|\btuviese\b|\b\d+\s+(por|x|entre|menos|times)\s+\d+\b|\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(por|entre|times)\s+(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b|\b(a|to)\s+(cordobas|dolares|pesos|dollars)\b/.test(folded)) {
     const h = hipoteticoAnswer(c, folded, rawR, pin?.accountId);
     if (h) return h;
     // OLA 43: la sensibilidad del INGRESO — el hipotético solo
