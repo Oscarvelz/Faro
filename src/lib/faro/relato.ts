@@ -1277,7 +1277,13 @@ export function parseRelato(
 /* ================================================================== */
 
 export type ProgramaDraft = {
-  op: "gasto" | "ingreso";
+  op: "gasto" | "ingreso" | "abono";
+  /* EL ABONO PROGRAMADO (1.3.488): «pagaré la tarjeta mañana» no es
+   * un gasto que se programa — es el abono de una tarjeta con fecha.
+   * El borrador guarda la tarjeta resuelta y la costura lo asienta
+   * como transferencia (la forma de payCard), nunca como gasto: el
+   * gasto ya se contó cuando se compró con la tarjeta. */
+  cardId?: string;
   clase: "fijo" | "recordatorio";
   amountMinor: number | null;
   currency: Currency;
@@ -1291,7 +1297,7 @@ export type ProgramaDraft = {
 };
 export type ProgramaResult =
   | { kind: "schedules"; drafts: ProgramaDraft[]; echo: string }
-  | { kind: "ask"; question: string; missing: "concepto" | "cuando" }
+  | { kind: "ask"; question: string; missing: "concepto" | "cuando" | "tarjeta" }
   | { kind: "unknown" };
 
 const PROG_VERBS = new Set(["programa", "programar", "programame", "programalo", "programala", "agenda", "agendame", "agendalo", "recuerdame", "recordame", "recuerda", "apunta", "anota", "schedule", "remind"]);
@@ -1373,6 +1379,37 @@ function firstDateOf(hit: CadHit, today: string): string {
   return today;
 }
 
+/* LA TARJETA DE UN PROGRAMA (1.3.488): la misma resolución de
+ * cardClause, en espejo — el nombre manda sobre la red, los últimos
+ * 4 nombran, y «con la tarjeta» es el medio de otra compra, no lo
+ * programado. Sin verbo de pago no hay abono que programar; con la
+ * palabra genérica y una sola tarjeta en el libro, es esa; con
+ * varias y ninguna nombrada, la cláusula pregunta cuál. */
+function progCardOf(state: LedgerState, toks: string[]): { card: CreditCard } | { amb: true } | null {
+  if (!toks.some((t) => PAY_TOK.has(t) || t === "pagare" || t === "abonare")) return null;
+  const cards = cardsOf(state);
+  if (!cards.length) return null;
+  const ti = toks.findIndex((t) => CARD_TOK.has(t));
+  if (ti >= 0 && (toks[ti - 1] === "con" || toks[ti - 1] === "with" || toks[ti - 2] === "con" || toks[ti - 2] === "with")) return null;
+  const byName = cards.filter((c) => {
+    const nameWords = foldQ(c.name).split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+    return nameWords.length > 0 && nameWords.every((w) => toks.includes(w));
+  });
+  if (byName.length === 1) return { card: byName[0] };
+  if (byName.length > 1) return { amb: true };
+  let named: CreditCard | null = null;
+  let amb = false;
+  for (const c of cards) {
+    const hit = (c.network != null && c.network !== "" && toks.includes(c.network))
+      || (c.last4 !== "" && toks.includes(c.last4));
+    if (hit) { if (named && named.id !== c.id) amb = true; else named = c; }
+  }
+  if (amb) return { amb: true };
+  if (named) return { card: named };
+  if (ti >= 0) return cards.length === 1 ? { card: cards[0] } : { amb: true };
+  return null;
+}
+
 export function parsePrograma(
   state: LedgerState, key: string, lang: Lang, names: Namer, raw: string, today: string,
 ): ProgramaResult {
@@ -1418,6 +1455,32 @@ export function parsePrograma(
     if (!residual) { ask = { kind: "ask", missing: "concepto", question: L(lang, "¿Qué es lo que programo? Nómbrame el pago o el ingreso y lo dejo programado.", "What am I scheduling? Name the payment or the income and I'll schedule it.") }; continue; }
     const filed = filingFor(residual, clause, idx, foodCat);
     const first = spans[0];
+    /* EL ABONO PROGRAMADO (1.3.488, el defecto declarado por la
+     * línea del banco tras la 482): la cláusula que nombra una
+     * tarjeta con verbo de pago no nace como gasto programado —
+     * nace como abono de esa tarjeta, con su fecha y su cadencia.
+     * El monto se oye en cualquier moneda y el borrador ya lo trae
+     * en la moneda de la tarjeta (un programa es un plan: la tasa
+     * del libro es la única tasa que hay, no hay estimado que
+     * declarar como en el abono ya hecho). */
+    const pc = progCardOf(state, toks);
+    if (pc && "amb" in pc) { ask = { kind: "ask", missing: "tarjeta", question: L(lang, `¿Cuál tarjeta? Tienes ${cardsOf(state).map((c) => c.name).join(" y ")}. Sin saber cuál no lo programo.`, `Which card? You have ${cardsOf(state).map((c) => c.name).join(" and ")}. Without knowing which, I won't schedule it.`) }; continue; }
+    if (pc && "card" in pc) {
+      const card = pc.card;
+      const firstDate = anchorDate ?? firstDateOf(cad, today);
+      const minor = first ? (first.currency === card.currency ? first.minor : convertMinor(first.minor, first.currency, card.currency, state.settings.rateE4)) : null;
+      const dupP = (state.months[key]?.lines ?? []).concat(state.months[prevKeyOf(key)]?.lines ?? [])
+        .find((l) => l.cardId === card.id && (cad.cadence !== "once" ? (l.recurring && l.cadence === cad.cadence) : (l.bookedOn === firstDate && minor !== null && l.amountMinor === minor)));
+      drafts.push({
+        op: "abono", cardId: card.id,
+        clase: first ? "fijo" : "recordatorio",
+        amountMinor: minor, currency: card.currency,
+        concept: card.name, categoryId: "", subId: "",
+        cadence: cad.cadence, firstDate,
+        clause, duplicate: dupP ? card.name : null,
+      });
+      continue;
+    }
     const dup = (state.months[key]?.lines ?? []).concat(state.months[prevKeyOf(key)]?.lines ?? [])
       .find((l) => l.active && l.recurring && cad.cadence !== "once" && l.cadence === cad.cadence && (filed.subId ? l.subId === filed.subId : foldQ(l.concept) === foldQ(filed.concept)));
     drafts.push({

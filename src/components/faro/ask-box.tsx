@@ -781,10 +781,10 @@ export function AskBox() {
           <div className="ask-relato-rows">
             {programa.drafts.map((d, i) => (
               <div key={i} className="ask-relato-item">
-                <span className="ask-relato-kind">{d.op === "gasto" ? L("Gasto", "Expense") : L("Ingreso", "Income")}</span>
+                <span className="ask-relato-kind">{d.op === "gasto" ? L("Gasto", "Expense") : d.op === "abono" ? L("Abono", "Payment") : L("Ingreso", "Income")}</span>
                 <div className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
                   <span className="ask-relato-main">
-                    <span>{d.concept}</span>
+                    <span className="ask-relato-concept">{d.op === "abono" ? <CreditCard size={15} aria-hidden /> : null}<span>{d.concept}</span></span>
                     {d.clase === "fijo" && d.amountMinor !== null
                       ? <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
                       : <span className="ask-relato-dup">{L("solo recordatorio", "reminder only")}</span>}

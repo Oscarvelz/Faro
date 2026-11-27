@@ -341,7 +341,12 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
     // de pago (loanId/lentId/cardId) jamás entra por esa rama: si se
     // volviera cuota, cada copia sumaría un abono fantasma contra la deuda.
     // Solo la marca `recurring` de la persona la trae, como a cualquier línea.
-    .filter((l) => (l.recurring || (l.kind === "subscription" && !l.loanId && !l.lentId && !l.cardId)) && l.active)
+    // 1.3.488: el abono programado de una tarjeta nace INACTIVO (la forma
+    // de todo abono de la casa) pero con la marca `recurring` de la
+    // persona: viaja por esa marca, nunca por la rama ciega, y su copia
+    // trae su propia fecha (bookedOn), porque un abono se fecha por su
+    // bookedOn, no por su mes.
+    .filter((l) => (l.recurring || (l.kind === "subscription" && !l.loanId && !l.lentId && !l.cardId)) && (l.active || (l.recurring && !!l.xfer && !!l.cardId)))
     .filter((l) => !have.has(l.seriesId || l.id))
     .flatMap((l) => {
       // D1: una copia es un movimiento NUEVO — jamás nace apartada. `rest` pertenece al
@@ -384,7 +389,9 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
           const dd = Math.min(Number(from0.slice(8, 10)), last);
           due = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
         }
-        return [{ ...born, id: uid(), monthKey: to, nextDue: due }];
+        // 1.3.488: la copia de un abono (xfer) trae su fecha en
+        // bookedOn — un abono se fecha por su bookedOn, no por su mes.
+        return [{ ...born, id: uid(), monthKey: to, nextDue: due, ...(l.xfer ? { bookedOn: due } : {}) }];
       }
       // PREJUDICE PJ-16: a cadence string the interval parser does not know
       // ("every-3-months" and its kin) made nextDueFrom return the source date
@@ -402,7 +409,7 @@ export function copyRecurring(state: LedgerState, from: string, to: string): { s
         const last = new Date(yy, mm, 0).getDate();
         const dd = Math.min(Number(from0.slice(8, 10)), last);
         const due = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-        return [{ ...born, id: uid(), monthKey: to, nextDue: due }];
+        return [{ ...born, id: uid(), monthKey: to, nextDue: due, ...(l.xfer ? { bookedOn: due } : {}) }];
       }
       const due = nextDueFrom(from0, l.cadence, `${to}-01`);
       if (due.slice(0, 7) !== to) return [];

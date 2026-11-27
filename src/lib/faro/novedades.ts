@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.488",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El pago de la tarjeta también se programa como abono", en: "A card payment also schedules as a payment" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Si le dices a tu Asesor «pagaré la tarjeta mañana» o «programa el pago de la Visa cada mes», el borrador ya no es de gasto: es de abono contra esa tarjeta.",
+        "Queda asentado como transferencia con su fecha, y el saldo de la tarjeta lo cuenta desde esa fecha. Con dos tarjetas y sin nombrar cuál, pregunta cuál.",
+      ],
+      en: [
+        "If you tell your Advisor “I'll pay the card tomorrow” or “schedule the Visa payment every month”, the draft is no longer a spend: it's a payment against that card.",
+        "It is posted as a transfer with its date, and the card's balance counts it from that date. With two cards and none named, it asks which.",
+      ],
+    },
+  },
+  {
     version: "1.3.487",
     date: "2026-11-26",
     level: "menor",

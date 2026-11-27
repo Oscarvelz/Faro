@@ -25,6 +25,7 @@
  * vez crearía la serie dos veces. Se salta siempre.
  */
 import { uid } from "./money.ts";
+import { cardsOf, storedCards } from "./cards.ts";
 import type { ProgramaDraft } from "./relato.ts";
 import type { LedgerState, Line } from "./types.ts";
 
@@ -38,6 +39,31 @@ function located(state: LedgerState, d: ProgramaDraft): { categoryId: string; su
 function programaLine(state: LedgerState, d: ProgramaDraft): Line {
   const id = uid();
   const once = d.cadence === "once";
+  /* EL ABONO PROGRAMADO (1.3.488): nace con la forma exacta de un
+   * abono de la casa (la de payCard) — transferencia inactiva con
+   * cardId e icono de tarjeta — fechada en su primera fecha y, si
+   * su cadencia se repite, con su marca de recurrencia y su
+   * próximo vencimiento: los totales la leen en cero (xfer), el
+   * saldo de la tarjeta solo la cuenta desde su fecha (la regla
+   * 1.3.147 de cardFigures) y la copia de meses la lleva por su
+   * marca, como a cualquier línea de la persona. Jamás nace como
+   * gasto: el gasto ya se contó al comprar con la tarjeta. */
+  if (d.op === "abono" && d.cardId) {
+    const card = cardsOf(state).find((c) => c.id === d.cardId) ?? storedCards(state).find((c) => c.id === d.cardId);
+    if (card) {
+      const label = state.settings.lang === "en" ? "Payment" : "Abono";
+      return {
+        id, seriesId: id, monthKey: d.firstDate.slice(0, 7),
+        kind: "expense-variable", concept: `${label} · ${card.name}`, amountMinor: d.amountMinor ?? 0, currency: card.currency,
+        active: false, note: "", categoryId: "", subId: "",
+        recurring: !once, storeId: "", providerId: "", productCode: "", productUrl: "",
+        cadence: once ? "" : (d.cadence as Exclude<ProgramaDraft["cadence"], "once">),
+        nextDue: d.firstDate, aprBps: card.aprBps, balanceMinor: null, balanceCurrency: card.currency,
+        icon: "CreditCard", history: [], bookedOn: d.firstDate, startedOn: d.firstDate,
+        xfer: true, cardId: card.id,
+      };
+    }
+  }
   return {
     id, seriesId: id, monthKey: d.firstDate.slice(0, 7),
     kind: d.op === "ingreso" ? "income-fixed" : "expense-fixed",
