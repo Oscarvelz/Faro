@@ -2682,8 +2682,17 @@ button.piece-plate { cursor: pointer; }
 .span-cut.is-saving .span-facts > div:first-child > .hint { position: static; order: 1; flex: none; }
 .span-cut.is-saving .span-facts > div:first-child > strong { order: 2; flex: 0 1 auto; min-width: 0; margin-left: auto; padding-left: 8px; text-align: right; }
 
-/* Inline line editor: a framed panel with a header, paired compact fields, switch toggles, and a full-width action row. */
-.line-edit { grid-column: 1 / -1; margin: 6px 0 14px; padding: 14px 14px 16px; border-radius: 22px; border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line)); background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 7%, var(--surface)), var(--surface) 55%); box-shadow: inset 0 1px 0 color-mix(in oklab, white 55%, transparent), 0 10px 26px -14px color-mix(in oklab, var(--accent) 40%, transparent); animation: le-in .32s cubic-bezier(.22, 1, .36, 1) both; }
+/* Inline line editor: a framed panel with a header, paired compact fields, switch toggles, and a full-width action row.
+   1.3.493 (Oscar, 2026-11-26, con su foto anotada en rojo: «That INNER box»): el
+   editor era una caja dentro de la tarjeta del mes — borde propio, tinte propio
+   y relleno propio — y entre su borde y los campos corría una banda muerta a
+   derecha e izquierda (sus flechas la marcan de arriba abajo). Ley de
+   envoltorio: nada de cajas anidadas ni huecos sin uso. El editor deja de ser
+   caja: sin borde, sin tinte, sin sombra y sin relleno lateral; sus campos
+   caen en la misma columna que las filas de la tarjeta, y su cabecera con su
+   raya sigue separándolo de la lista. Tron conserva su tratamiento propio
+   (su capa manda sobre esta regla). */
+.line-edit { grid-column: 1 / -1; margin: 6px 0 14px; padding: 14px 0 16px; border: 0; background: transparent; animation: le-in .32s cubic-bezier(.22, 1, .36, 1) both; }
 .line-edit-head { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid color-mix(in oklab, var(--fg) 8%, var(--line)); color: var(--muted); font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
 .line-edit-head > span:not(.hint) { width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in oklab, var(--accent) 14%, var(--surface)); color: var(--accent); }
 .line-edit-head svg { width: 13px; height: 13px; }

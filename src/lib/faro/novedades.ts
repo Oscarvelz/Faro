@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.493",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El editor ya no es una caja dentro de otra caja", en: "The editor is no longer a box inside a box" },
+    topic: "editor",
+    points: {
+      es: [
+        "El editor de una línea era una caja propia dentro de la tarjeta del mes, con su borde, su tinte y su relleno: entre su borde y los campos quedaba una banda muerta a cada lado. Ya no es una caja — vive sobre la superficie de la tarjeta y sus campos caen en la misma columna que las filas.",
+      ],
+      en: [
+        "The line editor was a box of its own inside the month's card, with its own border, tint and padding: a dead band sat on each side between its border and the fields. It is no longer a box — it lives on the card's surface and its fields fall in the same column as the rows.",
+      ],
+    },
+  },
+  {
     version: "1.3.492",
     date: "2026-11-26",
     level: "menor",
