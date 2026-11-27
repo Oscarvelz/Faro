@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.512",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El oído deja de deformar las palabras de todos los días", en: "The ear stops bending everyday words" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "El corrector de erratas ya no convierte palabras correctas en otras: «ahora» no se vuelve «ahorra», «anda» no se vuelve un nombre, «suelo» no se vuelve «sueldo», y los nombres como Ana, Carlos o Luis quedan intactos aunque tu libro no los traiga.",
+      ],
+      en: [
+        "The typo fixer no longer turns correct words into others: “ahora” doesn't become “ahorra”, “anda” doesn't become a name, “suelo” doesn't become “sueldo”, and names like Ana, Carlos or Luis stay intact even if your book doesn't carry them.",
+      ],
+    },
+  },
+  {
     version: "1.3.511",
     date: "2026-11-27",
     level: "menor",

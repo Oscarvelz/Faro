@@ -11876,6 +11876,60 @@ const GATE_WORDS: string[] = [
    * libro cuando el libro trae la renta puesta; sin esa suerte,
    * la palabra correcta se deformaba. */
   "renta",
+  /* EL BARRIDO DEL REPARADOR (2026-11-27, propuesta de Gemini):
+   * el vocabulario de todos los días pasado por el pipeline
+   * entero, en las dos condiciones (sin protector y con el de
+   * un libro típico). Cada palabra de aquí es una palabra
+   * CORRECTA que la reparación volvía otra con sentido propio:
+   * «ahora» volvía «ahorra», «toda» volvía «today», «anda»
+   * volvía «ana» con un libro con Ana, «lana» (el dinero en
+   * palabras del usuario) volvía «ana», «alta» volvía «falta»,
+   * «suelo» volvía «sueldo», «daño» plegado volvía «ano», y
+   * los nombres que el corpus trae (Ana, Carlos, Luis,
+   * Carla, Paty, Junior) se deformaban sin libro que los
+   * protegiera. La medición y la adjudicación palabra por
+   * palabra viven en el acta BARRIDO-REPARADOR-RESULTADOS.md. */
+  "ahora", "toda", "alta", "lana", "anda", "suelo",
+  "junte", "das", "digas", "idas", "mano", "manos", "dano", "sano",
+  "nos", "ando", "abri", "cafe", "claro",
+  "ana", "carlos", "luis", "carla", "paty", "junior",
+  /* EL BARRIDO, LAS VECINAS (la misma medición, tras fijar):
+   * fijar una palabra la vuelve blanco y atrae a sus vecinas;
+   * estas son las que las vueltas cazaron yendo a las fijadas:
+   * «luz» a «luis», «nada» y «manda» y «tanda» a «anda»,
+   * «hora» a «ahora», «dan» a «dano», «suelto» a «suelo»,
+   * «luisa» a «luis», «abrir» a «abri», «dani» a «dan»,
+   * «lucia» a «luisa» y «amanda» a «manda». Lo demás que las
+   * vueltas cazaron era la misma palabra en otra flexión
+   * (mandar a manda, sueltos a suelto), que es el trabajo del
+   * reparador y se deja. */
+  "luz", "dan", "hora", "abrir", "nada", "manda", "tanda", "panda",
+  "suelto", "luisa", "dani", "lucia", "amanda",
+  /* EL COSTO DEL BARRIDO, COBRADO POR EL BANCO Y CURADO EN LA
+   * MISMA PIEZA: fijar «sera» atrajo a «seria» («¿cuánto
+   * sería?» es la forma de la suma, y la calculadora la oye
+   * por esa palabra) y fijar «luz» atrajo al «plus» inglés de
+   * la suma dictada. La lección: fijar un eslabón exige fijar
+   * la cadena entera, y la palabra de la puerta vecina que la
+   * cadena toca («seria», «plus») entra al diccionario por su
+   * propio mérito. */
+  "seria", "plus",
+  /* EL BARRIDO · LAS RETIRADAS Y LAS PROTECTORAS (la onda
+   * hostil cobró 30 roturas y 7 del centro sobre la primera
+   * forma, y cada retirada tiene su espécimen: «gato» sale —
+   * la errata de «gasto» sin la s es la clase fundadora del
+   * reparador y la mascota la protege el libro que la trae;
+   * «siento» sale — su frase del corpus ya era de historia
+   * con la reparación vieja, y fijarla rompía las tres
+   * mutaciones de «por ciento»; «eran» y su cadena de ser
+   * («era», «sera», «cerca», «sea», «cena», «sepa», «san»)
+   * salen — la errata inglesa de «earn» escrita «eran» es
+   * promesa del banco y el empate que la fijación creaba
+   * rompía también «ean» y «sae». Y dos protectoras entran
+   * por su puerta: «horas», que la fijación de «hora» volvía
+   * singular y dejaba sorda a precio-tiempo, y «days», que
+   * la fijación de «das» se llevaba de «how many days». */
+  "horas", "days",
 ];
 /* LA TANDA DEL AGENTE (puerto de la Rama, 1.3.457): los verbos y
  * las palabras de los cinco escalones, el modismo semilla y las
