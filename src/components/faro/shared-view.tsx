@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BookOpen, X } from "lucide-react";
 import { useFaro } from "./provider";
+import { Hint } from "./hint";
 import { Signature } from "./signature";
 import { acceptInvite, acceptTransfer, fetchSharedBook, leaveMembership, listMemberships, type Membership } from "@/spa/cloud";
 import { makeNamer } from "@/lib/faro/defaults";
@@ -146,7 +147,7 @@ export function SharedWithMe() {
 
   return (
     <div className="sm-card">
-      <span className="sm-slab"><BookOpen aria-hidden /> {L(lang, "Compartidos conmigo", "Shared with me")}</span>
+      <span className="sm-slab"><BookOpen aria-hidden /> {L(lang, "Compartidos conmigo", "Shared with me")}<Hint topic="compartir-salidas" /></span>
       {rows === undefined ? <p className="sm-note">{L(lang, "Leyendo…", "Reading…")}</p> : null}
       {rows === null ? <p className="sm-note">{L(lang, "La lista no se pudo leer ahora; el código de una invitación sí se puede intentar.", "The list could not be read right now; an invitation code can still be tried.")}</p> : null}
       {rows !== undefined && rows !== null && rows.length === 0 && !open ? <p className="sm-note">{L(lang, "Nadie ha compartido un libro contigo todavía.", "No one has shared a book with you yet.")}</p> : null}

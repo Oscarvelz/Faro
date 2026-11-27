@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.495",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El libro compartido explica sus pasos", en: "The shared book explains its steps" },
+    topic: "libro-compartido",
+    points: {
+      es: [
+        "La mesa de invitar, la vista previa, la lista de personas y la salida de un libro compartido llevan ahora su signo de interrogación: cada uno explica su paso en dos idiomas.",
+        "El Manual suma cuatro temas nuevos: invitar a tu libro, la vista previa, quiénes están en tu libro y salir de un libro compartido.",
+      ],
+      en: [
+        "The invitation mesa, the preview, the list of people and leaving a shared book now carry their question mark: each one explains its step in both languages.",
+        "The Manual gains four new topics: inviting to your book, the preview, who is in your book and leaving a shared book.",
+      ],
+    },
+  },
+  {
     version: "1.3.494",
     date: "2026-11-27",
     level: "menor",

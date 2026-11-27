@@ -98,6 +98,10 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
   const SEATS: [string, Mode, string][] = [
     ["f-pagado-con", "ritmo", "editor.paid-with"],
     ["f-compartido", "ritmo", "editor.split"],
+    ["compartir-invitacion", "ritmo", "books.share-admin"],
+    ["compartir-previa", "ritmo", "books.share-admin"],
+    ["compartir-miembros", "ritmo", "books.share-admin"],
+    ["compartir-salidas", "ritmo", "books.share-admin"],
     ["f-activo", "ritmo", "editor.active-toggle"],
     ["f-recurrente", "ritmo", "editor.recurrent-toggle"],
     ["f-saldo-deuda", "ritmo", "editor.debt-balance"],
@@ -201,10 +205,15 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // Ritmo (su función es editor.split — poner la marca es
     // administrar la línea, como el «Pagado con»). La distribución
     // se mueve a 133 · 109 · 131 sobre 373.
+    // ENMIENDA PIEZA C9 (1.3.495): nacen los cuatro temas de las
+    // mini-ayudas del Libro Compartido en Ritmo (su función es
+    // books.share-admin — viven en la mesa y en «Compartidos
+    // conmigo», la misma hoja de la C5). La distribución se mueve
+    // a 133 · 113 · 131 sobre 377.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 373);
+    assert.equal(MANUAL_TOPICS.length, 377);
     assert.equal(count("esencial"), 133);
-    assert.equal(count("ritmo"), 109);
+    assert.equal(count("ritmo"), 113);
     assert.equal(count("completo"), 131);
   });
 });

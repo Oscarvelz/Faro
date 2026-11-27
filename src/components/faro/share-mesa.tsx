@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Eye, Send, UserPlus, X } from "lucide-react";
 import { useFaro } from "./provider";
+import { Hint } from "./hint";
 import { canInvite, emptyMesa, mesaKey, plausibleEmail, previewFor, previewStale, type MesaState, type SharePreview, type ShareScope } from "@/lib/faro/share";
 import { cancelInvite, inviteMember, listMemberships, offerTransfer, removeMember, type Membership } from "@/spa/cloud";
 import "./share-mesa.css";
@@ -116,7 +117,7 @@ export function ShareMesa() {
 
   return (
     <div className="sm-root">
-      <p className="sm-intro">{L(lang, "Invita a alguien a este libro. Antes de enviar nada, mirarás el libro por sus ojos.", "Invite someone to this book. Before anything is sent, you will look at the book through their eyes.")}</p>
+      <p className="sm-intro">{L(lang, "Invita a alguien a este libro. Antes de enviar nada, mirarás el libro por sus ojos.", "Invite someone to this book. Before anything is sent, you will look at the book through their eyes.")}<Hint topic="compartir-invitacion" /></p>
 
       <div className="sm-steps">
         <div className="sm-step">
@@ -155,7 +156,7 @@ export function ShareMesa() {
       </div>
 
       <div className="sm-card">
-        <span className="sm-slab"><Eye aria-hidden /> {L(lang, "La vista previa, por sus ojos", "The preview, through their eyes")}</span>
+        <span className="sm-slab"><Eye aria-hidden /> {L(lang, "La vista previa, por sus ojos", "The preview, through their eyes")}<Hint topic="compartir-previa" /></span>
         {!dealComplete ? (
           <p className="sm-note">{L(lang, "Completa los tres pasos: la invitación solo existe después de mirar.", "Complete the three steps: the invitation only exists after you look.")}</p>
         ) : previewCurrent && pv ? (
@@ -178,7 +179,7 @@ export function ShareMesa() {
       </div>
 
       <div className="sm-card">
-        <span className="sm-slab"><UserPlus aria-hidden /> {L(lang, "Quiénes están en este libro", "Who is in this book")}</span>
+        <span className="sm-slab"><UserPlus aria-hidden /> {L(lang, "Quiénes están en este libro", "Who is in this book")}<Hint topic="compartir-miembros" /></span>
         {members === undefined ? <p className="sm-note">{L(lang, "Leyendo…", "Reading…")}</p> : null}
         {members === null ? <p className="sm-note">{L(lang, "La lista no se pudo leer ahora. La mesa sigue componiendo: la verdad de lo que compartes se decide aquí, no en la nube.", "The list could not be read right now. The mesa still composes: what you share is decided here, not in the cloud.")}</p> : null}
         {members && members.length === 0 ? <p className="sm-note">{L(lang, "Nadie más está en este libro.", "No one else is in this book.")}</p> : null}

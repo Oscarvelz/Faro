@@ -298,10 +298,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA MARCA DE COMPARTIDO (1.3.489): nace f-compartido en
     // Ritmo (su función es editor.split): ritmo +1 por alcance y el
     // total +1 — acumulados 133 · 242 · 373.
+    // ENMIENDA PIEZA C9 (1.3.495): nacen los cuatro temas de las
+    // mini-ayudas del Libro Compartido en Ritmo (books.share-admin):
+    // ritmo +4 por alcance y el total +4 — acumulados 133 · 246 · 377.
     assert.equal(count("esencial"), 133);
-    assert.equal(count("ritmo"), 242);
-    assert.equal(count("completo"), 373);
-    assert.equal(MANUAL_TOPICS.length, 373);
+    assert.equal(count("ritmo"), 246);
+    assert.equal(count("completo"), 377);
+    assert.equal(MANUAL_TOPICS.length, 377);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

@@ -870,6 +870,10 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "bateria-app": { f: null, m: "esencial" },
     "billetera-notificaciones": { f: "capture.notices", m: "esencial" }, // 1.3.388 — Ola 8: el tema nace con su asiento (escuchar es capturar, Esencial; elegir apps y administrar formas es capture.notices-admin, Ritmo)
     "libro-compartido": { f: "books.share-admin", m: "ritmo" }, // 1.3.395 — Pieza C5: el tema nace con su asiento (administrar la membresía, Ritmo)
+    "compartir-invitacion": { f: "books.share-admin", m: "ritmo" }, // 1.3.495 — Pieza C9: las mini-ayudas de la mesa nacen con su asiento
+    "compartir-previa": { f: "books.share-admin", m: "ritmo" }, // 1.3.495 — Pieza C9
+    "compartir-miembros": { f: "books.share-admin", m: "ritmo" }, // 1.3.495 — Pieza C9
+    "compartir-salidas": { f: "books.share-admin", m: "ritmo" }, // 1.3.495 — Pieza C9
     "cerrar-sesion": { f: null, m: "esencial" },
     "sin-red": { f: null, m: "esencial" },
     "actualizacion": { f: null, m: "esencial" },
@@ -878,7 +882,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 373); // 1.3.489 — nace «f-compartido» (la marca de compartido); 372 en 1.3.445 — nace «asesor-relato» (puerto de la Rama Agente); 371 en la Pieza C5 del Libro Compartido (1.3.395); 370 en la Ola 8 (1.3.388); 369 en las preguntas a la mano (1.3.369); 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
+    assert.equal(MANUAL_TOPICS.length, 377); // 1.3.495 — Pieza C9: nacen los cuatro temas de las mini-ayudas del Libro Compartido (compartir-invitacion, compartir-previa, compartir-miembros, compartir-salidas); 373 en 1.3.489 — nace «f-compartido» (la marca de compartido); 372 en 1.3.445 — nace «asesor-relato» (puerto de la Rama Agente); 371 en la Pieza C5 del Libro Compartido (1.3.395); 370 en la Ola 8 (1.3.388); 369 en las preguntas a la mano (1.3.369); 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {
