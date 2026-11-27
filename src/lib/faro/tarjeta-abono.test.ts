@@ -24,7 +24,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cardsOf, dropCard, putCard } from "./cards.ts";
+import { cardsOf, dropCard, payCard, putCard } from "./cards.ts";
 import { createInitial, makeNamer } from "./defaults.ts";
 import { summarize } from "./engine.ts";
 import { parseRelato } from "./relato.ts";
@@ -188,5 +188,86 @@ describe("las guardas del abono", () => {
     assert.equal(l.cardId, "card-visa");
     assert.equal(l.amountMinor, 20000);
     assert.equal(l.currency, "USD");
+  });
+});
+
+describe("el segundo monto (paso 4 del acuerdo de los tres)", () => {
+  // ACTA (puerto 1.3.486): las dos afirmaciones del eco de la copia
+  // («salieron … de Banco», «estimado con la tasa de tu libro») se
+  // afirman sobre los campos del borrador, porque desde la 1.3.463
+  // el eco de canon no lleva líneas: la declaración vive en el
+  // detalle de la tarjetita y se verifica en el banco de la app.
+  it("«pagué 7,000 córdobas de la tarjeta desde el banco»: el borrador guarda los dos extremos y declara el estimado", () => {
+    const r = relato(fixture([VISA]), "pagué 7,000 córdobas de la tarjeta desde el banco");
+    assert.equal(r.kind, "drafts");
+    if (r.kind !== "drafts") return;
+    const d = r.drafts[0];
+    assert.equal(d.op, "abono");
+    assert.equal(d.cardId, "card-visa");
+    assert.equal(d.srcMinor, 700000);
+    assert.equal(d.srcCurrency, "NIO");
+    assert.equal(d.currency, "USD");
+    assert.equal(d.estimated, true);
+    // 7,000 córdobas a la tasa del libro (36.6243) ≈ $191.13
+    assert.ok(d.amountMinor > 19000 && d.amountMinor < 19250, `estimado fuera de banda: ${d.amountMinor}`);
+  });
+
+  it("los dos montos dichos: «pagué 185 dólares de la tarjeta (7,000 córdobas)» no estima nada", () => {
+    const r = relato(fixture([VISA]), "pagué 185 dólares de la tarjeta (7,000 córdobas)");
+    assert.equal(r.kind, "drafts");
+    if (r.kind !== "drafts") return;
+    const d = r.drafts[0];
+    assert.equal(d.op, "abono");
+    assert.equal(d.amountMinor, 18500);
+    assert.equal(d.srcMinor, 700000);
+    assert.equal(d.srcCurrency, "NIO");
+    assert.equal(d.estimated, undefined);
+  });
+
+  it("en la moneda de la tarjeta, nada cambia: sin segundo monto ni estimado", () => {
+    const r = relato(fixture([VISA]), "pagué 200 dólares de la tarjeta");
+    assert.equal(r.kind, "drafts");
+    if (r.kind !== "drafts") return;
+    const d = r.drafts[0];
+    assert.equal(d.amountMinor, 20000);
+    assert.equal(d.srcMinor, undefined);
+    assert.equal(d.estimated, undefined);
+  });
+
+  it("la costura: payCard con el segundo monto lo guarda en la línea; sin él, el campo queda ausente", () => {
+    const ledger = fixture([VISA]);
+    const con = payCard(ledger, "card-visa", 19113, TODAY, "pay-y", "Abono", { minor: 700000, currency: "NIO" });
+    const l = con.months[KEY].lines.find((x) => x.id === "pay-y")!;
+    assert.equal(l.srcMinor, 700000);
+    assert.equal(l.srcCurrency, "NIO");
+    assert.equal(l.amountMinor, 19113);
+    assert.equal(l.currency, "USD");
+    assert.equal(l.xfer, true);
+    const sin = payCard(ledger, "card-visa", 20000, TODAY, "pay-z", "Abono");
+    const l2 = sin.months[KEY].lines.find((x) => x.id === "pay-z")!;
+    assert.equal(l2.srcMinor, undefined);
+    assert.equal(l2.srcCurrency, undefined);
+    const before = summarize(ledger, KEY, "es");
+    assert.equal(summarize(con, KEY, "es").variable, before.variable, "el abono en dos montos tampoco suma gasto");
+  });
+
+  it("extremo a extremo por la costura de canon: el segundo monto llega a la línea y sobrevive a la recarga (JSON)", () => {
+    const ledger = fixture([VISA]);
+    const r = relato(ledger, "pagué 7,000 córdobas de la tarjeta desde el banco");
+    assert.equal(r.kind, "drafts");
+    if (r.kind !== "drafts") return;
+    const after = settleRelatoDrafts(ledger, r.drafts, "es");
+    const l = after.months[KEY].lines.find((x) => x.cardId === "card-visa" && x.xfer)!;
+    assert.ok(l, "la línea del abono existe");
+    assert.equal(l.srcMinor, 700000);
+    assert.equal(l.srcCurrency, "NIO");
+    assert.equal(l.currency, "USD");
+    // La persistencia del libro es JSON: el campo opcional viaja en
+    // la línea y la recarga lo conserva tal cual (ningún lector lo
+    // reconstruye campo a campo).
+    const reloaded = JSON.parse(JSON.stringify(after)) as LedgerState;
+    const l2 = reloaded.months[KEY].lines.find((x) => x.cardId === "card-visa" && x.xfer)!;
+    assert.equal(l2.srcMinor, 700000);
+    assert.equal(l2.srcCurrency, "NIO");
   });
 });

@@ -209,6 +209,17 @@ export type Line = {
   interestMinor?: number;
   /** A payment received toward money the user lent (Libros → Me deben, 1.3.92). An income line. See debts.ts. */
   lentId?: string;
+  /** El otro extremo de un abono a tarjeta oído en otra moneda
+   * (paso 4 del acuerdo de los tres, 2026-11-26; recomendación de
+   * Hark: campo opcional y aditivo, los libros viejos no cambian).
+   * La línea guarda en amountMinor lo que LLEGÓ a la tarjeta, en la
+   * moneda de la tarjeta; estos dos campos guardan lo que SALIÓ de
+   * la cuenta origen, en su moneda, cuando difiere. La tasa
+   * implícita de la operación sale de los dos montos: jamás se crea
+   * una línea de «diferencia cambiaria». Ausente = el abono se oyó
+   * en la moneda de la tarjeta, o el libro es anterior. */
+  srcMinor?: number;
+  srcCurrency?: Currency;
   /** Pago automático (Ola 6, 1.3.356; orden de Oscar 2026-11-20): en una
    * cuota, Faro anota solo el cargo de cada período en su fecha, desde la
    * cuenta elegida. Vive en la instancia más reciente de la serie y las

@@ -121,6 +121,12 @@ export function settleRelatoDrafts(state: LedgerState, drafts: RelatoDraft[], la
   // (transferencia xfer inactiva en la moneda DE LA TARJETA: si el
   // relato trajo otra moneda, se convierte con la tasa del libro
   // antes de abonar, para que la cifra que liquida sea la dicha).
+  // PASO 4 (puerto 1.3.486): el borrador puede traer el otro
+  // extremo (srcMinor/srcCurrency, lo que salió de la cuenta en
+  // su moneda) — viaja a payCard y queda guardado en la línea;
+  // el monto que liquida sigue siendo el del borrador ya en la
+  // moneda de la tarjeta (si era estimado, el confirmado por el
+  // usuario es el que manda).
   let s = state;
   const abonoLabel = lang === "es" ? "Abono" : "Payment";
   for (const d of drafts) {
@@ -128,7 +134,7 @@ export function settleRelatoDrafts(state: LedgerState, drafts: RelatoDraft[], la
     const card = cardsOf(s).find((c) => c.id === d.cardId);
     if (!card) continue;
     const minor = d.currency === card.currency ? d.amountMinor : convertMinor(d.amountMinor, d.currency, card.currency, s.settings.rateE4);
-    s = payCard(s, card.id, minor, d.date, uid(), abonoLabel);
+    s = payCard(s, card.id, minor, d.date, uid(), abonoLabel, d.srcMinor != null && d.srcCurrency ? { minor: d.srcMinor, currency: d.srcCurrency } : undefined);
   }
   // EL PRÉSTAMO (puerto 1.3.483): el borrador trae el lado
   // declarado — «debo» nace con addLoan (me prestaron; el

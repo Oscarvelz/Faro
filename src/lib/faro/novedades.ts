@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.486",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El abono guarda los dos montos", en: "The card payment keeps both amounts" },
+    topic: "asesor-relato",
+    points: {
+      es: [
+        "Si le cuentas al Asesor un abono en otra moneda — «pagué 7,000 córdobas de la tarjeta desde el banco» — la tarjetita guarda los dos extremos: lo que salió de tu cuenta en su moneda y lo que llega a la tarjeta en la suya.",
+        "Si solo cuentas el monto de fuera, el de la tarjeta se estima con la tasa de tu libro y la tarjetita lo dice: corrígelo en la confirmación si tu banco aplicó otra, y quedan asentados los dos montos verdaderos.",
+        "Nunca nace una línea de «diferencia cambiaria»: la tasa de la operación es la que sale de los dos montos.",
+      ],
+      en: [
+        "If you tell the Advisor a card payment in another currency — “I paid 7,000 córdobas to my card from the bank” — the little card keeps both ends: what left your account in its currency and what reaches the card in its own.",
+        "If you only tell the outside amount, the card's amount is estimated at your book's rate and the little card says so: correct it at the confirmation if your bank applied a different one, and both true amounts are what get posted.",
+        "No “exchange difference” line is ever born: the operation's rate is the one the two amounts give.",
+      ],
+    },
+  },
+  {
     version: "1.3.485",
     date: "2026-11-26",
     level: "menor",

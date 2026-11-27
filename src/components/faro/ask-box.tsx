@@ -69,7 +69,7 @@
  * emitido resuelva a un tema con ruta.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Compass, Pencil, Send, Settings, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, Compass, CreditCard, Pencil, Send, Settings, Sparkles } from "lucide-react";
 import { answerBankQuestion, answerFollowUp, bankChips, classifyBankQuestion, convoAfterFollowUp, type AskFrame, type BankResult, type ConvoFrame } from "@/lib/faro/ask2";
 import { parsePrograma, parseRelato, programaCadenceText, type ProgramaResult, type RelatoDraft, type RelatoResult } from "@/lib/faro/relato";
 import { parseOrden, type OrdenResult } from "@/lib/faro/orden";
@@ -700,7 +700,15 @@ export function AskBox() {
               if (d.date !== todayLocal()) det.push(d.date);
               if (d.op === "gasto" && d.from) det.push(`${L("desde", "from")} ${d.from.label}`);
               if (d.op === "ingreso" && d.to) det.push(`${L("a", "to")} ${d.to.label}`);
-              if (d.op === "abono" && d.from) det.push(`${L("desde", "from")} ${d.from.label}`);
+              if (d.op === "abono" && d.from && d.srcMinor == null) det.push(`${L("desde", "from")} ${d.from.label}`);
+              // 1.3.486 · EL SEGUNDO MONTO SE DECLARA EN LA TARJETITA:
+              // el abono oído en otra moneda dice lo que salió de la
+              // cuenta en su moneda (y ocupa el lugar del «desde»:
+              // trae la cuenta consigo). El aviso del estimado NO va
+              // en esta línea: es una instrucción de actuar y se
+              // pinta en su propia superficie (.ask-relato-est), por
+              // la ley de envoltorio — nada de texto suelto.
+              if (d.op === "abono" && d.srcMinor != null) det.push(L(`salieron ${formatMoney(d.srcMinor, d.srcCurrency ?? d.currency, lang)}${d.from ? ` de ${d.from.label}` : ""}`, `${formatMoney(d.srcMinor, d.srcCurrency ?? d.currency, lang)} left${d.from ? ` ${d.from.label}` : ""}`));
               // 1.3.484 · EL PAGO DE VUELTA SE DECLARA EN LA TARJETITA:
               // el abono a un préstamo vivo dice lo que queda (o que
               // con esto queda saldado), para que el usuario lo vea
@@ -723,6 +731,15 @@ export function AskBox() {
                       {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba asentado", "already posted")}</span> : null}
                     </span>
                     {det.length ? <span className="ask-relato-det">{det.join(" · ")}</span> : null}
+                    {/* 1.3.486 · EL AVISO DEL ESTIMADO, EN SU SUPERFICIE
+                        (Oscar, sobre la foto del banco: «Texto suelto» —
+                        la ley de envoltorio manda que ningún texto vaya
+                        suelto): el aviso de que el monto es estimado no
+                        es un detalle más de la fila, es una instrucción
+                        de actuar, y viaja en su propia superficie dentro
+                        de la tarjetita, no fundido en la línea del
+                        detalle. */}
+                    {d.op === "abono" && d.estimated ? <span className="ask-relato-est"><CreditCard size={14} aria-hidden /> <span>{L("El monto de la tarjeta es estimado con la tasa de tu libro: corrígelo si tu banco aplicó otra.", "The card amount is estimated at your book's rate: correct it if your bank applied a different one.")}</span></span> : null}
                   </div>
                 </div>
               );

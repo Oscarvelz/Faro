@@ -594,6 +594,13 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
 .ask-relato-main > span:first-child { flex: 1; }
 .ask-relato-row strong { font-weight: 560; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ask-relato-det { font-size: .78rem; color: var(--muted); }
+/* 1.3.486 · EL AVISO DEL ESTIMADO, EN SU SUPERFICIE (Oscar: «Texto
+   suelto» — la ley de envoltorio): la instrucción de corregir el
+   monto estimado viaja en su propia superficie dentro de la
+   tarjetita del borrador — borde y fondo propios, en la tinta del
+   tema, nunca fundida en la línea del detalle. */
+.ask-relato-est { display: flex; align-items: flex-start; gap: 7px; margin-top: 6px; padding: 6px 8px; font-size: .78rem; line-height: 1.35; color: var(--fg); background: color-mix(in oklab, var(--fg) 6%, transparent); border: 1px solid var(--line); border-radius: 8px; }
+.ask-relato-est svg { flex: none; margin-top: 1px; }
 .ask-relato-row.is-dup { opacity: .62; }
 .ask-relato-dup { font-size: .78rem; color: var(--muted); white-space: nowrap; }
 /* ── EL DIBUJO DE LAS FIGURAS DEL CENSO (1.3.450): la figura que

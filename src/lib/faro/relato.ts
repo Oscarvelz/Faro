@@ -63,6 +63,18 @@ export type RelatoDraft = {
   /** abono: la tarjeta que se liquida (su id en cardsOf); la costura
    *  la asienta con payCard, nunca como gasto. */
   cardId?: string;
+  /** abono en otra moneda (paso 4): lo que SALIÓ de la cuenta
+   *  origen, en su moneda, cuando difiere de la de la tarjeta. El
+   *  amountMinor del borrador es lo que llega a la tarjeta, en su
+   *  moneda; la costura pasa este extremo a payCard, que lo guarda
+   *  en el campo opcional de la línea. */
+  srcMinor?: number;
+  srcCurrency?: Currency;
+  /** abono: el monto de la tarjeta se ESTIMÓ desde el monto oído
+   *  en la otra moneda, con la tasa del libro (la tarjetita lo
+   *  declara: el usuario lo corrige en la confirmación si su banco
+   *  aplicó otra tasa, y quedan los dos montos verdaderos). */
+  estimated?: boolean;
   /** prestamo: el lado de la deuda — «debo» (me prestaron: la
    *  costura llama addLoan) o «me-deben» (yo presté: addLent). El
    *  concepto del borrador es la persona. */
@@ -764,8 +776,25 @@ function cardClause(
   if (!spans.length) {
     return { ask: { kind: "ask", missing: "monto", question: L(lang, `Me falta el monto del abono a ${card.name}. ¿De cuánto fue? Sin el monto no lo asiento.`, `I'm missing the amount of the payment to ${card.name}. How much was it? Without the amount I won't post it.`) } };
   }
-  const s = spans[0];
-  return { drafts: [{ op: "abono", amountMinor: s.minor, currency: s.currency, concept: card.name, categoryId: "", subId: "", from, to: null, date, clause, duplicate: null, cardId: card.id }] };
+  /* PASO 4 (acuerdo de los tres, 2026-11-26): el abono puede oírse
+   * en otra moneda, la de la cuenta de donde sale. El borrador
+   * guarda los dos extremos: lo que llega a la tarjeta en su
+   * moneda (amountMinor, el que la costura asienta con payCard) y
+   * lo que salió de la cuenta en la suya (srcMinor/srcCurrency).
+   * Si solo se oyó el monto de fuera, el de la tarjeta se estima
+   * con la tasa del libro y la tarjetita lo declara estimado: en la
+   * confirmación el usuario lo corrige y quedan asentados los
+   * dos montos verdaderos, sin línea fantasma de diferencia. */
+  const inCard = spans.find((x) => x.currency === card.currency);
+  const foreign = spans.find((x) => x.currency !== card.currency);
+  const base = { op: "abono" as const, concept: card.name, categoryId: "", subId: "", from, to: null, date, clause, duplicate: null, cardId: card.id };
+  if (inCard) {
+    return { drafts: [{ ...base, amountMinor: inCard.minor, currency: card.currency,
+      ...(foreign ? { srcMinor: foreign.minor, srcCurrency: foreign.currency } : {}) }] };
+  }
+  const f = foreign ?? spans[0];
+  const est = convertMinor(f.minor, f.currency, card.currency, state.settings.rateE4);
+  return { drafts: [{ ...base, amountMinor: est, currency: card.currency, srcMinor: f.minor, srcCurrency: f.currency, estimated: true }] };
 }
 
 /* EL PRÉSTAMO EN LAS DOS DIRECCIONES (prioridad de Hark,

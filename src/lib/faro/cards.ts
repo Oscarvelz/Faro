@@ -453,8 +453,11 @@ export function addReading(state: LedgerState, cardId: string, u: CardUpdate, to
   });
 }
 
-/** "Abonar": a transfer line toward the card (inactive xfer, so it never counts as spending), in the card's currency. */
-export function payCard(state: LedgerState, cardId: string, amountMinor: number, date: string, id: string, label: string): LedgerState {
+/** "Abonar": a transfer line toward the card (inactive xfer, so it never counts as spending), in the card's currency.
+ * `src` (paso 4, 2026-11-26): lo que salió de la cuenta origen cuando el
+ * abono se oyó en otra moneda; se guarda en los campos opcionales de la
+ * línea y los lectores lo toleran ausente. */
+export function payCard(state: LedgerState, cardId: string, amountMinor: number, date: string, id: string, label: string, src?: { minor: number; currency: Currency }): LedgerState {
   const card = cardsOf(state).find((c) => c.id === cardId) ?? storedCards(state).find((c) => c.id === cardId);
   if (!card || amountMinor <= 0) return state;
   const day = isRealDay(date) ? date : todayIso();
@@ -463,6 +466,7 @@ export function payCard(state: LedgerState, cardId: string, amountMinor: number,
     active: false, note: "", categoryId: "", subId: "", recurring: false, storeId: "", providerId: "", productCode: "", productUrl: "",
     cadence: "", nextDue: "", aprBps: card.aprBps, balanceMinor: null, balanceCurrency: card.currency, icon: "CreditCard", history: [],
     bookedOn: day, xfer: true, cardId,
+    ...(src ? { srcMinor: src.minor, srcCurrency: src.currency } : {}),
   };
   const bucket = state.months[line.monthKey] ?? { lines: [] };
   const withLine = { ...state, months: { ...state.months, [line.monthKey]: { lines: [...bucket.lines, line] } } };
