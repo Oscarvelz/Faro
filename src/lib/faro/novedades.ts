@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.500",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La vigilancia respira", en: "The watch breathes" },
+    topic: "vigilancia",
+    points: {
+      es: [
+        "En la tarjeta «La vigilancia» de Central, el detalle de cada aviso ahora corre a todo el ancho de su renglón: la cifra y la ✕ viven en la línea de arriba y ya no dejan una banda vacía a la derecha.",
+      ],
+      en: [
+        "On Central's “The watch” card, each notice's detail now runs the full width of its row: the amount and the ✕ live on the top line and no longer leave an empty band on the right.",
+      ],
+    },
+  },
+  {
     version: "1.3.499",
     date: "2026-11-27",
     level: "menor",

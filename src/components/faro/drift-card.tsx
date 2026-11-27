@@ -77,26 +77,18 @@ export function DriftCard() {
       <div className="drift-rows">
         {drift.map((a) => (
           <div key={a.id} className="drift-row" data-anchor="drift-row">
-            <div className="drift-main">
-              <span className="drift-top"><span className="drift-kind">{L(lang, ...KIND_WORD[a.kind])}</span><span className="drift-concept">{a.concept}</span></span>
-              <span className="drift-detail">{a.detail}</span>
-            </div>
-            {a.amountMinor ? <b className="num">{formatMoney(a.amountMinor, ledger.settings.display, lang)}</b> : null}
-            <button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteDrift(a.id)}>
+            <span className="drift-top"><span className="drift-kind">{L(lang, ...KIND_WORD[a.kind])}</span><span className="drift-concept">{a.concept}</span>{a.amountMinor ? <b className="num">{formatMoney(a.amountMinor, ledger.settings.display, lang)}</b> : null}<button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteDrift(a.id)}>
               <X aria-hidden />
-            </button>
+            </button></span>
+            <span className="drift-detail">{a.detail}</span>
           </div>
         ))}
         {vigil.map((c) => (
           <div key={vigilKey(c)} className="drift-row" data-anchor="drift-row">
-            <div className="drift-main">
-              <span className="drift-top"><span className="drift-kind">{c.kind === "no-llego" ? L(lang, "No llegó", "Did not arrive") : L(lang, "Sin programar", "Not scheduled")}</span><span className="drift-concept">{c.concept}</span></span>
-              <span className="drift-detail">{c.text}</span>
-            </div>
-            {c.amountMinor ? <b className="num">{formatMoney(c.amountMinor, c.currency, lang)}</b> : null}
-            <button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteVigil(c)}>
+            <span className="drift-top"><span className="drift-kind">{c.kind === "no-llego" ? L(lang, "No llegó", "Did not arrive") : L(lang, "Sin programar", "Not scheduled")}</span><span className="drift-concept">{c.concept}</span>{c.amountMinor ? <b className="num">{formatMoney(c.amountMinor, c.currency, lang)}</b> : null}<button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteVigil(c)}>
               <X aria-hidden />
-            </button>
+            </button></span>
+            <span className="drift-detail">{c.text}</span>
           </div>
         ))}
       </div>
