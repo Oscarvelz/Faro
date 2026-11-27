@@ -24,8 +24,8 @@ const TODAY = "2026-10-22";
 
 function fixture(): LedgerState {
   let ledger = createInitial("es", "oscuro");
-  ledger = addLent(ledger, { person: "Carlos", amountMinor: 30000, currency: "USD", date: "2026-10-03", note: "" });
-  ledger = addLent(ledger, { person: "Alvin", amountMinor: 5000, currency: "USD", date: "2026-10-04", note: "" });
+  ledger = addLent(ledger, { id: "lent1", person: "Carlos", kind: "plain", amountMinor: 30000, currency: "USD", aprBps: 0, startedOn: "2026-10-03", dueOn: "2026-12-01", note: "" });
+  ledger = addLent(ledger, { id: "lent2", person: "Alvin", kind: "plain", amountMinor: 5000, currency: "USD", aprBps: 0, startedOn: "2026-10-04", dueOn: "2026-12-01", note: "" });
   return ledger;
 }
 const ledger = fixture();
