@@ -5,6 +5,7 @@ import { Fragment, useId, useMemo, useState } from "react";
 import type React from "react";
 import { useFaro } from "@/components/faro/provider";
 import { Hint } from "./hint";
+import { Explain } from "./ui";
 import type { AdviceCard, SectionId } from "@/lib/faro/types";
 import type { readAdvisor } from "@/lib/faro/advisor";
 import { isTron, tronize } from "@/lib/faro/colors";
@@ -521,7 +522,7 @@ export function RulesCard({ rules, open, onToggle, enter }: { rules: Rule[]; ope
                 <div role="button" tabIndex={0} data-rule={r.id} className="a2-line a2-rule" style={{ ["--c" as string]: tc(RULE_C[r.tone]), animationDelay: `${i * 50}ms` }} aria-label={`${r.title}: ${r.num}. ${t("advice.rule.go")}`}
                   onClick={() => go(r)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(r); } }}>
                   <span className="a2-line-name">{r.title}<em style={{ color: tc(RULE_C[r.tone]) }}>{r.kicker}</em></span>
-                  <span className="a2-line-amt"><strong className="num">{r.num}</strong><Hint topic={r.topic} /><ChevronRight aria-hidden /></span>
+                  <span className="a2-line-amt"><strong className="num">{r.num}</strong>{r.explain ? <Explain topic={r.topic} title={r.title} meaning={r.explain.meaning} formula={r.explain.formula} implication={r.explain.implication} label={r.title} /> : <Hint topic={r.topic} />}<ChevronRight aria-hidden /></span>
                   <span className="a2-line-bar" aria-hidden><b style={{ width: `${Math.max(4, Math.round(r.fill * 100))}%` }} /></span>
                   <p className="a2-rule-say">{r.say}</p>
                 </div>

@@ -148,6 +148,18 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
   };
   const runs = per > 0 && missing > 0 ? Math.ceil(missing / per) : 0;
   const land = new Date(today.getFullYear(), today.getMonth() + runs, 1);
+  // 1.3.494 (censo de mini-ayudas): el (?) del colchón gana su hoja de cálculo —
+  // el viaje ya dibuja la forma; la hoja dice el cálculo con las mismas cifras.
+  const coveredTxt = covered.toFixed(1).replace(/\.0$/, "");
+  const cushionExplain = {
+    title: L(lang, "Tu colchón", "Your cushion"),
+    label: L(lang, "Tu colchón", "Your cushion"),
+    meaning: L(lang, "Lo que tienes guardado que puede pagar lo esencial si deja de entrar dinero, medido en meses. El viaje lo dibuja mes a mes, con la fecha hasta la que alcanza.", "What you have saved that can pay the essentials if money stops coming in, measured in months. The voyage draws it month by month, with the date it reaches."),
+    formula: L(lang, `Tienes ${fmt(have)} y lo esencial cuesta ${fmt(need)} al mes: cubres ${coveredTxt} de ${target} meses, hasta el ${day(until)} (${mon(until)}).`, `You have ${fmt(have)} and essentials cost ${fmt(need)} a month: you cover ${coveredTxt} of ${target} months, until ${day(until)} (${mon(until)}).`),
+    implication: missing > 0
+      ? L(lang, `Te faltan ${fmt(missing)} para los ${target} meses: esa es la brecha, y el dial de abajo dice en cuántos meses se cierra apartando una cantidad al mes.`, `${fmt(missing)} to go for the ${target} months: that is the gap, and the dial below says in how many months it closes by setting a sum aside each month.`)
+      : L(lang, "Ya cubres tu meta de meses: el colchón está completo.", "You already cover your goal in months: the cushion is complete."),
+  };
   // Voyage geometry (viewBox 320 × 120).
   const x0 = 26, x1 = 282;
   const bx = x0 + (x1 - x0) * reach;
@@ -156,8 +168,8 @@ export function CushionCard({ coach, pockets, goal, have, pledged }: { coach: Co
   return (
     <section className="card s2-cushion">
       {dial
-        ? <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If pay stopped tomorrow")} />
-        : <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Este mes en tu ahorro", "This month in your savings")} />}
+        ? <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Si mañana no entrara nada", "If pay stopped tomorrow")} explain={cushionExplain} />
+        : <Head kicker={L(lang, "Ahorro", "Savings")} title={L(lang, "Este mes en tu ahorro", "This month in your savings")} explain={cushionExplain} />}
       {dial ? (
       <>
       <div className={`s2-voyage${done ? " is-home" : ""}`}>

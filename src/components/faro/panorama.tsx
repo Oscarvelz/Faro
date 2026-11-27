@@ -9,6 +9,7 @@ import { findTopic } from "@/lib/manual/topics";
 import type { LineKind, SectionId } from "@/lib/faro/types";
 import { StatFold, useFoldTopic } from "@/components/faro/charts";
 import { Hint } from "./hint";
+import { Explain } from "./ui";
 import { SubMark } from "./icons";
 import { isTron } from "@/lib/faro/colors";
 import { dateFmt } from "@/lib/faro/datefmt";
@@ -129,14 +130,21 @@ function TronDial({ score, tone, label, size }: { score: number; tone: Tone; lab
   );
 }
 
-export function Head({ kicker, title, children, topic }: { kicker?: string; title: string; children?: ReactNode; topic?: string }) {
+export function Head({ kicker, title, children, topic, explain }: { kicker?: string; title: string; children?: ReactNode; topic?: string; explain?: { title: string; meaning: string; formula: string; implication: string; label: string } }) {
   // The card's (?) rides on the short kicker line (or after the title when there is none), so titles never re-wrap.
+  // 1.3.494: con `explain`, el (?) gana la puerta de la hoja de cálculo (Explain)
+  // en vez de la burbuja sola — para las tarjetas cuya cifra ES una forma.
   const fold = useFoldTopic();
   const id = topic ?? fold;
+  const mark = id
+    ? explain
+      ? <Explain topic={id} title={explain.title} meaning={explain.meaning} formula={explain.formula} implication={explain.implication} label={explain.label} />
+      : <Hint topic={id} />
+    : null;
   return (
     <div className="pano-head">
-      {kicker ? <p className="pano-kicker">{id ? <span className="lab-head">{kicker}<Hint topic={id} /></span> : kicker}</p> : null}
-      <h2 className={`serif text-2xl${!kicker && id ? " lab-head is-title" : ""}`}>{title}{!kicker && id ? <Hint topic={id} fitParent /> : null}</h2>
+      {kicker ? <p className="pano-kicker">{id ? <span className="lab-head">{kicker}{mark}</span> : kicker}</p> : null}
+      <h2 className={`serif text-2xl${!kicker && id ? " lab-head is-title" : ""}`}>{title}{!kicker && id ? (explain ? <Explain topic={id} title={explain.title} meaning={explain.meaning} formula={explain.formula} implication={explain.implication} label={explain.label} /> : <Hint topic={id} fitParent />) : null}</h2>
       {children}
     </div>
   );

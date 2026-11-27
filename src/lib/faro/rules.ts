@@ -39,6 +39,11 @@ export type Rule = {
   go: RuleGo;
   /** Exact values the tests check (minor units, days, months×10). */
   v: Record<string, number | string>;
+  /** 1.3.494 (censo de mini-ayudas con figura): la hoja de cálculo de la fila —
+      qué es, cómo se calcula y qué significa, con las cifras vivas ya puestas.
+      Solo la llevan las reglas cuya mini-ayuda ES una forma (ritmo, colchón y
+      piso de emergencia); su (?) abre la hoja Explain en vez de la burbuja sola. */
+  explain?: { meaning: string; formula: string; implication: string };
 };
 export type RuleGoal = { monthlyMinor: number; totalMinor: number; years: number };
 export type RuleOptions = { today?: Date; goal?: RuleGoal | null; census?: boolean };
@@ -169,6 +174,11 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
           topic: "regla-ritmo",
           go: { kind: "book", section: "variable" },
           v: { spent, perDay, left, covered, daysLeft, atEnd, pSpent: paceRd.spentMinor, pExpected: paceRd.expectedMinor, pDelta: paceRd.deltaMinor, pProjected: paceRd.projectedMinor, pShare: paceRd.expectedSharePct, pMonths: paceRd.monthsUsed, verdict: paceRd.verdict ?? "" },
+          explain: {
+            meaning: L(lang, "Tu ritmo se mide contra tu propio patrón: lo que sueles llevar gastado a esta altura del mes, no contra una regla de afuera.", "Your pace is measured against your own pattern: what you usually have spent by this point in the month, not against an outside rule."),
+            formula: L(lang, `Tu patrón esperaba ${money(paceRd.expectedMinor)} a hoy y llevas ${money(paceRd.spentMinor)} en ${day} ${day === 1 ? "día" : "días"}; a ese paso, el mes cierra en ${money(paceRd.projectedMinor)}.`, `Your pattern expected ${money(paceRd.expectedMinor)} by today and you are at ${money(paceRd.spentMinor)} over ${day} ${day === 1 ? "day" : "days"}; at this pace, the month closes at ${money(paceRd.projectedMinor)}.`),
+            implication: ps.say,
+          },
         });
       } else if (mode === "ritmo") {
         // Ola 1 (BR-3): en Ritmo la forma lineal DESCRIBE, no proyecta — ni
@@ -189,6 +199,13 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
           topic: "regla-ritmo",
           go: { kind: "book", section: "variable" },
           v: { spent, perDay, left, covered, daysLeft, atEnd },
+          explain: {
+            meaning: L(lang, "El ritmo es lo que gastas al día en el gasto del día a día, medido solo con lo que ya pasó: en este modo ningún número mira al futuro.", "Pace is what you spend per day on day-to-day spending, measured only with what has already happened: in this mode no number looks into the future."),
+            formula: L(lang, `Llevas ${both(spent)} en ${day} ${day === 1 ? "día" : "días"}: ${money(perDay)} al día. Te quedan ${both(left)} para los ${daysLeft} días que faltan.`, `You are at ${both(spent)} over ${day} ${day === 1 ? "day" : "days"}: ${money(perDay)} a day. ${both(left)} is left for the ${daysLeft} remaining days.`),
+            implication: left <= 0
+              ? L(lang, `Ya no queda para el día a día: faltan ${both(-left)} y quedan ${daysLeft} días del mes.`, `Nothing is left for daily spending: ${both(-left)} short with ${daysLeft} days to go.`)
+              : L(lang, `Al ritmo de ${money(perDay)} al día, llevas ${both(spent)} en ${day} ${day === 1 ? "día" : "días"} y te quedan ${both(left)}.`, `At ${money(perDay)} a day, you have spent ${both(spent)} over ${day} ${day === 1 ? "day" : "days"} and ${both(left)} is left.`),
+          },
         });
       } else {
         rules.push({
@@ -206,6 +223,19 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
           topic: "regla-ritmo",
           go: { kind: "book", section: "variable" },
           v: { spent, perDay, left, covered, daysLeft, atEnd },
+          explain: {
+            meaning: L(lang, "El ritmo reparte lo que te queda entre los días que faltan y lo compara con lo que vienes gastando al día: así se sabe si alcanza o qué día se acaba.", "Pace spreads what you have left over the remaining days and compares it with what you have been spending per day: that is how you know whether it lasts, or on what day it runs out."),
+            formula: left <= 0
+              ? L(lang, `Lo que quedaba ya se pasó por ${both(-left)} y aún quedan ${daysLeft} días del mes.`, `What was left is already overspent by ${both(-left)} and ${daysLeft} days of the month still remain.`)
+              : enough
+                ? L(lang, `Gastas ${money(perDay)} al día y quedan ${daysLeft} días: lo que queda, ${both(left)}, alcanza y al cierre sobran ${both(atEnd)}.`, `You spend ${money(perDay)} a day and ${daysLeft} days remain: what is left, ${both(left)}, lasts and ${both(atEnd)} remains at the close.`)
+                : L(lang, `Gastas ${money(perDay)} al día: lo que queda, ${both(left)}, cubre ${covered} ${covered === 1 ? "día" : "días"} y se acaba el ${fmtDay(runOut)}, ${daysLeft - covered} días antes del cierre.`, `You spend ${money(perDay)} a day: what is left, ${both(left)}, covers ${covered} ${covered === 1 ? "day" : "days"} and runs out on ${fmtDay(runOut)}, ${daysLeft - covered} days before the close.`),
+            implication: left <= 0
+              ? L(lang, `Ya no queda para el día a día: faltan ${both(-left)} y quedan ${daysLeft} días del mes.`, `Nothing is left for daily spending: ${both(-left)} short with ${daysLeft} days to go.`)
+              : enough
+                ? L(lang, `Al ritmo de ${money(perDay)} al día, lo que queda alcanza y cierras el mes con ${both(atEnd)}.`, `At ${money(perDay)} a day, what is left lasts and you close the month with ${both(atEnd)}.`)
+                : L(lang, `Al ritmo de ${money(perDay)} al día, lo que queda, ${both(left)}, se acaba el ${fmtDay(runOut)}: ${daysLeft - covered} días antes del cierre.`, `At ${money(perDay)} a day, what is left, ${both(left)}, runs out on ${fmtDay(runOut)}: ${daysLeft - covered} days before month end.`),
+          },
         });
       }
     }
@@ -434,6 +464,13 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
       topic: "regla-colchon",
       go: { kind: "place", topic: "emergencia", screen: "vault-emergencia" },
       v: { stock, ess, tenths, want },
+      explain: {
+        meaning: L(lang, "El colchón es lo que tienes guardado para pagar lo esencial si un mes no entra nada: se mide en meses, no en una cifra sola.", "The cushion is what you have saved to pay the essentials if a month brings nothing in: it is measured in months, not in a single figure."),
+        formula: L(lang, `Tienes ${both(stock)} guardado y lo esencial te cuesta ${money(ess)} al mes: son ${txt} ${tenths === 10 ? "mes" : "meses"}. Tu meta es ${want} meses, que son ${money(ess * want)}.`, `You have ${both(stock)} saved and essentials cost you ${money(ess)} a month: that is ${txt} ${tenths === 10 ? "month" : "months"}. Your goal is ${want} months, which is ${money(ess * want)}.`),
+        implication: tenths >= want * 10
+          ? L(lang, "Ya cubres tu meta: el colchón está completo.", "You already cover your goal: the cushion is complete.")
+          : L(lang, `Para ${want} meses te faltan ${money(Math.max(0, ess * want - stock))}: esa es la brecha entre tu colchón y tu meta.`, `For ${want} months you need ${money(Math.max(0, ess * want - stock))} more: that is the gap between your cushion and your goal.`),
+      },
     });
   }
 
@@ -455,6 +492,11 @@ export function adviceRules(state: LedgerState, key: string, lang: Lang, names: 
         topic: "colchon",
         go: { kind: "place", topic: "emergencia", screen: "vault-emergencia" },
         v: { shortfall: cush.floorShortfall, floor: cush.emergencyFloor },
+        explain: {
+          meaning: L(lang, "Tu fondo de emergencia marca un piso sobre el saldo de su cuenta: esa parte del saldo tiene nombre y no se gasta en otra cosa.", "Your emergency fund marks a floor over its account's balance: that part of the balance has a name and is not spent on anything else."),
+          formula: L(lang, `El piso es ${money(cush.emergencyFloor)} y lo que hoy queda libre de ese saldo no lo alcanza: faltan ${both(cush.floorShortfall)}.`, `The floor is ${money(cush.emergencyFloor)} and what is free of that balance today does not reach it: ${both(cush.floorShortfall)} is missing.`),
+          implication: L(lang, `Esos ${both(cush.floorShortfall)} son la brecha entre tu piso y lo que hoy queda libre: hasta cubrirla, el fondo no está entero.`, `That ${both(cush.floorShortfall)} is the gap between your floor and what is free today: until it is covered, the fund is not whole.`),
+        },
       });
     }
 

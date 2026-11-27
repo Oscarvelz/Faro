@@ -4471,7 +4471,19 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
             {vaultSort ? blockArrows("flow") : null}
           <div className="save-flow" style={{ ["--save" as string]: colorFor(session.ledger.structure, savingsCats[0]?.id ?? "f-ahorro") }}>
             <div className="save-ledger-head" data-anchor="desk-aside">
-              <strong className="lab-head">{t("vault.aside")}<Hint topic="apartado-mes" /></strong>
+              <strong className="lab-head">{t("vault.aside")}<Explain topic="apartado-mes" title={t("vault.aside")} label={t("vault.aside")}
+                meaning={t("vault.aside.calc.what")}
+                formula={[
+                  summary.income > 0
+                    ? t("vault.aside.calc.part").replace("{aside}", fmt(aside)).replace("{income}", fmt(summary.income)).replace("{pct}", String(Math.round((aside / summary.income) * 100)))
+                    : t("vault.aside.calc.noin").replace("{aside}", fmt(aside)),
+                  summary.savingsGoal > 0
+                    ? (aside >= summary.savingsGoal
+                      ? t("vault.aside.calc.met").replace("{goal}", fmt(summary.savingsGoal))
+                      : t("vault.aside.calc.gap").replace("{goal}", fmt(summary.savingsGoal)).replace("{gap}", fmt(summary.savingsGoal - aside)))
+                    : "",
+                ].filter(Boolean).join(" ")}
+                implication={t("vault.aside.calc.so")} /></strong>
               <span className="num">{fmt(aside)}</span>
             </div>
             <div className={focus === "save" ? "kit-meter-row" : undefined}>

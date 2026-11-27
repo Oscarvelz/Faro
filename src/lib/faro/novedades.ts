@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.494",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Las ayudas con forma muestran su cálculo", en: "Shape-shaped helps show their working" },
+    topic: "colchon",
+    points: {
+      es: [
+        "El (?) del ritmo, del colchón y del piso de emergencia ahora abre su hoja de cálculo: qué es, cómo se calcula y qué significa, con tus cifras vivas y la brecha nombrada.",
+        "El apartado del mes y el colchón de Estudio ganan la misma hoja. Las demás ayudas quedan en su burbuja de siempre: su texto basta.",
+      ],
+      en: [
+        "The (?) on pace, the cushion and the emergency floor now opens its worked sheet: what it is, how it is calculated and what it means, with your live figures and the gap named.",
+        "The month's set-aside and the Study cushion gain the same sheet. The other helps stay with their usual bubble: their text is enough.",
+      ],
+    },
+  },
+  {
     version: "1.3.493",
     date: "2026-11-26",
     level: "menor",
