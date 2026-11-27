@@ -7440,12 +7440,164 @@ export function driftCandidates(state: LedgerState, key: string, lang: Lang, nam
     .slice(0, 3);
 }
 
+/* HUECO 6 DE COBERTURA · DERIVA (2026-11-27): la puerta de los
+ * avisos solo oía «¿algo cambió?» en general, y la familia
+ * también es la pregunta por UNA serie: «¿mis gastos de comida
+ * vienen subiendo?», «¿la luz está subiendo o fue el mes del
+ * calor?», «¿mi ingreso se ha estancado?». Esta rama lee la
+ * serie nombrada mes a mes y nombra su forma con la vara de la
+ * casa: deriva cuando el nivel reciente se mueve 15% o más
+ * contra la base; salto cuando un solo mes se despega (un mes
+ * solo arriba no es tendencia, y la respuesta lo dice); nivel
+ * sostenido cuando no se mueve. Con menos de tres meses no se
+ * nombra tendencia: se declara lo que hay. La marca de cambio
+ * es obligatoria: un nombre suelto sin verbo de cambio no abre
+ * esta puerta. */
+function derivaSerieAnswer(c: Ctx, folded: string): BankResult | null {
+  const trend =
+    /\b(viene|vienen|va|van|vengo|voy|ando|anda|esta|estan)\b[^.]{0,30}\b(subiendo|bajando|creciendo|trepando|encareciendo|disparando|aumentando|disminuyendo|moviendo|inflando|cayendo|saliendo|costando)\b/.test(folded)
+    || /\besta (subiendo|bajando|creciendo|aumentando|encareciendo)\b/.test(folded)
+    || /\bsigue (subiendo|bajando|creciendo|aumentando)\b/.test(folded)
+    || /\bempezo a (subir|bajar)\b/.test(folded)
+    || /\bse (me )?fue para arriba\b/.test(folded)
+    || /\bfueron\b[^.]{0,20}\b(disparando|subiendo|creciendo|aumentando)\b/.test(folded)
+    || /\b(ha|han|he)\b[^.]{0,12}\bido\b[^.]{0,30}\b(subiendo|bajando|creciendo|aumentando|encareciendo|inflando|moviendo|en aumento)\b/.test(folded)
+    || /\bido\b[^.]{0,20}\b(subiendo|bajando|creciendo|aumentando|encareciendo|inflando)\b/.test(folded)
+    || /\bfue\b[^.]{0,20}\b(moviendo|encareciendo|subiendo|inflando)\b/.test(folded)
+    || /\b(subiendo|bajando|creciendo|aumentando|trepando|encareciendo)\b[^.]{0,40}\b(poco a poco|gradualmente|de a poco|de a poquito|con los meses|con el paso|mes con mes|cada mes|mes a mes)\b/.test(folded)
+    || /\b(poco a poco|de a poco|de a poquito|gradualmente)\b[^.]{0,40}\b(subido|bajado|crecido|aumentado|subiendo|bajando|creciendo|trepando)\b/.test(folded)
+    || /\b(va|van|viene|vienen)\b[^.]{0,25}\b(para arriba|para abajo|en caida|en aumento)\b/.test(folded)
+    || /\b(viene|van|va)\b[^.]{0,15}\bdejando (menos|mas)\b/.test(folded)
+    || /\b(vengo|viene|vienen|van)\b[^.]{0,15}\b(comprando|comprado|gastando|gastado|pagando|pagado) (mas|más)\b/.test(folded)
+    || /\b(ha|han|he) venido\b[^.]{0,30}\b(pesando|subiendo|creciendo|aumentando|bajando)\b/.test(folded)
+    || /\bcada (mes|vez|ves)\b[^.]{0,40}\bun poco (mas|más)\b/.test(folded)
+    || /\b(gastando|pagando|saliendo|dejando|cuesta|costando|gasto|gasta)\b[^.]{0,30}\bcada (vez|ves|mes)\b[^.]{0,12}\b(mas|más)\b/.test(folded)
+    || /\b(subido|bajado|crecido|aumentado)\b[^.]{0,45}\b(poco a poco|de a poco|de a poquito|gradualmente)\b/.test(folded)
+    || /\b(subida|bajada|aumento|caida) sostenid/.test(folded)
+    || /\b(acelerando|deslizamiento|curva|agarro vuelo)\b/.test(folded)
+    || /\b(pesando|comiendo)\b[^.]{0,20}\b(mas|más)\b/.test(folded)
+    || /(?<!en que mes )\bse me (va|esta yendo)\b[^.]{0,25}\b(mas|más)\b/.test(folded)
+    || /\b(salto|disparo|subio|subieron|encarecio|dispararon|crecio|crecieron)\b[^.]{0,50}\b(se quedo|quedo asi|quedo arriba|ya no bajo|no bajo|volvio a bajar|se mantuvo)\b/.test(folded)
+    || /\b(mes raro|nueva normalidad|dias aislados)\b/.test(folded)
+    || (/\bmes malo\b/.test(folded) && !/\bcuanto\b[^.]{0,25}\b(gano|ganaba|entra|entran|ingres)/.test(folded))
+    || /\b(subiendo|bajando|creciendo|encareciendo|subio|bajo|subieron|bajaron|crecieron|creciendo|caro)\b[^.]{0,45}\bo (solo |solamente )?(fue|es|era|fueron)\b/.test(folded)
+    || /\bo es (impresion|idea|percepcion)\b/.test(folded)
+    || /\b(cambio|cambiaron|cambiado)\b[^.]{0,25}\bde nivel\b/.test(folded)
+    || /\bse (ha )?movio\b(?![^.]{0,25}\b(hoy|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre))\b)/.test(folded)
+    || /\bestancad/.test(folded)
+    || /\btendencia\b/.test(folded)
+    || /\britmo\b[^.]{0,30}\b(gastando|gasto|gastar|crece|creciendo|sube|baja)\b/.test(folded);
+  if (!trend) return null;
+  const fn = filterOf(c, folded);
+  const incomeMark = /\b(ingreso|ingresos|me pagan|comisiones|ganancias|lo que entra|lo que gano|dinero que entra|sueldo|salario)\b/.test(folded);
+  let label: string | null = null;
+  let pick: ((l: Line) => boolean) | null = null;
+  if (fn) { label = filterMetaOf(fn)?.label ?? null; pick = (l) => fn(l) && isOut(l); }
+  else if (incomeMark) { label = L(c.lang, "Tu ingreso", "Your income"); pick = (l) => l.kind.startsWith("income"); }
+  if (!pick) {
+    /* LA SERIE DE TODAS LAS SALIDAS: «mis gastos» sin nombre
+     * propio es una serie — la de todas las salidas del libro.
+     * Con calificador («gastos de mascota») NO lo es: el
+     * calificador nombra una serie que no resolvió, y leer
+     * todas las salidas como si fueran esa serie sería una
+     * respuesta que confunde — cae a la declaración. */
+    const qual = /\bgastos (?:de|del) ([a-zñ]{3,})\b/.exec(folded)?.[1];
+    const qualIsTime = !!qual && /^(este|esta|estos|estas|ese|esa|esos|esas|ultimo|ultima|ultimos|ultimas|mes|ano|semana|hoy|siempre|todo|toda|todos|todas)$/.test(qual);
+    if ((!qual || qualIsTime) && /\b(mis gastos|los gastos|todo lo que gasto|gastos en general)\b/.test(folded)) {
+      label = L(c.lang, "Tus gastos", "Your spending");
+      pick = (l) => isOut(l);
+    }
+    /* LA FORMA GENERAL («qué categoría…», «algo se disparó»)
+     * no es de esta puerta: la lee la puerta de avisos. */
+    else if (/^\s*[¿¡]?\s*(que categoria|que gasto|que cuenta|cual|donde|algo|algun|alguna)\b/.test(folded) || /(algo se disparo|se me disparo|se disparo algo|hay camb|hay gastos|hay algun)/.test(folded)) return null;
+    /* LA SERIE NOMBRADA QUE EL LIBRO NO TRAE: la familia
+     * responde declarando la ausencia — no inventa una
+     * tendencia sobre una serie que no existe en el libro. */
+    else {
+      return {
+        kind: "answer", family: "deriva",
+        verdict: L(c.lang, "Me preguntas si una serie viene cambiando, pero en tu libro no encuentro una serie con ese nombre: sin esa serie no hay meses que leer y no te invento una tendencia. Si la tienes anotada con otro nombre, pregúntame con ese nombre y la leo mes contra mes.", "You ask me whether a series has been changing, but I can't find a series by that name in your book: without that series there are no months to read and I won't invent a trend. If it's written under another name, ask me with that name and I'll read it month against month."),
+        pieces: [], note: L(c.lang, "La declaración de la serie ausente: la pregunta trae marca de cambio y nombra una serie; el libro no la trae con ese nombre y la familia lo dice en vez de callar.", "The missing-series declaration: the question carries a change mark and names a series; the book doesn't hold it under that name and the family says so instead of staying silent."),
+        source: ["libros.lineas", "asesor.lectura"], lines: 0,
+      };
+    }
+  }
+  const name = label ?? L(c.lang, "Esa serie", "That series");
+  const src = ["libros.lineas", "asesor.lectura"];
+  const mn = (k: string) => (c.lang === "en" ? MONTH_WORDS_EN : MONTH_WORDS_ES)[Number(k.slice(5, 7)) - 1] ?? k;
+  const keys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
+  const bookKeys = keys.filter((k) => (c.state.months[k]?.lines ?? []).some((l) => l.active));
+  const vals = bookKeys.map((k) => (c.state.months[k]?.lines ?? []).filter((l) => l.active && pick!(l)).reduce((s, l) => s + view(c, l), 0));
+  const lineCount = bookKeys.reduce((n2, k) => n2 + (c.state.months[k]?.lines ?? []).filter((l) => l.active && pick!(l)).length, 0);
+  const note = L(c.lang, "La vara, dicha: la deriva se nombra cuando el nivel de los últimos dos meses se mueve 15% o más contra la base de los anteriores; el salto, cuando un solo mes pasa 30% sobre la base y el anterior estaba en su nivel (un mes solo no es tendencia); con menos de tres meses no se nombra deriva y se declara lo que hay. Si el mes en curso es el último y hay tres meses completos antes, la lectura corre hasta el último mes completo.", "The bar, stated: drift is named when the last two months' level moves 15% or more against the base of the earlier ones; a jump, when a single month clears 30% over base and the previous one sat at its level (one month alone isn't a trend); with fewer than three months no drift is named and what's there is declared. If the current month is last and three complete months precede it, the reading runs to the last complete month.");
+  if (bookKeys.length < 3 || vals.filter((v) => v > 0).length < 2) {
+    return {
+      kind: "answer", family: "deriva",
+      verdict: L(c.lang, `De «${name}» no te nombro una tendencia todavía: tu libro trae ${bookKeys.length} ${bookKeys.length === 1 ? "mes" : "meses"} y una deriva se nombra con tres o más, mes contra mes. Lo que hay es esto: ${bookKeys.map((k, i) => `${mn(k)} ${c.money(vals[i])}`).join(", ")}.`, `For "${name}" I won't name a trend yet: your book holds ${bookKeys.length} month${bookKeys.length === 1 ? "" : "s"} and a drift is named with three or more, month against month. What's there is this: ${bookKeys.map((k, i) => `${mn(k)} ${c.money(vals[i])}`).join(", ")}.`),
+      pieces: [], note, source: src, lines: lineCount,
+    };
+  }
+  const partial = bookKeys[bookKeys.length - 1] === c.key && c.today.slice(0, 7) === c.key;
+  const useKeys = partial && bookKeys.length >= 4 ? bookKeys.slice(0, -1) : bookKeys;
+  const useVals = partial && bookKeys.length >= 4 ? vals.slice(0, -1) : vals;
+  const n = useVals.length;
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  const base = mean(useVals.slice(0, n - 2));
+  const recent = mean(useVals.slice(n - 2));
+  const last = useVals[n - 1];
+  const prev = useVals[n - 2];
+  const pieces = [
+    { label: L(c.lang, `${name} · nivel reciente`, `${name} · recent level`), minor: Math.round(recent) },
+    { label: L(c.lang, "Base", "Base"), minor: Math.round(base) },
+  ];
+  if (base > 0 && last > base * 1.3 && prev <= base * 1.15) {
+    return {
+      kind: "answer", family: "deriva",
+      verdict: L(c.lang, `«${name}» saltó en ${mn(useKeys[n - 1])}: ${c.money(last)} contra su base de ${c.money(Math.round(base))} al mes. Un mes solo arriba no es tendencia: es un salto. Si el mes que viene se queda arriba, ese será su nivel nuevo; si baja, fue un mes raro.`, `"${name}" jumped in ${mn(useKeys[n - 1])}: ${c.money(last)} against its base of ${c.money(Math.round(base))} a month. One month up alone isn't a trend: it's a jump. If next month stays up, that will be its new level; if it comes down, it was an odd month.`),
+      pieces, note, source: src, lines: lineCount,
+    };
+  }
+  if (base <= 0 && recent > 0) {
+    return {
+      kind: "answer", family: "deriva",
+      verdict: L(c.lang, `«${name}» no corría en tu base y ahora promedia ${c.money(Math.round(recent))} al mes en los últimos dos meses: es un nivel nuevo, no un movimiento de algo que ya estaba.`, `"${name}" didn't run in your base and now averages ${c.money(Math.round(recent))} a month over the last two months: it's a new level, not a move in something that was already there.`),
+      pieces, note, source: src, lines: lineCount,
+    };
+  }
+  const pct = base > 0 ? Math.round(((recent - base) / base) * 100) : 0;
+  if (pct >= 15) {
+    return {
+      kind: "answer", family: "deriva",
+      verdict: L(c.lang, `Sí: «${name}» viene subiendo de a poco. Los últimos dos meses promedian ${c.money(Math.round(recent))} contra su base de ${c.money(Math.round(base))} al mes (+${pct}%), sobre ${n} meses de libro${partial && bookKeys.length >= 4 ? `, hasta ${mn(useKeys[n - 1])}` : ""}. No es un mes caro suelto: el nivel reciente entero está sobre la base.`, `Yes: "${name}" has been drifting up. The last two months average ${c.money(Math.round(recent))} against its base of ${c.money(Math.round(base))} a month (+${pct}%), over ${n} months of book${partial && bookKeys.length >= 4 ? `, through ${mn(useKeys[n - 1])}` : ""}. It isn't one loose expensive month: the whole recent level sits above base.`),
+      pieces, note, source: src, lines: lineCount,
+    };
+  }
+  if (pct <= -15) {
+    return {
+      kind: "answer", family: "deriva",
+      verdict: L(c.lang, `Sí: «${name}» viene bajando de a poco. Los últimos dos meses promedian ${c.money(Math.round(recent))} contra su base de ${c.money(Math.round(base))} al mes (${pct}%), sobre ${n} meses de libro${partial && bookKeys.length >= 4 ? `, hasta ${mn(useKeys[n - 1])}` : ""}. No es un mes barato suelto: el nivel reciente entero está bajo la base.`, `Yes: "${name}" has been drifting down. The last two months average ${c.money(Math.round(recent))} against its base of ${c.money(Math.round(base))} a month (${pct}%), over ${n} months of book${partial && bookKeys.length >= 4 ? `, through ${mn(useKeys[n - 1])}` : ""}. It isn't one loose cheap month: the whole recent level sits below base.`),
+      pieces, note, source: src, lines: lineCount,
+    };
+  }
+  return {
+    kind: "answer", family: "deriva",
+    verdict: L(c.lang, `«${name}» se mantiene en su nivel: los últimos dos meses promedian ${c.money(Math.round(recent))} contra su base de ${c.money(Math.round(base))} al mes (${pct >= 0 ? "+" : ""}${pct}%), sobre ${n} meses de libro. Eso es ruido de mes, no deriva: ni sube de a poco ni se ha estancado a la baja, anda donde andaba.`, `"${name}" is holding its level: the last two months average ${c.money(Math.round(recent))} against its base of ${c.money(Math.round(base))} a month (${pct >= 0 ? "+" : ""}${pct}%), over ${n} months of book. That's month noise, not drift: it isn't creeping up or stalling downward, it's where it was.`),
+    pieces, note, source: src, lines: lineCount,
+  };
+}
+
+
 function derivaAnswer(c: Ctx, folded: string): BankResult | null {
+  const ds = derivaSerieAnswer(c, folded);
+  if (ds) return ds;
   // ENMIENDA DE CANON (integración de la Ola 33): la canónica inglesa
   // «Did anything change…?» no entraba por la puerta («anything
   // change» no era «anything new/off/unusual» ni «what changed») —
   // el barrido F2 de canon la caza; la copia no tenía ese barrido.
-  if (!/(algo (cambio|raro|nuevo)|que cambio|que hay de nuevo|deberia saber|hay (avisos|algo)|avisos|what changed|anything (new|off|unusual|change|changed)|heads up|should i know)/.test(folded)) return null;
+  // HUECO 6 (2026-11-27): la puerta gana las formas de la serie y
+  // las formas en singular que normalizeEs deja («donde ves
+  // cambio», «hay cambio», «cambio sostenidos»).
+  if (!/(algo (cambio|raro|nuevo)|que cambio|que hay de nuevo|deberia saber|hay (avisos|algo)|avisos|what changed|anything (new|off|unusual|change|changed)|heads up|should i know|did anything|something (change|changed)|que ha cambiado|que categoria cambio|cambio sostenidos|cambio de nivel|algo se disparo|se disparo algo|donde ves cambio|hay cambio|cambiado (mas )?de nivel|cambiaron de nivel|que categoria ha cambiado|se quedo arriba|se quedo asi|se me disparo algo|se quedaron|mantenido (bajando|subiendo)|bajando varios meses|haya disparado|(algun|alguna) cambio|cambio raro|ha crecido mas|crecido mas rapido|algo de mis gastos cambio|haya ido (subiendo|creciendo|aumentando|encareciendo)|ha ido (encareciendo|subiendo|creciendo)|varios meses (subiendo|bajando)|subiendo seguido)/.test(folded)) return null;
   const alerts = driftCandidates(c.state, c.key, c.lang, c.names, c.today);
   const src = ["libros.lineas", "asesor.lectura"];
   if (!alerts.length) {
@@ -7610,6 +7762,11 @@ function tandaAnswer(c: Ctx, folded: string): BankResult | null {
  * adjetivos. Lo que no trae fecha de inicio se nombra aparte con
  * su monto: jamás se le inventa una edad. */
 function antiguedadAnswer(c: Ctx, folded: string): BankResult | null {
+  /* HUECO 6 · LA DERIVA: «¿desde cuándo se quedó arriba?» y
+   * «¿desde cuándo empezó a subir?» preguntan por el CAMBIO de
+   * nivel, no por la edad de una deuda — la firma del cambio
+   * cede la frase a la deriva. */
+  if (/(se quedo|quedo arriba|quedo asi|empezo a (subir|bajar)|fue para arriba|se (me )?fue para arriba)/.test(folded)) return null;
   if (!/(que tan viej|antiguedad|desde cuando|cuanto tiempo.{0,24}(deud|debo|prestam)|how old|age of (my|the) debt|how long.{0,20}(owed|debt))/.test(folded)) return null;
   const loans = loansOf(c.state).filter((l) => !l.archived);
   type Row = { name: string; left: number; on: string; days: number };
@@ -8203,6 +8360,10 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
    * leía como «¿puedes con ese gasto?» y respondía factibilidad
    * sobre una pregunta de división. Ceden al reparto. */
   if (/(cuanto le toca|le toca a cada|cuanto toca a|cuanto pone cada|pone cada uno|a cuanto salimos|cuanto salimos|a cuanto quedamos|cuanto por cabeza|cuanto x cabeza)/.test(folded)) return null;
+  /* HUECO 6 · LA DERIVA: la misma cesión que guarda la puerta
+   * de factibilidad — «cada mes gasto un poco más» es la subida
+   * gradual con su cadencia, no un «¿puedes con ese gasto?». */
+  if (/\bcada (mes|vez|ves)\b/.test(folded) && /\b(gastando|gastado|pagando|pagado|cuesta|saliendo|dejando|gasto|gasta)\b/.test(folded) && /\b(mas|más)\b/.test(folded)) return null;
   if (/%|por ciento|porcentaje|percent/.test(folded)) return null;
   // La diferencia entre montos traídos es de la calculadora: la
   // pregunta compara, no pide un juicio de capacidad.
@@ -8588,6 +8749,10 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
   };
 }
 function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  /* HUECO 6 · LA DERIVA: «cada mes gasto un poco más» es la
+   * subida gradual con su cadencia nombrada, no una pregunta
+   * de si alcanza — la firma cede la frase a la deriva. */
+  if (/\bcada (mes|vez|ves)\b/.test(folded) && /\b(gastando|gastado|pagando|pagado|cuesta|saliendo|dejando|gasto|gasta)\b/.test(folded) && /\b(mas|más)\b/.test(folded)) return null;
   const isLow = /(punto (mas )?bajo|semana (mas )?baja|quedo mas bajo|lowest (point|week)|low point)/.test(folded);
   const dayM = /(?:el dia|el)\s*(\d{1,2})\b/.exec(folded)
     // ENMIENDA DE CANON (integración de la Ola 29): el día inglés se
@@ -9461,6 +9626,17 @@ function relatorAnswer(c: Ctx, folded: string): BankResult | null {
  * suscripciones tengo?»: el conteo y la cadencia de un filtro, desde
  * las fechas reales de sus líneas. */
 function frecuenciaAnswer(c: Ctx, folded: string): BankResult | null {
+  /* HUECO 6 · DERIVA (2026-11-27): la pregunta que NIEGA la
+   * cuenta en voz alta («no te pregunto cada cuánto voy, sino
+   * si lo que dejo ahí ha ido creciendo», «no me digas cuántas
+   * veces fui; dime si lo que gasto ha ido aumentando») no es
+   * de frecuencia aunque traiga sus palabras: es la tendencia
+   * del monto, y cede a deriva. */
+  if (/\b(no te pregunto|no me digas)\b/.test(folded) && /\b(ha|he) ido\b[^.]{0,20}\b(creciendo|aumentando|subiendo|bajando)\b/.test(folded)) return null;
+  /* HUECO 6 · LA DERIVA: la frase que nombra la tendencia
+   * («¿se ve una tendencia?») es de la deriva aunque traiga un
+   * verbo de compra que esta puerta oye como conteo. */
+  if (/\btendencia\b/.test(folded)) return null;
   if (/(que suscripciones|mis suscripciones|suscripciones tengo|what subscriptions|which subscriptions)/.test(folded)) {
     const subs = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && l.kind === "subscription");
     return {
@@ -9613,6 +9789,10 @@ const medianOf = (xs: number[]): number => {
 };
 
 function seriesAnswer(c: Ctx, folded: string): BankResult | null {
+  /* HUECO 6 · LA DERIVA: la disyuntiva «¿de golpe o ha ido
+   * subiendo de a poco?» pregunta por la FORMA del cambio, no
+   * por la subida de un precio — cede a la deriva. */
+  if (/(de golpe|de un golpe)/.test(folded) && /(ha ido|han ido|ido (subiendo|aumentando|creciendo|bajando)|o fue|o era)/.test(folded)) return null;
   const series = seriesOf(c);
   // LA SUBIDA, medida contra la propia serie.
   if (/(ha subido|subieron|han subido|price (increase|went up|raise)|prices went up|went up|go up|gone up|going up)/.test(folded)
@@ -11992,6 +12172,12 @@ const GATE_WORDS: string[] = [
    * singular y dejaba sorda a precio-tiempo, y «days», que
    * la fijación de «das» se llevaba de «how many days». */
   "horas", "days",
+  /* HUECO 6 · LA DERIVA (2026-11-27): «tendencia» caía a
+   * «tenencia» por letra caída — la palabra misma de la
+   * familia quedaba sorda en su propia puerta («¿hay alguna
+   * tendencia…?» no llegaba a ninguna lectura). Se fija como
+   * las demás: la palabra legítima no es errata de su vecina. */
+  "tendencia",
 ];
 /* LA TANDA DEL AGENTE (puerto de la Rama, 1.3.457): los verbos y
  * las palabras de los cinco escalones, el modismo semilla y las
@@ -13791,7 +13977,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(palmado|palmada|pelado|pelada|quebrado|quebrada|sin un real|dineral|millonada|am i broke|do i have a fortune)/, "figurada"],
     [/(por que (dices|dijiste|sale|es)|de donde (sale|viene) (ese|esa|el|la|este|esta)|como calculaste|why do you say|where does (that|the) (number|figure|total) come from)/, "porque"],
     [/(punto (mas )?bajo|semana (mas )?baja|llego a fin de mes|alcanzo?.{0,20}\bmes\b|puedo pagar.{0,30}(el dia|el \d|manana|fin de mes)|asumir|podria con|puedo con|aguanta|me da para|cuanto (me )?(quedaria|quedara)|con cuanto (llegaria|llego)|cuanto gastaria|puedo comprar|podria comprar|puedo (prestar|ayudar|invitar|regalar|cambiar)|puedo darme el gusto|cuanto es lo (maximo|mas)|maximo que (puedo|podria)|hasta el proximo pago|can i lend|most i (can|could) pay|last until payday|can i afford|could i afford|terminar(e)? (el|este) mes en negativo|cuando se me acaba|cuando me quedo en cero|que dia me quedo|cuanto necesito para (terminar|cerrar|llegar)|when do i run out|lowest (point|week)|make it (to|through)|last the month|puedo (ir a|salir)|cuesta.{0,30}cordobas)/, "factibilidad"],
-    [/(algo (cambio|raro|nuevo)|que cambio|deberia saber|what changed|anything (unusual|off|new|change|changed))/, "deriva"],
+    [/(algo (cambio|raro|nuevo)|que cambio|deberia saber|what changed|anything (unusual|off|new|change|changed)|vienen (subiendo|bajando|creciendo)|ha ido (creciendo|aumentando|subiendo)|tendencia|estancad|mes raro|cambio de nivel)/, "deriva"],
     [/\b(tanda|rosca)\b/, "falta"],
     [/(marc\w*|mark).{0,30}(compartid|shared)/, "faro-mismo"],
     [/((como|how|quiero|can i).{0,30}(anad|agreg|import|sincron|idioma|tarjeta|meta|modo|tasa|anot|apunt|registr)|how do i (add|import|change|create|sync))/, "faro-mismo"],

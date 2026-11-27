@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.515",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La deriva ya lee una serie por su nombre", en: "Drift now reads a series by name" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«¿Mis gastos de comida vienen subiendo?» ya tiene respuesta: la deriva lee la serie nombrada mes contra mes y dice su forma (sube de a poco, dio un salto, o se mantiene en su nivel), con la vara declarada. Y si tu libro no trae esa serie, lo declara en vez de leer el total en su lugar.",
+      ],
+      en: [
+        "“Are my food expenses creeping up?” now has an answer: drift reads the named series month by month and names its shape (creeping up, jumped, or holding its level), with the bar stated. And if your book doesn't carry that series, it says so instead of reading the total in its place.",
+      ],
+    },
+  },
+  {
     version: "1.3.514",
     date: "2026-11-27",
     level: "menor",
