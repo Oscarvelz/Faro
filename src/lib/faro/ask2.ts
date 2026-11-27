@@ -11377,7 +11377,7 @@ function convoFrameFloor(frame: ConvoFrame): { reached: (m: BookMode) => boolean
 const GATE_WORDS: string[] = [
   "cuanto", "cuanta", "cuantos", "cuantas", "cuando", "donde", "quien", "quienes",
   "gasto", "gastos", "gaste", "gastado", "gastando", "gasolina", "ingreso", "ingresos", "ingrese", "ingreso",
-  "fuente", "fuentes", "source", "sources", "brought", "least", "came", "each", "any",
+  "fuente", "fuentes", "source", "sources", "brought", "least", "came", "each", "any", "done",
   "entro", "entran", "entraron", "gane", "ganar", "ganas", "salario", "sueldo",
   "ahorro", "ahorros", "ahorrado", "ahorrar", "aparte", "apartado", "apartados", "aparte", "aparto", "aparte",
   "retiro", "retiros", "retirar", "emergencia", "emergencias", "meta", "metas", "fondo", "fondos",
@@ -11611,7 +11611,7 @@ const NEVER_REPAIR = new Set([
   "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "doce",
   "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa",
   "cien", "ciento", "mil", "millon", "millones",
-  "two", "three", "four", "five", "six", "seven", "eight", "nine", "eleven", "twelve",
+  "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "eleven", "twelve",
   "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
   /* «ano» es lo que el pliegue hace de «año»: repararlo a «gano»
    * (una letra de más) mataba la comparación año contra año y de
@@ -11637,13 +11637,55 @@ export function repairAgentText(folded: string, protect?: Set<string>, lang?: La
   return protect && protect.size ? repairGateTypos(first, protect, lang) : first;
 }
 
+/* LAS CONTRACCIONES QUE SE BLINDAN (lista cerrada, ver el
+ * comentario dentro de repairGateTypos): las formas reales
+ * del inglés, ya plegadas. Una errata de contracción no está
+ * aquí y sigue el camino de siempre. */
+const CONTRACTIONS = new Set([
+  "i'm", "you're", "we're", "they're", "he's", "she's", "it's", "that's", "what's", "there's", "here's", "who's",
+  "i've", "you've", "we've", "they've",
+  "i'll", "you'll", "we'll", "they'll", "he'll", "she'll", "it'll", "that'll",
+  "i'd", "you'd", "we'd", "they'd", "he'd", "she'd", "it'd",
+  "can't", "won't", "don't", "didn't", "doesn't", "isn't", "aren't", "wasn't", "weren't",
+  "haven't", "hasn't", "hadn't", "couldn't", "wouldn't", "shouldn't", "mustn't", "needn't", "let's",
+]);
+
 export function repairGateTypos(folded: string, protect?: Set<string>, lang?: Lang): string {
   /* El universo de candidatas: el vocabulario de las puertas MÁS
    * las palabras del propio libro (protect) — un nombre mal
    * escrito («Payal») se repara contra el nombre verdadero del
    * libro, no solo contra el diccionario. */
   const candSet = protect && protect.size ? new Set([...GATE_SET, ...protect]) : GATE_SET;
-  return folded.replace(/[a-zñ]+/g, (tok) => {
+  /* EL HUECO «done» (registro DONE-DONDE, 2026-11-27) · LAS
+   * CONTRACCIONES CONOCIDAS SE BLINDAN ANTES DE REPARAR: el
+   * reparador tokeniza por letras y «don't» se partía en
+   * «don» + «t» — y ese fragmento era una víctima: al fijar
+   * «done», «don» se reparaba a «done» y la puerta de cargo,
+   * que oye el «don't» entero, se quedaba sorda. Cada
+   * contracción de la lista cerrada se aparta con una ficha
+   * («zxq» y su número en letras) que ninguna candidata
+   * puede reclamar, y se restaura intacta al salir. La lista
+   * es CERRADA a propósito: blindar por la forma congelaba
+   * también la errata («cna't», la mutación de «can't», dejó
+   * de repararse y la promesa de limites cayó en la onda
+   * hostil) — lo que no está en la lista se tokeniza y se
+   * repara por fragmentos, como siempre. Con ese flanco
+   * cerrado, «done» pudo entrar al vocabulario; su otra
+   * víctima, «one», quedó declarada intocable en
+   * NEVER_REPAIR, entre las palabras-número. */
+  const contractions: string[] = [];
+  const codeOf = (i: number): string => {
+    let s = "";
+    let n = i;
+    do { s = String.fromCharCode(97 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
+    return s;
+  };
+  const shielded = folded.replace(/[a-zñ]+'[a-zñ]+/g, (m) => {
+    if (!CONTRACTIONS.has(m)) return m;
+    contractions.push(m);
+    return `zxq${codeOf(contractions.length - 1)}`;
+  });
+  const repaired = shielded.replace(/[a-zñ]+/g, (tok) => {
     /* OLA 67 · LA REPARACIÓN NO TOCA NOMBRES: la primera corrida
      * reparaba también lo que no era errata — «Ana» se volvía
      * «gana», «Carlos» se volvía «caros» y «set aside» se volvía
@@ -11750,6 +11792,12 @@ export function repairGateTypos(folded: string, protect?: Set<string>, lang?: La
       return tok;
     }
     return best;
+  });
+  if (!contractions.length) return repaired;
+  return repaired.replace(/zxq([a-z]+)/g, (m, code: string) => {
+    let n = 0;
+    for (const ch of code) n = n * 26 + (ch.charCodeAt(0) - 96);
+    return contractions[n - 1] ?? m;
   });
 }
 

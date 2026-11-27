@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.505",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El oído inglés se afina", en: "The English ear gets sharper" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Una errata como escribir «donde» por «done» ya no deja al Asesor sin oír la pregunta en inglés: la palabra entró a su vocabulario de reparación.",
+        "Las contracciones reales del inglés (don't, can't, isn't…) quedan protegidas al reparar, para que ninguna se parta y se pierda por el camino.",
+      ],
+      en: [
+        "A typo like writing “donde” for “done” no longer leaves the Advisor unable to hear the English question: the word joined its repair vocabulary.",
+        "Real English contractions (don't, can't, isn't…) are now protected while repairing, so none of them gets split and lost along the way.",
+      ],
+    },
+  },
+  {
     version: "1.3.504",
     date: "2026-11-27",
     level: "menor",
