@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.520",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El presupuesto deja de ofrecerse antes de existir", en: "The budget stops being offered before it exists" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Por consistencia: el menú de lo que el Asesor sabe hacer y el catálogo de preguntas ya no ofrecen el presupuesto como un poder vivo, porque tu libro todavía no guarda topes y ninguno se puede fijar aún. El presupuesto queda donde le toca, en «lo que todavía no sé», y preguntarlo sigue recibiendo la misma respuesta honesta de la cerca: no tienes presupuesto fijado, con lo que llevas gastado en la categoría contado.",
+      ],
+      en: [
+        "For consistency: the menu of what the Advisor can do and the question catalog no longer offer the budget as a live power, because your book doesn't keep caps yet and none can be set yet. The budget sits where it belongs, under “what I still can't do”, and asking about it still gets the fence's same honest answer: you have no budget set, with what you've spent in the category counted.",
+      ],
+    },
+  },
+  {
     version: "1.3.519",
     date: "2026-11-27",
     level: "menor",
