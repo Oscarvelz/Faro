@@ -2288,6 +2288,24 @@ function filterFromDesc(c: Ctx, d: AskFrameFilter): (l: Line) => boolean {
   }
 }
 
+/* LA PROCEDENCIA DEL FILTRO (2026-11-26): historia necesita saber
+ * si el filtro ganador nombra una pieza de la ESTRUCTURA (categoría,
+ * sub, compra o tienda) y si esa pieza tiene líneas en algún mes —
+ * para no dar un cero a secas sobre un nombre vacío en el libro
+ * entero (el caso Mascotas de Hark: un «$0 en eso» insinúa una
+ * categoría viva medida en cero; la verdad es que está vacía).
+ * El mapa es débil y por función: ningún llamador de filterOf
+ * cambia, y la procedencia se registra en cada salida. En canon el
+ * filtro pleno vive en filterHitOf (filterOf lo envuelve): lo
+ * estructural se lee de su descriptor — todo ciudadano con desc es
+ * estructura; los conceptos libres llevan desc nulo, y la palabra
+ * aprendida, estructural sin desc, se registra en su propia rama. */
+type FilterMeta = { label: string | null; structural: boolean; hasLines: boolean };
+const FILTER_META = new WeakMap<(l: Line) => boolean, FilterMeta>();
+export function filterMetaOf(fn: ((l: Line) => boolean) | null): FilterMeta | null {
+  return fn ? (FILTER_META.get(fn) ?? null) : null;
+}
+
 /** El filtro PLENO de la cascada (el de filterOf de siempre, con las
  * clases de la Ola 12, la palabra aprendida de la Ola 11 y los
  * conceptos libres), llevando además el descriptor cuando el filtro
@@ -2318,9 +2336,11 @@ function filterHitOf(c: Ctx, folded: string): { fn: (l: Line) => boolean; desc: 
       ? c.state.structure.categories.some((cat) => cat.subs.some((s) => s.id === learned.targetId))
       : c.state.structure.categories.some((cat) => cat.id === learned.targetId);
     if (alive) {
-      return learned.kind === "sub"
-        ? { fn: (l) => l.subId === learned.targetId, desc: null }
-        : { fn: (l) => l.categoryId === learned.targetId, desc: null };
+      const fn = learned.kind === "sub"
+        ? (l: Line) => l.subId === learned.targetId
+        : (l: Line) => l.categoryId === learned.targetId;
+      FILTER_META.set(fn, { label: learned.kind === "sub" ? c.names.sub(learned.targetId) : c.names.cat(learned.targetId), structural: true, hasLines: allLines(c).some((l) => l.active && fn(l)) });
+      return { fn, desc: null };
     }
   }
   const cands: { len: number; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } }[] = [];
@@ -2418,12 +2438,21 @@ function filterHitOf(c: Ctx, folded: string): { fn: (l: Line) => boolean; desc: 
   const live = cands.filter((x) => linesAll.some((l) => l.active && x.hit.fn(l)));
   if (!live.length) {
     const weakHit = weakLiveFilter();
-    if (weakHit) return weakHit;
+    if (weakHit) {
+      const cz = citizens.find((x) => x.hit.fn === weakHit.fn);
+      FILTER_META.set(weakHit.fn, { label: cz ? cz.label : null, structural: cz ? cz.hit.desc !== null : false, hasLines: true });
+      return weakHit;
+    }
   }
   const pool = live.length ? live : cands;
   let best: { len: number; hit: { fn: (l: Line) => boolean; desc: AskFrameFilter | null } } | null = null;
   for (const x of pool) if (!best || x.len > best.len) best = x;
-  return best ? best.hit : null;
+  if (best) {
+    const cz = citizens.find((x) => x.hit.fn === best!.hit.fn);
+    FILTER_META.set(best.hit.fn, { label: cz ? cz.label : null, structural: cz ? cz.hit.desc !== null : false, hasLines: linesAll.some((l) => l.active && best!.hit.fn(l)) });
+    return best.hit;
+  }
+  return null;
 }
 
 function filterOf(c: Ctx, folded: string): ((l: Line) => boolean) | null {
@@ -2848,9 +2877,28 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   const medioText = medioWord && /\b(o|or)\b/.test(foldedClean)
     ? L(c.lang, ` Lo de «${medioWord}» no lo sumé: tu libro no anota el medio de cada línea, así que esa parte no se puede medir.`, ` I didn't add the "${medioWord}" part: your book doesn't record each line's payment method, so that side can't be measured.`)
     : "";
+  /* EL NOMBRE VACÍO (Hark, 2026-11-26; redacción llana
+   * acordada por los tres revisores el mismo día): si el
+   * filtro nombra una pieza de la estructura que no tiene
+   * líneas en NINGÚN mes, el cero a secas miente por
+   * omisión — insinúa una categoría viva medida en cero.
+   * Los tres estados se dicen en llano: no entendí (silencio
+   * o el nombre callejero de arriba), no tienes movimientos
+   * en ese nombre (esto), y el cero de siempre cuando el
+   * nombre tiene historia. Ojo: la pieza puede existir en
+   * la estructura por defecto (Mascotas la trae) — lo que se
+   * declara es que no tiene movimientos, no que no existe;
+   * y la frase lo dice del libro ENTERO, no solo del mes,
+   * sin sonar a esquema («ese nombre está vacío» se retiró
+   * por técnico). */
+  const meta0 = pool.length === 0 && effFilter && !useUnion ? filterMetaOf(effFilter) : null;
+  const emptyName = meta0 && meta0.structural && meta0.label && !meta0.hasLines ? meta0.label : null;
   return {
     kind: "answer", family: "historia",
-    verdict: partData
+    // OLA 26 (U4): la frase concuerda — «de 1 línea», no «de 1 líneas».
+    verdict: emptyName
+      ? L(c.lang, `No tienes movimientos en «${emptyName}»: no hay ninguno anotado en todo tu libro, así que en ${p.label} no hay nada que sumar.`, `You have no movements under "${emptyName}": none is recorded anywhere in your book, so there's nothing to add up in ${p.label}.`)
+      : partData
       ? (income
         ? L(c.lang, `En ${p.label} entraron ${c.money(total)} por ese filtro: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `${c.money(total)} came in ${p.label} under that filter: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`)
         : L(c.lang, `En ${p.label} gastaste ${c.money(total)} en eso: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)} on that: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`))
@@ -2864,7 +2912,10 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
           // OLA P5: el cero con filtro NOMBRA su ciudadano — «on
           // groceries» recibía el cero a secas, sin decir bajo qué
           // nombre se midió (más débil que el miss nombrado en
-          // español). El escaneo del hilo recupera el nombre.
+          // español). El escaneo del hilo recupera el nombre. La
+          // ley cubre también el nombre vacío: su veredicto
+          // declara el vacío y la nota sigue nombrando al
+          // ciudadano bajo el que se midió.
           const namedCit = effFilter ? frameCitizenIn(c.state, c.names, foldedClean, c.lang) : null;
           return namedCit
             ? L(c.lang, `Ninguna línea cae en ese período bajo «${namedCit.display}»: el cero también es la respuesta del libro.`, `No line falls in that period under "${namedCit.display}": the zero is the book's answer too.`)
@@ -9013,6 +9064,56 @@ function tasaAnswer(c: Ctx, folded: string): BankResult | null {
 /* confirmación de afirmaciones y la síntesis comparativa.            */
 /* ------------------------------------------------------------------ */
 
+/* LA PERSONA QUE NO ESTÁ EN EL LIBRO (prioridad de Hark,
+ * 2026-11-26): «¿cuánto le debo a Kenia?» sin ninguna Kenia en el
+ * libro caía en silencio — el hueco declarado desde la P3. Los
+ * tres estados se distinguen: la persona está y hay deuda (su
+ * cifra), la persona está sin deuda de ese lado (el cero de las
+ * ramas de arriba), y la persona NO está en el libro por ninguna
+ * puerta: se dice, con su nombre. El candidato se lee tras la
+ * preposición (o tras «i owe» / «me debe») y se rechaza si trae
+ * una palabra genérica o si nombra a alguien que sí vive en el
+ * libro (préstamos dados, recibidos o personas de remesa). */
+const DEBT_NAME_STOP = new Set(["nadie", "alguien", "quien", "quienes", "todos", "todas", "todo", "cuenta", "cuentas", "tarjeta", "tarjetas", "banco", "bancos", "alguno", "alguna", "ninguno", "ninguna", "esto", "eso", "total", "mas", "most", "more", "menos", "mucho", "poco", "dinero", "money", "cuanto", "cuanta"]);
+const DEBT_NAME_CUT = new Set(["desde", "en", "por", "para", "con", "sin", "que", "cuando", "este", "esta", "mes", "ano", "semana", "hoy", "ayer", "manana"]);
+function debtNameAfter(folded: string, re: RegExp): string | null {
+  const m = folded.match(re);
+  if (!m) return null;
+  const raw = (m[1] ?? "").replace(/[^a-z\s]/g, " ").split(/\s+/).filter((w) => w && !["el", "la", "los", "las", "un", "una", "de", "del", "o", "y"].includes(w));
+  const words: string[] = [];
+  for (const w of raw) { if (DEBT_NAME_CUT.has(w)) break; words.push(w); }
+  if (!words.length || words.length > 3) return null;
+  if (words.some((w) => DEBT_NAME_STOP.has(w))) return null;
+  return words.join(" ");
+}
+function personInBook(c: Ctx, candFolded: string): boolean {
+  const candWords = candFolded.split(/\s+/).filter((w) => w.length >= 3);
+  const hit = (name: string) => {
+    const f = foldQ(name);
+    if (f === candFolded) return true;
+    const fWords = f.split(/\s+/).filter((w) => w.length >= 3);
+    return fWords.some((w) => candWords.includes(w)) || candWords.some((w) => fWords.includes(w));
+  };
+  for (const p of peopleOf(c.state, "owed", c.today)) if (hit(p.name)) return true;
+  for (const p of peopleOf(c.state, "owe", c.today)) if (hit(p.name)) return true;
+  for (const p of c.state.remitPeople ?? []) if (hit(p.name)) return true;
+  return false;
+}
+function noSuchPerson(c: Ctx, cand: string, side: "owe" | "owed"): BankResult {
+  const display = cand.charAt(0).toUpperCase() + cand.slice(1);
+  // La fuente se resuelve FUERA del arreglo: el barrido estático
+  // de fuentes lee cada cadena entre los corchetes de `source:`
+  // como una cita, y un ternario dentro citaría «owe».
+  const srcId = side === "owe" ? "cobros.debo" : "cobros.mideben";
+  return {
+    kind: "answer", family: "deudas",
+    verdict: side === "owe"
+      ? L(c.lang, `No tienes a ${display} en tu libro: no hay ninguna deuda anotada con ese nombre.`, `You don't have ${display} in your book: there's no debt recorded under that name.`)
+      : L(c.lang, `No tienes a ${display} en tu libro: no hay ningún préstamo anotado con ese nombre.`, `You don't have ${display} in your book: there's no loan recorded under that name.`),
+    pieces: [], note: null, source: [srcId], lines: 0,
+  };
+}
+
 function deudasAnswer(c: Ctx, folded: string): BankResult | null {
   // OLA 28 (Familia 2, E28-2): «¿en cuál / which … más / most?» no
   // es una deuda plana: es el RANKING de las deudas, y esta familia
@@ -9049,6 +9150,10 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
     if (p) return { kind: "answer", family: "deudas", verdict: L(c.lang, `${p.name} te debe ${c.money(p.left)}.`, `${p.name} owes you ${c.money(p.left)}.`), pieces: [{ label: p.name, minor: p.left }], note: null, source: ["cobros.mideben"], lines: p.active };
     const q = findIn(owe);
     if (q) return { kind: "answer", family: "deudas", verdict: L(c.lang, `Al revés: ${q.name} no te debe a ti — eres tú quien le debe ${c.money(q.left)}.`, `The other way around: ${q.name} doesn't owe you — you're the one who owes them ${c.money(q.left)}.`), pieces: [{ label: q.name, minor: q.left }], note: null, source: ["cobros.mideben", "cobros.debo"], lines: q.active };
+    // LA PERSONA QUE NO ESTÁ: nombrada tras «me debe» y ausente del
+    // libro entero — se dice, no se cae al listado ni al silencio.
+    const candOwed = debtNameAfter(folded, /(?:me debe|owes me)\s+([a-z]+(?:\s+[a-z]+){0,2})/);
+    if (candOwed && !personInBook(c, foldQ(candOwed))) return noSuchPerson(c, candOwed, "owed");
     // Sin persona nombrada no es esta rama: «¿quién me debe?» cae a la
     // rama del listado, no al silencio.
   }
@@ -9073,6 +9178,11 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
     if (p) return { kind: "answer", family: "deudas", verdict: L(c.lang, `A ${p.name} le debes ${c.money(p.left)}.`, `You owe ${p.name} ${c.money(p.left)}.`), pieces: [{ label: p.name, minor: p.left }], note: null, source: ["cobros.debo"], lines: p.active };
     const q = findIn(owed);
     if (q) return { kind: "answer", family: "deudas", verdict: L(c.lang, `Al revés: a ${q.name} no le debes — es ${q.name} quien te debe a ti ${c.money(q.left)}.`, `The other way around: you don't owe ${q.name} — it's ${q.name} who owes you ${c.money(q.left)}.`), pieces: [{ label: q.name, minor: q.left }], note: null, source: ["cobros.mideben", "cobros.debo"], lines: q.active };
+    // LA PERSONA QUE NO ESTÁ: nombrada tras «le debo a» / «i owe» y
+    // ausente del libro entero — se dice, no se cae al total ni al
+    // silencio.
+    const candOwe = debtNameAfter(folded, /(?:le debo|debo)\s+a\s+([a-z]+(?:\s+[a-z]+){0,2})/) ?? debtNameAfter(folded, /(?:i owe)\s+([a-z]+(?:\s+[a-z]+){0,2})/);
+    if (candOwe && !personInBook(c, foldQ(candOwe))) return noSuchPerson(c, candOwe, "owe");
     // OLA 18 (batería II): la cerca «a » sin frontera cazaba dentro de
     // las palabras — «mi TARJETA cuanto debo» leía su «a » final como
     // la preposición y la rama del total moría en silencio. La

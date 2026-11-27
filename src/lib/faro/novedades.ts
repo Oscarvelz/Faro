@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.485",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Los nombres que no están, se dicen", en: "Names that aren't there get said" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Si preguntas «¿cuánto le debo a Kenia?» y no tienes a ninguna Kenia en tu libro, el Asesor te lo dice con su nombre, en vez de quedarse callado.",
+        "Y si preguntas por un nombre de tu estructura que no tiene ni un solo movimiento en todo tu libro, como Mascotas, lo declara así: ya no recibes un «$0.00» que suena a nombre vivo medido en cero.",
+        "El nombre que sí tiene historia conserva su respuesta de siempre: si este mes da cero, el cero es la respuesta, con el nombre bajo el que se midió.",
+      ],
+      en: [
+        "If you ask “How much do I owe Kenia?” and there's no Kenia anywhere in your book, the Advisor now says so, naming her, instead of staying silent.",
+        "And if you ask about a name in your structure that has no movement anywhere in your book, like Pets, it says exactly that: you no longer get a “$0.00” that sounds like a living name measured at zero.",
+        "A name with history keeps its usual answer: if this month comes to zero, the zero is the answer, with the name it was measured under.",
+      ],
+    },
+  },
+  {
     version: "1.3.484",
     date: "2026-11-26",
     level: "menor",
