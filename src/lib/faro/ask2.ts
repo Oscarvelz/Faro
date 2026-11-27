@@ -2893,47 +2893,61 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
    * por técnico). */
   const meta0 = pool.length === 0 && effFilter && !useUnion ? filterMetaOf(effFilter) : null;
   const emptyName = meta0 && meta0.structural && meta0.label && !meta0.hasLines ? meta0.label : null;
+  /* LA REDACCIÓN CLARA (fallo de Oscar, 2026-11-27, sobre la foto
+   * de la 1.3.498: «The type of answers that confuse the user!»):
+   * los veredictos de suma de esta familia decían «en eso» sin
+   * nombrar el filtro, contaban «líneas» — palabra interna del
+   * libro — y el de la moneda nombrada explicaba la conversión
+   * en vez de responder. La forma fallada, con su ejemplo: «En
+   * este mes gastaste C$7,691.10 en alimentos (2 gastos). En
+   * dólares, los de tu libro, son $210.00». El filtro se nombra
+   * cuando el libro lo nombra; la cuenta es de gastos o de
+   * ingresos, entre paréntesis; la moneda nombrada se dice en
+   * una frase llana, sin la tasa y sin la explicación. */
+  const filterName = effFilter && !useUnion ? (filterMetaOf(effFilter)?.label ?? hit?.desc?.label ?? null) : null;
+  const countTxt = L(c.lang, `${pool.length} ${income ? "ingreso" : "gasto"}${pool.length === 1 ? "" : "s"}`, `${pool.length} ${income ? "income" : "expense"}${pool.length === 1 ? "" : "s"}`);
   /* LA MONEDA NOMBRADA (batería de significado, 2026-11-27): la
    * doctrina dice LA MONEDA SE OYE, y esta rama ignoraba la
    * moneda dicha en la pregunta: «¿cuánto gasté en comida en
    * córdobas?» respondía en dólares sin nombrarlos. Si la
    * pregunta nombra la OTRA moneda, el total se dice primero en
-   * esa moneda, con la tasa del libro nombrada y el mismo total
-   * en la moneda del libro al lado — las piezas NO cambian: el
-   * minor de una pieza es dinero de la vista, por ley de la
-   * casa, y la cifra convertida vive en el veredicto. Con unión
-   * o exclusión la respuesta sigue como hoy: la moneda nombrada
-   * con filtros compuestos es otra ola. (En canon la guarda de
-   * exclusión se lee en su forma: la lista de exclusiones de la
-   * Ola 74 y la excepción convertida en exclusión.) */
+   * esa moneda y el mismo total en la moneda del libro al lado,
+   * en la forma llana de la redacción clara — las piezas NO
+   * cambian: el minor de una pieza es dinero de la vista, por
+   * ley de la casa, y la cifra convertida vive en el veredicto.
+   * Con unión o exclusión la respuesta sigue como hoy: la
+   * moneda nombrada con filtros compuestos es otra ola. (En
+   * canon la guarda de exclusión se lee en su forma: la lista
+   * de exclusiones de la Ola 74 y la excepción convertida en
+   * exclusión.) */
   const namedCur: Currency | null = /\b(en|a) cordobas\b/.test(folded) || /\bin cordobas\b/.test(folded) ? "NIO"
     : /\b(en|a) dolares\b/.test(folded) || /\bin dollars\b/.test(folded) ? "USD" : null;
   const namedVerdict = namedCur && namedCur !== c.display && !partData && exclList.length === 0 && !excAsExcl && pool.length > 0
     ? (() => {
         const conv = convertMinor(total, c.display, namedCur, c.rateE4);
         const convTxt = formatMoney(conv, namedCur, c.lang);
-        const rateTxt = String(c.rateE4 / 10000);
-        const curName = namedCur === "NIO" ? "córdobas" : (c.lang === "es" ? "dólares" : "dollars");
+        const bookName = c.display === "NIO" ? "córdobas" : (c.lang === "es" ? "dólares" : "dollars");
         return income
-          ? L(c.lang, `En ${p.label} entraron ${convTxt}${effFilter ? " por ese filtro" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}. Es el mismo total de tu libro, ${c.money(total)}, dicho en ${curName} con la tasa de tu libro (${rateTxt} córdobas por dólar).${medioText}`, `${convTxt} came in ${p.label}${effFilter ? " under that filter" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}. That's your book's same total, ${c.money(total)}, said in ${curName} at your book's rate (${rateTxt} córdobas per dollar).${medioText}`)
-          : L(c.lang, `En ${p.label} gastaste ${convTxt}${effFilter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}. Es el mismo total de tu libro, ${c.money(total)}, dicho en ${curName} con la tasa de tu libro (${rateTxt} córdobas por dólar).${medioText}`, `In ${p.label} you spent ${convTxt}${effFilter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}. That's your book's same total, ${c.money(total)}, said in ${curName} at your book's rate (${rateTxt} córdobas per dollar).${medioText}`);
+          ? L(c.lang, `En ${p.label} entraron ${convTxt}${filterName ? ` en ${filterName}` : ""} (${countTxt}). En ${bookName}, los de tu libro, son ${c.money(total)}.${medioText}`, `In ${p.label} ${convTxt} came in${filterName ? ` under ${filterName}` : ""} (${countTxt}). In ${bookName}, your book's own, that's ${c.money(total)}.${medioText}`)
+          : L(c.lang, `En ${p.label} gastaste ${convTxt}${filterName ? ` en ${filterName}` : ""} (${countTxt}). En ${bookName}, los de tu libro, son ${c.money(total)}.${medioText}`, `In ${p.label} you spent ${convTxt}${filterName ? ` on ${filterName}` : ""} (${countTxt}). In ${bookName}, your book's own, that's ${c.money(total)}.${medioText}`);
       })()
     : null;
   return {
     kind: "answer", family: "historia",
-    // OLA 26 (U4): la frase concuerda — «de 1 línea», no «de 1 líneas».
+    // LA REDACCIÓN CLARA (2026-11-27): la cuenta va entre
+    // paréntesis y concuerda — «(1 gasto)», no «(1 gastos)» (la
+    // concordancia que la Ola 26 cuidaba en su forma vieja).
     verdict: emptyName
       ? L(c.lang, `No tienes movimientos en «${emptyName}»: no hay ninguno anotado en todo tu libro, así que en ${p.label} no hay nada que sumar.`, `You have no movements under "${emptyName}": none is recorded anywhere in your book, so there's nothing to add up in ${p.label}.`)
       : namedVerdict
       ? namedVerdict
       : partData
       ? (income
-        ? L(c.lang, `En ${p.label} entraron ${c.money(total)} por ese filtro: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `${c.money(total)} came in ${p.label} under that filter: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`)
-        : L(c.lang, `En ${p.label} gastaste ${c.money(total)} en eso: ${partsText} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)} on that: ${partsText} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`))
+        ? L(c.lang, `En ${p.label} entraron ${c.money(total)} (${countTxt}): ${partsText}.${exclText}${medioText}`, `${c.money(total)} came in ${p.label} (${countTxt}): ${partsText}.${exclText}${medioText}`)
+        : L(c.lang, `En ${p.label} gastaste ${c.money(total)} (${countTxt}): ${partsText}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)} (${countTxt}): ${partsText}.${exclText}${medioText}`))
       : income
-      // OLA 26 (U4): la frase concuerda — «de 1 línea», no «de 1 líneas».
-      ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filter ? " por ese filtro" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `${c.money(total)} came in ${p.label}${filter ? " under that filter" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`)
-      : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filter ? " en eso" : ""} — de ${pool.length} línea${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)}${filter ? " on that" : ""} — from ${pool.length} line${pool.length === 1 ? "" : "s"}.${exclText}${medioText}`),
+      ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filterName ? ` en ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`, `${c.money(total)} came in ${p.label}${filterName ? ` under ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`)
+      : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filterName ? ` en ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)}${filterName ? ` on ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`),
     pieces: [{ label: p.label, minor: total }, ...(partData ? partData.map((d) => ({ label: d.display, minor: d.sum })) : []), ...exclList.map((e, i) => ({ label: L(c.lang, `Fuera de la cuenta: ${e.display}`, `Left out: ${e.display}`), minor: -exclSums[i] })), ...(excAsExcl ? [{ label: L(c.lang, `Fuera de la cuenta: ${excAsExcl.display}`, `Left out: ${excAsExcl.display}`), minor: -excAsExclSum }] : [])],
     note: pool.length === 0
       ? (() => {
@@ -2946,8 +2960,8 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
           // ciudadano bajo el que se midió.
           const namedCit = effFilter ? frameCitizenIn(c.state, c.names, foldedClean, c.lang) : null;
           return namedCit
-            ? L(c.lang, `Ninguna línea cae en ese período bajo «${namedCit.display}»: el cero también es la respuesta del libro.`, `No line falls in that period under "${namedCit.display}": the zero is the book's answer too.`)
-            : L(c.lang, "Ninguna línea cae en ese período con ese filtro: el cero también es la respuesta del libro.", "No line falls in that period under that filter: the zero is the book's answer too.");
+            ? L(c.lang, `No hay nada anotado en ese período bajo «${namedCit.display}»: el cero también es la respuesta del libro.`, `Nothing is recorded in that period under "${namedCit.display}": zero is the book's answer too.`)
+            : L(c.lang, "No hay nada anotado en ese período con ese filtro: el cero también es la respuesta del libro.", "Nothing is recorded in that period under that filter: zero is the book's answer too.");
         })()
       : null,
     source: ["libros.lineas", "historial.stream", "estudio.flujo"], lines: pool.length,

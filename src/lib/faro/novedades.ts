@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.499",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Las respuestas de historia, en palabras llanas", en: "History answers, in plain words" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Las sumas del Asesor ya nombran aquello por lo que preguntas y cuentan gastos o ingresos, sin palabras internas: «En este mes gastaste C$7,691.10 en alimentos (2 gastos). En dólares, los de tu libro, son $210.00».",
+      ],
+      en: [
+        "The Advisor's sums now name what you asked about and count expenses or income, with no internal words: “In this month you spent C$7,691.10 on food (2 expenses). In dollars, your book's own, that's $210.00”.",
+      ],
+    },
+  },
+  {
     version: "1.3.498",
     date: "2026-11-27",
     level: "menor",

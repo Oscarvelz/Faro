@@ -142,13 +142,18 @@ describe("la moneda oída en la pregunta", () => {
   });
   it("«¿Cuánto gasté en comida en córdobas?» responde en la moneda pedida", () => {
     // LA MONEDA SE OYE: el total se dice primero en la moneda
-    // nombrada, con la tasa del libro nombrada y el total del
-    // libro al lado; las piezas siguen en la moneda de vista.
+    // nombrada y el total del libro al lado; las piezas siguen
+    // en la moneda de vista. LA REDACCIÓN (fallo de Oscar,
+    // 2026-11-27): la forma es llana — sin la tasa nombrada y
+    // sin explicar la conversión («En dólares, los de tu libro,
+    // son $250.00»); esta cerca se re-apunta a esa forma.
     const r = ask(ledger, "¿Cuánto gasté en comida en córdobas?");
     assert.equal(r.kind, "answer");
     if (r.kind !== "answer") return;
-    assert.match(r.verdict, /córdobas/);
     assert.ok(r.verdict.includes("C$9,156.08"), "el total convertido a la tasa del libro (36.6243)");
+    assert.ok(r.verdict.includes("En dólares, los de tu libro, son $250.00"), r.verdict);
+    assert.ok(!r.verdict.includes("en eso"), r.verdict);
+    assert.ok(!r.verdict.includes("línea"), r.verdict);
     assert.equal(sum(r), 25000);
   });
   it("«¿Cuánto gasté en comida en dólares?» en un libro en dólares no cambia nada", () => {

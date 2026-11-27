@@ -269,6 +269,9 @@ describe("banco · ola 74 · la adversaria de silencios y same_abstention", () =
     assert.equal(ask(l, "¿En qué porcentaje subió mi recibo de agua este mes respecto al mes pasado?").kind, "unknown");
     const cero = ans(l, "¿Cuánto gasté en agua este mes?");
     assert.match(cero.verdict, /\$0\.00/);
-    assert.match(cero.verdict, /de 0 líneas/);
+    // Re-apuntado en la redacción clara (2026-11-27): la forma
+    // vieja contaba «de 0 líneas»; la nueva nombra el filtro y
+    // cuenta gastos — «$0.00 en Agua (0 gastos)».
+    assert.match(cero.verdict, /en Agua \(0 gastos\)/);
   });
 });

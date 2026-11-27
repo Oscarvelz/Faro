@@ -1599,12 +1599,13 @@ describe("banco · ola 26: la respuesta útil (la caza de utilidad, clase por cl
     assert.ok(r.pieces.every((p) => !/^Monto \d+$/.test(p.label)), JSON.stringify(r.pieces));
   });
 
-  it("U4 · historia concuerda: «de 1 línea», no «de 1 líneas»", () => {
+  it("U4 · historia concuerda: «(1 gasto)», no «(1 gastos)» — re-apuntado en la redacción clara (2026-11-27): la forma vieja contaba «de 1 línea», palabra interna que el fallo de Oscar retiró de los veredictos de historia", () => {
     const r = ask(ledger, "¿Cuánto gasté el mes pasado en tiendas?");
     assert.equal(r.kind, "answer");
     if (r.kind !== "answer") return;
-    assert.ok(r.verdict.includes("de 1 línea."), r.verdict);
-    assert.ok(!r.verdict.includes("de 1 líneas"), r.verdict);
+    assert.ok(r.verdict.includes("(1 gasto)"), r.verdict);
+    assert.ok(!r.verdict.includes("línea"), r.verdict);
+    assert.ok(!r.verdict.includes("en eso"), r.verdict);
   });
 
   it("U5 · estacionalidad ya no disfraza: el filtro que no resuelve nombra su ausencia", () => {
