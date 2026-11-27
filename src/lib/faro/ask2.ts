@@ -9095,10 +9095,51 @@ function fronteraAnswer(c: Ctx, folded: string): BankResult | null {
  * libro no trae guía propia. CONSISTENCIA: la misma vara en
  * Estudio y en el Asesor. */
 function tasaAhorroAnswer(c: Ctx, folded: string): BankResult | null {
-  const rateVoice = /(tasa de ahorro|savings rate|mi tasa de ahorro|my savings rate)/.test(folded);
-  const pctVoice = /(porcentaje|por ciento|percent)/.test(folded) && /(ahorr|sav)/.test(folded) && /(ingreso|income|gano|earn|sueldo|salary)/.test(folded);
-  const enoughVoice = /(ahorrando lo suficiente|ahorro lo suficiente|ahorrar lo suficiente|saving enough|ahorro (mas|menos) que|ahorre (mas|menos)|save (more|less) than|saving (more|less) than|ahorro mas|ahorro menos)/.test(folded);
-  if (!rateVoice && !pctVoice && !enoughVoice) return null;
+  /* HUECO 4 DE COBERTURA (2026-11-27): la tasa es una RAZÓN y
+   * sus voces vivas son las de la razón, no solo su nombre
+   * técnico: 71 de 120 preguntas de la cuenta caían en ahorros
+   * porque esta puerta solo oía «tasa de ahorro», el porcentaje
+   * con la palabra ingreso al lado y el suficiente con el verbo
+   * ahorrar. Las voces nuevas exigen siempre la marca de la
+   * razón: el porcentaje o la parte CON el verbo de apartar, la
+   * comparación contra la referencia o el propio promedio, o el
+   * juicio (mucho o poco) de lo apartado contra lo que entró. El
+   * stock desnudo («¿cuánto tengo ahorrado?») no trae ninguna y
+   * sigue en ahorros; el promedio desnudo («¿cuánto ahorro en
+   * promedio?») tampoco, y sigue en promedio; la pregunta de
+   * poder («¿puedo apartar...?») cede entera a factibilidad. */
+  if (/\b(puedo|podria|can i|can we)\b/.test(folded)) return null;
+  /* EL COSTO DE ESTA AMPLIACIÓN, COBRADO POR LA CUENTA Y
+   * CURADO EN LA MISMA PIEZA (2026-11-27): las voces de la
+   * parte también oyen la DISTRIBUCIÓN DEL MONTÓN («¿qué
+   * parte de mis ahorros está en emergencia?», «¿qué parte
+   * es para el retiro?», «¿dónde tengo parqueada la mayor
+   * parte del ahorro?»), que es territorio de ahorros: ahí
+   * la parte reparte lo ya guardado, no mide lo que entró. Y
+   * la pregunta que RECHAZA el porcentaje en voz alta («no
+   * el porcentaje, la cantidad», «dejá el porcentaje; en
+   * plata contante») jamás es la tasa, aunque nombre la
+   * palabra porcentaje para negarla. Las dos guardas ceden
+   * a ahorros; la parte de la tasa siempre nombra su fuente
+   * (el ingreso, el sueldo, el aguinaldo, lo que entró),
+   * nunca el montón. */
+  if (/\bno (?:es )?el porcentaje\b/.test(folded) || /\bdej[aá] el porcentaje\b/.test(folded) || /\ben plata\b/.test(folded)) return null;
+  if (/\bparte\b/.test(folded) && /(mis ahorros|mi ahorro|del ahorro|tengo ahorrado|parquead|est[aá] en)/.test(folded)) return null;
+  /* El interés traído es de la meta, no de la tasa: «¿cuánto
+   * debo ahorrar para juntar $X con un interés del 12%?» trae
+   * el % del interés, no el porcentaje apartado. Sin la voz
+   * explícita de la tasa de ahorro, un interés nombrado cierra
+   * esta puerta. */
+  if (/(interes|interest|apr|rendimiento)/.test(folded) && !/(tasa de ahorro|savings rate|saving rate)/.test(folded)) return null;
+  const savVerb = /(ahorr|guard|apart|sav|set aside)/.test(folded);
+  const rateVoice = /(tasa de ahorro|savings rate|saving rate|save rate|ritmo de ahorro|savings percentage|mi tasa de ahorro|my savings rate)/.test(folded);
+  const pctVoice = /(porcentaje|por ciento|percent|%)/.test(folded) && savVerb;
+  const partVoice = /(proporcion|porcion|tajada|pedazo|fraccion|relacion entre|ratio|\bparte\b|\bpartes\b)/.test(folded) && savVerb;
+  const refVoice = (savVerb && /(recomend|normalmente|lo normal|la referencia|frente a lo)/.test(folded))
+    || (savVerb && /(mas|menos|mejor|peor|por encima|por debajo)/.test(folded) && /(promedio|de siempre|normal)/.test(folded));
+  const enoughVoice = /((ahorr|guard|apart)(ando|o|e|ar)? (lo )?suficiente|suficiente de lo que|saving enough|save enough|ahorro (mas|menos) que|ahorre (mas|menos)|save (more|less) than|saving (more|less) than|ahorro mas|ahorro menos)/.test(folded);
+  const judgeVoice = /(ahorre|aparte|guarde|ahorrado|apartado|guardado)/.test(folded) && /(mucho|poco|poquito)/.test(folded) && /(para (lo que|mi)|de lo que|lo que (gane|entro|gano))/.test(folded);
+  if (!rateVoice && !pctVoice && !partVoice && !refVoice && !enoughVoice && !judgeVoice) return null;
   const monthKeys = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
   const savInMonth = (key: string) => (c.state.months[key]?.lines ?? []).filter((l) => l.active && roleOf(c.state, l.categoryId) === "savings").reduce((a, l) => a + view(c, l), 0);
   const incInMonth = (key: string) => summarize(c.state, key, c.lang).income;
@@ -13740,7 +13781,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(antes o despues|que (fue|paso) primero|which came first|before or after)/, "historia"],
     [/(cuesta|cuestan|costo|margen|comision).{0,24}(remesa|envio|enviar|mandar)|(remesa|envio).{0,24}(cuesta|cuestan|costo|margen|comision)/, "remesas"],
     [/(que (me )?falta|que no aparece|what('s| is) missing|anything missing|what (hasn|haven)|shown up)/, "ausencia"],
-    [/(tasa de ahorro|savings rate|ahorrando lo suficiente|saving enough)/, "tasa"],
+    [/(tasa de ahorro|savings rate|saving rate|ritmo de ahorro|savings percentage|(porcentaje|por ciento|percent|%|proporcion|porcion|tajada|pedazo|fraccion|\bparte\b).{0,40}(ahorr|guard|apart|sav)|(ahorr|guard|apart).{0,30}(recomend|normalmente|suficiente de lo que)|ahorrando lo suficiente|saving enough)/, "tasa"],
     [/(no (lo |la )?reconozco|no reconozco|don't recogn|do not recogn|cobraron dos|charged twice|de donde (salio|vino) (este|ese|el|un) cargo|de que es el cargo|que cargo es|cual (fue|es) el cargo)/, "cargo"],
     [/(que es (este|ese|esta|un|una)|what is (this|that))/, "identidad"],
     [/(como va (el|la|mi|tu)|como esta (el|la|mi) (prestamo|deuda|tarjeta|cuenta|saldo)|estado de|how is|status of)/, "ya-pague"],

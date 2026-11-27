@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.513",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La tasa de ahorro ya se puede preguntar en tus palabras", en: "The savings rate can now be asked in your own words" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«¿Qué porcentaje de lo que entró logré ahorrar este año?», «¿qué parte de mi ingreso terminé guardando?» y «¿estoy guardando más proporción que de costumbre?» ya llegan a la tasa de ahorro, que antes solo oía su nombre técnico y el resto caía en ahorros.",
+      ],
+      en: [
+        "“What percentage of what came in did I manage to save this year?”, “what part of my income did I end up putting away?” and “am I saving a bigger share than usual?” now reach the savings rate, which before only heard its technical name while the rest fell to savings.",
+      ],
+    },
+  },
+  {
     version: "1.3.512",
     date: "2026-11-27",
     level: "menor",
