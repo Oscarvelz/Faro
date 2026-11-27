@@ -264,6 +264,232 @@ function prevKey(key: string): string {
 /* ------------------------------------------------------------------ */
 /* AHORROS — la cura del desvío: sus palabras pesan más que «how».     */
 /* ------------------------------------------------------------------ */
+/* HUECO 6 · LA PROYECCIÓN (2026-11-27): el stock más el aporte
+ * repetido hasta un horizonte, sin interés — la definición de
+ * la familia. La casa tenía dos mitades sueltas: la rama de la
+ * ola 59 (dentro del hipotético) oía solo el aporte gobernado
+ * por ahorrar/guardar con horizonte, y la guarda de horizonte
+ * del asiento de ahorros proyectaba con el ritmo medido pero
+ * firmaba «ahorros». Esta puerta junta la familia: oye el
+ * verbo proyectar, el aporte traído con su cadencia (meter,
+ * poner, echar, apartar, guardar — y el «con N al mes» sin
+ * verbo), el ritmo actual sin monto, la meta con nombre y la
+ * pregunta de llegada («¿llego a…?»), y firma proyección.
+ * La meta inversa (pedir el aporte) sigue en la meta; la
+ * premisa de ingreso, en el hipotético. */
+function proyeccionAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
+  const src = ["ahorros.stock", "asesor.lectura"];
+  if (/(cuanto (tengo|debo|deberia|necesito|hay) que ahorrar|cuanto (debo|deberia|necesito) ahorrar|cuanto (debo|deberia|necesito) (apartar|guardar)|how much (do i|should i|must i) (need to )?save|how much to save)/.test(folded)) return null;
+  if (/(si (ganara|ganase|ganaria)|ganando (mas|más)|me (suben|subieran) el sueldo|si me pagaran)/.test(folded)) return null;
+  /* LO QUE FALTA PARA LLEGAR es la pregunta por la brecha de
+   * HOY (la casa de ahorros la responde contra la meta): no
+   * es una proyección aunque traiga «llegar» y una cifra. */
+  if (/(cuanto me falta|me falta|cuanto falta)/.test(folded)) return null;
+  let horizon = horizonOf(folded, c.today);
+  const proyectaVerb = /\b(proyecta|proyectame|proyectar|proyeccion|project)\b/.test(folded)
+    || /\b(extiende|extendeme|estira|estirame)\b[^.]{0,35}\b(ahorro|fondo|apartado|mensual|semanal|quincenal|ritmo|aporte|meses)/.test(folded);
+  const savingsCtx = /(ahorr|guard|apart|fondo|meta|alcancia|cajita|401k|retiro|jubil|emergencia|cooperativa|junto|juntar|acumul)/.test(folded);
+  /* EL BLANCO POR SU FIN: la cuenta o la meta de una cosa
+   * nombrada (la universidad, el viaje, el carro) también es
+   * contexto de guardado cuando la frase trae horizonte. */
+  const targetCtx = /(cuenta de (la |mi )?(universidad|casa|boda|viaje)|universidad|graduacion|viaje de|fiestas patrias|(pal|para|pa) (el |mi |la |un |una )?(carro|casa|viaje|boda|terreno|negocio|refri))/.test(folded);
+  const futureVerb = /(tendr|habr|junto|juntaria|acumularia|alcanzaria|voy a tener|va a tener)/.test(folded);
+  const rateMark = /(si sigo|siguiera|manteniendo|sin cambiar|mismo (aporte|ahorro|ritmo)|ahorrando igual|guardando igual|metiendo igual|metiendole|con el mismo|al ritmo|ritmo actual|no cambio nada|no bajo el ritmo|si no fallo|sigo (metiendo|guardando|apartando|poniendo|ahorrando|con))/.test(folded);
+  const coverMark = /\b(me da|alcanza para|cubro|cubre|cubierto)\b/.test(folded);
+  const { list: vlist, toks } = verbAmounts(raw);
+  const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
+  const isYearAmt = (s: VerbAmount) => { const v = s.a.minor / 100; return Number.isInteger(v) && v >= 2024 && v <= 2060 && /^(en|para|hasta|by)$/.test(toks[s.start - 1] ?? ""); };
+  const isHorizonAmt = (s: VerbAmount) => /^(anos|ano|meses|mes|semanas|semana|years|months|weeks)$/.test(toks[s.end] ?? "") && /^(en|in|de)$/.test(toks[s.start - 1] ?? "");
+  const spans = vlist.filter((s) => !isYearAmt(s) && !isHorizonAmt(s));
+  /* LA META: el monto que sigue a «llego»/«llegar» a tres
+   * tokens de distancia («llego a 10,000 dólares»). */
+  const llegoTok = Math.max(toks.lastIndexOf("llego"), toks.lastIndexOf("llegar"), toks.lastIndexOf("llega"), toks.lastIndexOf("alcanzo"));
+  const goalSpan = llegoTok >= 0 ? spans.find((s) => s.start > llegoTok && s.start - llegoTok <= 3) ?? null : null;
+  const goal = goalSpan ? disp(goalSpan.a) : null;
+  const contribSpan = spans.find((s) => s !== goalSpan && (s.sign === 0 || cadenceOf(folded) !== null || /(meter|metiendo|poner|poniendo|echar|echando|apart|guard|ahorr|meto|pongo)/.test(s.verb ?? ""))) ?? spans.find((s) => s !== goalSpan && cadenceOf(folded) !== null) ?? null;
+  const cad = cadenceOf(folded);
+  /* EL APORTE PELADO: «los 100 mensuales», «con 40 al mes»,
+   * «50 x quincena» — el monto sin moneda ni verbo no lo
+   * certifica el lector de montos, pero su cadencia pegada
+   * sí: un número con cadencia a la derecha, en una pregunta
+   * de guardado, es el aporte. Se oye en la moneda del libro
+   * (ninguna nombrada). */
+  let barePer: number | null = null;
+  let bareCad: "weekly" | "biweekly" | "monthly" | "yearly" | null = null;
+  if (!contribSpan) {
+    const toksF = folded.split(/[^a-z0-9]+/).filter(Boolean);
+    const unitCad = (u: string) => u === "mes" ? "monthly" as const : u === "semana" ? "weekly" as const : u === "quincena" ? "biweekly" as const : null;
+    for (let i = 0; i < toksF.length; i++) {
+      const t = toksF[i];
+      const val = /^\d+$/.test(t) ? Number(t) : WORD_NUM_ALL[t];
+      if (val === undefined || !Number.isFinite(val) || val <= 0 || val >= 2024) continue;
+      if (llegoTok >= 0 && i > llegoTok && i - llegoTok <= 3) continue;
+      const n1 = toksF[i + 1] ?? ""; const n2 = toksF[i + 2] ?? ""; const n3 = toksF[i + 3] ?? "";
+      const adjCad = /^(mensuales|mensual)$/.test(n1) ? "monthly" as const : /^(semanales|semanal)$/.test(n1) ? "weekly" as const : /^(quincenales|quincenal)$/.test(n1) ? "biweekly" as const : null;
+      const afterCad = n1 === "x" ? unitCad(n2) : (n1 === "cada" || n1 === "al" || n1 === "por") ? unitCad(n2) : (n1 === "a" && n2 === "la") ? unitCad(n3) : null;
+      const c2 = adjCad ?? afterCad;
+      if (c2) { barePer = val * 100; bareCad = c2; break; }
+    }
+  }
+  const hasContrib = !!contribSpan || barePer !== null;
+  const sumVoice = /(cuanto (suma|quedaria|queda|tengo|tendre|habra|junto)|a cuanto (llega|suma|llego)|a donde llego)/.test(folded);
+  /* EL HORIZONTE PELADO DEL VERBO PROYECTAR: «estirá el
+   * fondo doce meses» trae su plazo sin preposición; con el
+   * verbo de proyectar a la vista, el plazo se lee igual. */
+  if (!horizon && proyectaVerb) {
+    const bm = /\b(\d+|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce) (meses|anos)\b/.exec(folded);
+    if (bm) {
+      const n = /^\d+$/.test(bm[1]) ? Number(bm[1]) : WORD_NUM[bm[1]];
+      if (n) {
+        const months = bm[2] === "anos" ? n * 12 : n;
+        const [ty, tm, td] = c.today.split("-").map(Number);
+        const totalM = (tm - 1) + months;
+        const y = ty + Math.floor(totalM / 12);
+        const mo = (totalM % 12) + 1;
+        const d = Math.min(td, new Date(Date.UTC(y, mo, 0)).getUTCDate());
+        horizon = { date: `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`, es: `en ${months} meses`, en: `in ${months} months` };
+      }
+    }
+  }
+  /* EL STOCK EN PRESENTE no se proyecta: «¿cuánto tengo
+   * apartado para pagar el seguro del año que viene?» trae
+   * un horizonte en el propósito, pero pregunta por lo de
+   * hoy — sin verbo de futuro, sin ritmo y sin aporte, la
+   * frase es del stock. */
+  if (/(cuanto tengo|cuanto hay)/.test(folded) && !futureVerb && !rateMark && !hasContrib && !proyectaVerb) return null;
+  const signature = proyectaVerb
+    || (!!horizon && (futureVerb || rateMark || goal !== null || hasContrib || sumVoice) && (savingsCtx || targetCtx || hasContrib || /(alcanzaria|acumularia|juntaria)/.test(folded)))
+    || (goal !== null && (rateMark || hasContrib || savingsCtx))
+    || (hasContrib && !!cad && /(cuanto (junto|tengo|tendre|habra|llego|tiene)|a cuanto (llego|llegaria)|con cuanto (quedo|queda))/.test(folded));
+  if (!signature) return null;
+  if (!horizon && goal === null) return null;
+  /* EL FONDO: emergencia y retiro por su clase; la meta o el
+   * fondo con nombre, por su bolsillo; sin nombre, el total. */
+  const stock = savingsStock(c.state, c.key);
+  let fundLabel = L(c.lang, "tus ahorros", "your savings");
+  let stockBase = stock.total;
+  let fundSub: string | null = null;
+  let fundDeclared = true;
+  const subByWord = (w: string): string | null => {
+    for (const cat of c.state.structure.categories) for (const s of cat.subs) {
+      if (foldQ(c.names.sub(s.id)).includes(w) || (s.customName && foldQ(s.customName).includes(w))) return s.id;
+    }
+    return null;
+  };
+  if (/\bemergencia/.test(folded)) { fundLabel = L(c.lang, "tu fondo de emergencia", "your emergency fund"); stockBase = stock.emergency; fundSub = subByWord("emergencia"); }
+  else if (/(retiro|jubil|401k|pension)/.test(folded)) { fundLabel = L(c.lang, "tu retiro", "your retirement"); stockBase = stock.retirement; fundSub = subByWord("retiro"); }
+  else {
+    const nm = /(?:meta|fondo|alcancia|cajita|cuenta|cooperativa) de(?:l)? ([a-zñ]{3,})/.exec(folded) ?? /(?:meta|fondo) (?:de(?:l)? )?([a-zñ]{3,})/.exec(folded);
+    if (nm && !/^(esto|eso|hoy|mes|ano|emergencia|retiro)$/.test(nm[1])) {
+      const found = subByWord(nm[1]);
+      fundLabel = L(c.lang, `la meta de ${nm[1]}`, `the ${nm[1]} goal`);
+      if (found) { fundSub = found; stockBase = (stock.keptByPocket.get(found) ?? 0) + (stock.pledgedByPocket.get(found) ?? 0); }
+      else { stockBase = 0; fundDeclared = false; }
+    }
+  }
+  /* EL RITMO MEDIDO: el promedio mensual de lo apartado en el
+   * libro (al fondo nombrado, si lo hay). */
+  const keysAll = Object.keys(c.state.months).filter((k) => k <= c.key).sort();
+  const pace = (() => {
+    const sum = allLines(c).filter((l) => l.active && roleOf(c.state, l.categoryId) === "savings" && (fundSub ? l.subId === fundSub : true)).reduce((a, l) => a + view(c, l), 0);
+    return keysAll.length ? Math.round(sum / keysAll.length) : 0;
+  })();
+  const noteBase = L(c.lang, "El supuesto, dicho: el aporte se repite sin fallar y no rinde interés — tu libro no promete ninguno — y nada se anotó.", "The assumption, stated: the set-aside repeats without fail and earns no interest — your book promises none — and nothing was recorded.");
+  const note = fundDeclared ? noteBase : L(c.lang, `Esa meta no trae saldo anotado en tu libro hoy: la proyección parte de cero en ella. ${noteBase}`, `That goal carries no recorded balance in your book today: the projection starts from zero for it. ${noteBase}`);
+  const hLabel = horizon ? L(c.lang, horizon.es, horizon.en) : null;
+  const cadLabel = (cd: string) => cd === "weekly" ? L(c.lang, "cada semana", "every week") : cd === "biweekly" ? L(c.lang, "cada quincena", "every two weeks") : cd === "monthly" ? L(c.lang, "cada mes", "every month") : L(c.lang, "cada año", "every year");
+  /* EL APORTE TRAÍDO SIN CADENCIA: se pregunta, como la ola 59. */
+  if (contribSpan && horizon && !cad) {
+    const aporte = disp(contribSpan.a);
+    return {
+      kind: "ask-back", family: "proyeccion",
+      verdict: L(c.lang, `Eso depende de cada cuánto apartas: ¿los ${c.money(aporte)} son cada semana, cada mes, o una sola vez?`, `That depends on how often you set it aside: is the ${c.money(aporte)} every week, every month, or just once?`),
+      options: [
+        { id: "cad:weekly", label: L(c.lang, "Cada semana", "Every week"), minor: aporte },
+        { id: "cad:monthly", label: L(c.lang, "Cada mes", "Every month"), minor: aporte },
+        { id: "cad:once", label: L(c.lang, "Una sola vez", "Just once"), minor: aporte },
+      ],
+      source: src,
+    };
+  }
+  /* LA SUMA: aporte traído por sus períodos, o el ritmo. */
+  let junto = 0;
+  let juntoTxt = "";
+  let monthlyEq = pace;
+  const perAmt = contribSpan ? disp(contribSpan.a) : barePer;
+  const cadUse = cad ?? bareCad;
+  const dailyMark = /\b(diarios|diario|cada dia|a diario)\b/.test(folded);
+  if (perAmt !== null && horizon && dailyMark) {
+    const per = perAmt;
+    const [ty2, tm2, td2] = c.today.split("-").map(Number);
+    const [hy2, hm2, hd2] = horizon.date.split("-").map(Number);
+    const days = Math.max(0, Math.round((Date.UTC(hy2, hm2 - 1, hd2) - Date.UTC(ty2, tm2 - 1, td2)) / 86400000));
+    junto = per * days;
+    monthlyEq = per * 30;
+    juntoTxt = L(c.lang, `caben ${days} aportes diarios de ${c.money(per)} (${c.money(junto)})`, `${days} daily set-asides of ${c.money(per)} fit (${c.money(junto)})`);
+  } else if (perAmt !== null && horizon && cadUse) {
+    const per = perAmt;
+    const n = periodsBetween(c.today, horizon.date, cadUse);
+    junto = per * n;
+    monthlyEq = cadUse === "weekly" ? per * 4 : cadUse === "biweekly" ? per * 2 : cadUse === "yearly" ? Math.round(per / 12) : per;
+    juntoTxt = L(c.lang, `caben ${n} aportes de ${c.money(per)} ${cadLabel(cadUse)} (${c.money(junto)})`, `${n} set-asides of ${c.money(per)} ${cadLabel(cadUse)} fit (${c.money(junto)})`);
+  } else if (horizon) {
+    const months = periodsBetween(c.today, horizon.date, "monthly");
+    junto = pace * months;
+    juntoTxt = L(c.lang, `a tu ritmo medido de ${c.money(pace)} al mes, el plazo suma ${c.money(junto)} en ${months} mes${months === 1 ? "" : "es"}`, `at your measured pace of ${c.money(pace)} a month, the span adds ${c.money(junto)} over ${months} month${months === 1 ? "" : "s"}`);
+  }
+  const total = stockBase + junto;
+  const pieces = [
+    { label: L(c.lang, `Hoy en ${fundLabel}`, `Today in ${fundLabel}`), minor: stockBase },
+    { label: L(c.lang, "Lo que el plazo suma", "What the span adds"), minor: junto },
+    { label: L(c.lang, "Tendrías", "You'd have"), minor: total },
+  ];
+  if (perAmt !== null && cadUse && !horizon) {
+    monthlyEq = cadUse === "weekly" ? perAmt * 4 : cadUse === "biweekly" ? perAmt * 2 : cadUse === "yearly" ? Math.round(perAmt / 12) : perAmt;
+  }
+  /* LA LLEGADA: con horizonte, el total se juzga contra la
+   * meta; sin horizonte, se calcula el plazo que falta. */
+  if (goal !== null) {
+    if (horizon) {
+      const diff = total - goal;
+      return {
+        kind: "answer", family: "proyeccion",
+        verdict: diff >= 0
+          ? L(c.lang, `Sí llegas: ${hLabel} tendrías ${c.money(total)} en ${fundLabel} — hoy constan ${c.money(stockBase)} y ${juntoTxt} — contra la meta de ${c.money(goal)}: te sobran ${c.money(diff)}.`, `Yes, you get there: ${hLabel} you'd have ${c.money(total)} in ${fundLabel} — today shows ${c.money(stockBase)} and ${juntoTxt} — against the goal of ${c.money(goal)}: ${c.money(diff)} to spare.`)
+          : L(c.lang, `A ese ritmo no llegas a los ${c.money(goal)} ${hLabel}: tendrías ${c.money(total)} en ${fundLabel} — hoy constan ${c.money(stockBase)} y ${juntoTxt} — y te faltan ${c.money(-diff)}.`, `At that pace you don't reach ${c.money(goal)} ${hLabel}: you'd have ${c.money(total)} in ${fundLabel} — today shows ${c.money(stockBase)} and ${juntoTxt} — and you'd be ${c.money(-diff)} short.`),
+        pieces, note, source: src, lines: 0,
+      };
+    }
+    if (goal <= stockBase) {
+      return { kind: "answer", family: "proyeccion", verdict: L(c.lang, `Ya lo tienes: en ${fundLabel} constan ${c.money(stockBase)}, y la meta era ${c.money(goal)}.`, `You already have it: ${fundLabel} shows ${c.money(stockBase)}, and the goal was ${c.money(goal)}.`), pieces, note, source: src, lines: 0 };
+    }
+    if (monthlyEq <= 0) {
+      return { kind: "answer", family: "proyeccion", verdict: L(c.lang, `No te puedo calcular la llegada a los ${c.money(goal)}: en ${fundLabel} constan ${c.money(stockBase)} y tu libro no trae un ritmo de apartado medido contra el que proyectar. Sin ritmo, cualquier fecha sería inventada.`, `I can't compute the arrival at ${c.money(goal)}: ${fundLabel} shows ${c.money(stockBase)} and your book holds no measured set-aside pace to project with. Without a pace, any date would be invented.`), pieces: [pieces[0]], note, source: src, lines: 0 };
+    }
+    const monthsNeeded = Math.ceil((goal - stockBase) / monthlyEq);
+    return {
+      kind: "answer", family: "proyeccion",
+      verdict: L(c.lang, `A tu ritmo de ${c.money(monthlyEq)} al mes llegas a los ${c.money(goal)} en ${monthsNeeded} mes${monthsNeeded === 1 ? "" : "es"}: hoy constan ${c.money(stockBase)} en ${fundLabel} y faltan ${c.money(goal - stockBase)}.`, `At your pace of ${c.money(monthlyEq)} a month you reach ${c.money(goal)} in ${monthsNeeded} month${monthsNeeded === 1 ? "" : "s"}: today shows ${c.money(stockBase)} in ${fundLabel} and ${c.money(goal - stockBase)} to go.`),
+      pieces, note, source: src, lines: 0,
+    };
+  }
+  /* LA COBERTURA SIN PRECIO: se proyecta lo juntado y se
+   * declara que el precio no consta. */
+  if (coverMark && horizon && perAmt !== null) {
+    return {
+      kind: "answer", family: "proyeccion",
+      verdict: L(c.lang, `${hLabel} juntarías ${c.money(total)} en ${fundLabel}: hoy constan ${c.money(stockBase)} y ${juntoTxt}. Si eso cubre lo que preguntas depende de su precio, que no viene en la pregunta ni consta en tu libro.`, `${hLabel} you'd have set aside ${c.money(total)} in ${fundLabel}: today shows ${c.money(stockBase)} and ${juntoTxt}. Whether that covers what you ask depends on its price, which isn't in the question or recorded in your book.`),
+      pieces, note, source: src, lines: 0,
+    };
+  }
+  if (!horizon) return null;
+  return {
+    kind: "answer", family: "proyeccion",
+    verdict: L(c.lang, `${hLabel} tendrías ${c.money(total)} en ${fundLabel}: hoy constan ${c.money(stockBase)} y ${juntoTxt}.`, `${hLabel} you'd have ${c.money(total)} in ${fundLabel}: today shows ${c.money(stockBase)} and ${juntoTxt}.`),
+    pieces, note, source: src, lines: 0,
+  };
+}
+
 function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
   // OLA 12 — EL AHORRO DEL MUNDO NO ES SOLO «¿cuánto tengo?»: la
   // batería mostró las formas ordinarias (el fondo, el ritmo, el
@@ -4746,41 +4972,81 @@ function horizonOf(folded: string, today: string): { date: string; es: string; e
   const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const monthEnd = (y: number, m: number) => iso(y, m, new Date(Date.UTC(y, m, 0)).getUTCDate());
   if (/(fin de ano|a fin de ano|finales de ano|fin del ano|end of the year)/.test(folded)) return { date: iso(ty, 12, 31), es: "a fin de año", en: "by the end of the year" };
+  if (/(a fin del otro ano|fin del otro ano|a fin del ano que viene)/.test(folded)) return { date: iso(ty + 1, 12, 31), es: "a fin del otro año", en: "by the end of next year" };
+  const finYr = folded.match(/finales de (20\d{2})/);
+  if (finYr && Number(finYr[1]) >= ty) return { date: iso(Number(finYr[1]), 12, 31), es: `a finales de ${finYr[1]}`, en: `by late ${finYr[1]}` };
   if (/(fin de mes|a fin de mes|finales de mes|end of the month)/.test(folded)) return { date: monthEnd(ty, tm), es: "a fin de mes", en: "by the end of the month" };
-  const named = folded.match(/(?:en|para|a|by)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december)\b/);
+  /* HUECO 6 · LA PROYECCIÓN: las fechas con nombre propio que
+   * el habla usa como horizonte — Navidad (25 de diciembre) y
+   * Semana Santa (tomada a fines de abril, y la etiqueta lo
+   * dice: el supuesto va a la vista). */
+  if (/\bnavidad\b/.test(folded)) { const y = tm === 12 && td > 25 ? ty + 1 : ty; return { date: iso(y, 12, 25), es: "para Navidad", en: "by Christmas" }; }
+  if (/\bsemana santa\b/.test(folded)) { const y = tm > 4 ? ty + 1 : ty; return { date: iso(y, 4, 30), es: "para Semana Santa (fines de abril)", en: "by Holy Week (late April)" }; }
+  if (/\bfiestas patrias\b/.test(folded)) { const y = tm > 9 ? ty + 1 : ty; return { date: iso(y, 9, 30), es: "para las fiestas patrias (septiembre)", en: "by the September holidays" }; }
+  /* El año a secas («en 2028», «para 2035»): el horizonte es
+   * el cierre de ese año. */
+  const yr = folded.match(/(?:en|para|hasta|a|by)\s+(20\d{2})\b/);
+  if (yr && Number(yr[1]) >= ty) return { date: iso(Number(yr[1]), 12, 31), es: `para ${yr[1]}`, en: `by ${yr[1]}` };
+  if (/\ben un ano y medio\b/.test(folded)) { const total = (tm - 1) + 18; return { date: iso(ty + Math.floor(total / 12), (total % 12) + 1, Math.min(td, 28)), es: "en un año y medio", en: "in a year and a half" }; }
+  const named = folded.match(/(?:en|para|a|hasta|de|by)\s+(enero|ene|febrero|marzo|abril|abr|mayo|junio|julio|agosto|ago|septiembre|sept|setiembre|octubre|oct|noviembre|nov|diciembre|dic|january|february|march|april|may|june|july|august|september|october|november|december)\b/);
   if (named) {
-    const mNum = MONTH_NUM[named[1]];
-    const y = mNum < tm ? ty + 1 : ty;
+    const mNum = MONTH_NUM[named[1]] ?? { ene: 1, abr: 4, ago: 8, sept: 9, set: 9, oct: 10, nov: 11, dic: 12 }[named[1]];
+    let y = mNum < tm ? ty + 1 : ty;
+    /* «diciembre del otro año» es el diciembre que viene,
+     * no el de este ciclo. */
+    if (/(del otro ano|del ano que viene)/.test(folded.slice(named.index ?? 0))) y += 1;
+    /* El año dicho tras el mes manda sobre el ciclo:
+     * «enero de 2028» es ese enero, no el próximo. */
+    const yrAfter = folded.slice(named.index ?? 0, (named.index ?? 0) + 24).match(/\b(20\d{2})\b/);
+    if (yrAfter) y = Number(yrAfter[1]);
     return { date: monthEnd(y, mNum), es: `para ${named[1]}`, en: `by ${named[1]}` };
   }
   const toksH = folded.split(/[^a-z0-9]+/).filter(Boolean);
   for (let i = 0; i < toksH.length - 1; i++) {
-    if (toksH[i] !== "en" && toksH[i] !== "in") continue;
+    /* «dentro de N meses» lee como «en N meses»; la «a» solo
+     * dispara cuando lo que sigue es número y unidad de plazo
+     * («a 10 años», «a seis meses») — «a la semana» no entra
+     * porque tras la «a» viene «la», no un número. */
+    const start = toksH[i] === "dentro" && toksH[i + 1] === "de" ? i + 2 : toksH[i] === "en" || toksH[i] === "in" || toksH[i] === "a" ? i + 1 : -1;
+    if (start < 0 || start >= toksH.length) continue;
     let n: number | null = null;
     let used = 0;
-    if (/^\d+$/.test(toksH[i + 1])) { n = Number(toksH[i + 1]); used = 1; }
-    else { const p = parseWordNumber(toksH, i + 1); if (p) { n = p.value; used = p.end - (i + 1); } }
+    if (/^\d+$/.test(toksH[start])) { n = Number(toksH[start]); used = 1; }
+    else { const p = parseWordNumber(toksH, start); if (p) { n = p.value; used = p.end - start; } }
     if (n == null || n <= 0) continue;
-    const unit = toksH[i + 1 + used] ?? "";
-    if (/^(anos|years)$/.test(unit)) return { date: iso(ty + n, tm, Math.min(td, new Date(Date.UTC(ty + n, tm, 0)).getUTCDate())), es: `en ${n} años`, en: `in ${n} years` };
-    if (/^(meses|months)$/.test(unit)) {
+    const unit = toksH[start + used] ?? "";
+    if (/^(anos|ano|years|year)$/.test(unit)) return { date: iso(ty + n, tm, Math.min(td, new Date(Date.UTC(ty + n, tm, 0)).getUTCDate())), es: `en ${n} años`, en: `in ${n} years` };
+    if (/^(meses|mes|months|month)$/.test(unit)) {
       const total = (tm - 1) + n;
       const y = ty + Math.floor(total / 12);
       const m = (total % 12) + 1;
       return { date: iso(y, m, Math.min(td, new Date(Date.UTC(y, m, 0)).getUTCDate())), es: `en ${n} meses`, en: `in ${n} months` };
     }
-    if (/^(semanas|weeks)$/.test(unit)) {
+    if (/^(semanas|semana|weeks|week)$/.test(unit)) {
       const d = new Date(Date.UTC(ty, tm - 1, td) + n * 7 * 86400000);
       return { date: d.toISOString().slice(0, 10), es: `en ${n} semanas`, en: `in ${n} weeks` };
+    }
+  }
+  /* EL PLAZO PELADO AL FINAL: «si sigo con lo mismo 15 años»
+   * trae el plazo sin preposición, cerrando la frase. */
+  const trail = folded.match(/\b(\d+) (anos|meses)\s*[?.!]?\s*$/);
+  if (trail) {
+    const n = Number(trail[1]);
+    const months = trail[2] === "anos" ? n * 12 : n;
+    if (months > 0) {
+      const total = (tm - 1) + months;
+      const y = ty + Math.floor(total / 12);
+      const m = (total % 12) + 1;
+      return { date: iso(y, m, Math.min(td, new Date(Date.UTC(y, m, 0)).getUTCDate())), es: `en ${months} meses`, en: `in ${months} months` };
     }
   }
   if (/(proximo ano|el ano que viene|next year)/.test(folded)) return { date: iso(ty + 1, tm, Math.min(td, new Date(Date.UTC(ty + 1, tm, 0)).getUTCDate())), es: "en un año", en: "in a year" };
   return null;
 }
 function cadenceOf(folded: string): "weekly" | "biweekly" | "monthly" | "yearly" | null {
-  if (/(cada quincena|quincenal|every two weeks|biweekly)/.test(folded)) return "biweekly";
-  if (/(cada semana|semanal|por semana|a la semana|each week|every week|weekly|per week)/.test(folded)) return "weekly";
-  if (/(cada mes|mensual|por mes|al mes|each month|every month|monthly|per month)/.test(folded)) return "monthly";
+  if (/(cada quincena|quincenal|every two weeks|biweekly|cada paycheck|por paycheck|each paycheck|por quincena|x quincena)/.test(folded)) return "biweekly";
+  if (/(cada semana|semanal|por semana|a la semana|each week|every week|weekly|per week|cada (domingo|lunes|martes|miercoles|jueves|viernes|sabado)|x semana)/.test(folded)) return "weekly";
+  if (/(cada mes|mensual|por mes|al mes|each month|every month|monthly|per month|x mes)/.test(folded)) return "monthly";
   if (/(cada ano|anual|por ano|each year|every year|yearly|per year)/.test(folded)) return "yearly";
   return null;
 }
@@ -5041,14 +5307,18 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
   {
     const { list: signed59, toks: toks59 } = verbAll;
     const isHorizonAmt = (s: VerbAmount) => /^(anos|meses|semanas|years|months|weeks)$/.test(toks59[s.end] ?? "") && (toks59[s.start - 1] === "en" || toks59[s.start - 1] === "in");
-    const saveCands = signed59.filter((s) => s.sign === 0 && !isHorizonAmt(s));
+    /* HUECO 6: el AÑO del horizonte («en 2031») tampoco es un
+     * aporte — la rama lo leía como $2,031 apartados al mes
+     * cuando la pregunta traía su aporte en otra cifra. */
+    const isYearAmt59 = (s: VerbAmount) => { const v = s.a.minor / 100; return Number.isInteger(v) && v >= 2024 && v <= 2060 && /^(en|para|hasta|a|by)$/.test(toks59[s.start - 1] ?? ""); };
+    const saveCands = signed59.filter((s) => s.sign === 0 && !isHorizonAmt(s) && !isYearAmt59(s));
     const horizon = horizonOf(folded, c.today);
     // LA META INVERSA NO ES PROYECCIÓN: cuando la pregunta PIDE el
     // aporte («¿cuánto debo ahorrar para juntar $2000 en 4 meses?»)
     // el monto traído es la META, no el aporte — su familia es la
     // meta, y esta rama se queda fuera aunque el verbo ahorrar
     // alcance a gobernar la cifra de lejos.
-    const metaVoice = /(cuanto (tengo|debo|necesito|hay) que ahorrar|cuanto (debo|necesito) ahorrar|para (llegar a|juntar|reunir|tener) |quiero (juntar|reunir|llegar)|how much (do i|should i|must i) (need to )?save|how much to save)/.test(folded);
+    const metaVoice = /(cuanto (tengo|debo|deberia|necesito|hay) que ahorrar|cuanto (debo|deberia|necesito) ahorrar|para (llegar a|llega a|juntar|reunir|tener) |quiero (juntar|reunir|llegar)|how much (do i|should i|must i) (need to )?save|how much to save)/.test(folded);
     if (saveCands.length && horizon && !metaVoice) {
       const aporte = disp(saveCands[0].a);
       const stock59 = savingsStock(c.state, c.key);
@@ -5131,6 +5401,17 @@ function hipoteticoAnswer(c: Ctx, folded: string, raw: string, pinId?: string): 
       };
     }
   }
+  /* HUECO 6 · LA PROYECCIÓN: el estado futuro del guardado
+   * con horizonte y ritmo («¿cuánto tendría en mi fondo de
+   * emergencia en 6 meses si sigo así?») no es una premisa
+   * que juzgar: es la proyección, y los caminos de premisa
+   * de abajo lo leían como un gasto supuesto con cifras
+   * vacías. La firma cede la frase a la puerta de
+   * proyección. Vive DESPUÉS de la ola 59 a propósito: la
+   * proyección con aporte gobernado y horizonte es de la
+   * ola 59, que corre primero dentro de esta misma puerta;
+   * la cesión guarda solo los caminos de premisa. */
+  if (/(tendr|habr)/.test(folded) && /(ahorr|fondo|emergencia|meta|guardad|apartad|alcancia|cuenta|casa)/.test(folded) && /(en (\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce) (meses|anos|semanas)|en un ano|para (navidad|fin de))/.test(folded) && /(si sigo|si ahorro|si ahorr|ritmo|mismo|igual|aparto|apartando|guardando|metiendo|al mes|con lo que|con lo q)/.test(folded)) return null;
   // OLA 63 · LA DIANA ES UNA CLASE: si la premisa mueve dinero
   // DE/A una clase nombrada (a mi emergencia, de mi retiro, en mi
   // meta), ni el camino firmado ni el viejo la juzgan — la diana
@@ -8364,6 +8645,28 @@ function capacidadAnswer(c: Ctx, folded: string, raw: string): BankResult | null
    * de factibilidad — «cada mes gasto un poco más» es la subida
    * gradual con su cadencia, no un «¿puedes con ese gasto?». */
   if (/\bcada (mes|vez|ves)\b/.test(folded) && /\b(gastando|gastado|pagando|pagado|cuesta|saliendo|dejando|gasto|gasta)\b/.test(folded) && /\b(mas|más)\b/.test(folded)) return null;
+  if (/\bcada (mes|vez|ves)\b/.test(folded) && /\b(gastando|gastado|pagando|pagado|cuesta|saliendo|dejando|gasto|gasta)\b/.test(folded) && /\b(mas|más)\b/.test(folded)) return null;
+  /* HUECO 6 · LA PROYECCIÓN: la llegada a una meta con el
+   * aporte que se repite («¿llego a 500 si sigo poniendo 100
+   * cada mes?») no es un «¿puedes con ese gasto?»: es la
+   * proyección juzgada contra su meta. Cede con su firma. */
+  if (/\b(llego a|alcanzo a|llegar a|a cuanto llego)\b/.test(folded) && /(sigo|poniendo|metiendo|guardando|apartando|ahorrando|cada (mes|semana|quincena)|al (mes|ano)|ritmo|mensuales|semanales|quincenales)/.test(folded)) return null;
+  /* HUECO 6 · LA PROYECCIÓN, LA FORMA DEL APORTE: el aporte
+   * que se repite con su horizonte («si aporto 200 al 401k
+   * cada paycheck, ¿cuánto tengo en dos años?», «si sigo
+   * metiendo 40 a la semana, ¿cuánto tengo en dic 2027?»)
+   * no es un gasto que juzgar: es la proyección con su
+   * aporte traído. La rama de factibilidad de esta puerta
+   * cede la frase entera. */
+  if (/\b(aporto|aportando|aporta|metiendo|poniendo|guardando|apartando|ahorrando|meto|pongo|guardo|aparto|echando)\b/.test(folded) && /(cada (mes|semana|quincena|paycheck)|al mes|a la semana|mensual|semanales|quincenales|por (semana|mes|quincena))/.test(folded) && /(en (\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce) (meses|anos|semanas)|en 20\d{2}|\b20\d{2}\b|cuanto (tengo|tendre|suma|junto|habra)|para (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|navidad|fin de))/.test(folded)) return null;
+  if (/\bsigo con\b/.test(folded) && /(al mes|a la semana|mensuales|semanales|quincenales|cada (mes|semana|quincena))/.test(folded) && /(\b20\d{2}\b|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|en (\d+|dos|tres|cuatro|cinco|seis|doce) (meses|anos)|para (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|navidad|fin de))/.test(folded)) return null;
+  /* HUECO 6 · LA PROYECCIÓN, LA FORMA DE LA SUMA: «¿cuánto
+   * suma la cuenta de la universidad con los 100 mensuales a
+   * diciembre del otro año?» — la suma de lo que se repite
+   * hacia una fecha, sobre una cuenta de guardado, es la
+   * proyección; la rama de esta puerta la leía como un
+   * gasto repetido contra la Queda. Cede con su firma. */
+  if (/(cuanto (suma|tengo|tendre|habra|junto)|a cuanto (llega|suma))/.test(folded) && /(mensuales|semanales|quincenales|cada (mes|semana|quincena)|al mes|a la semana)/.test(folded) && /(cuenta|fondo|meta|ahorr|universidad|retiro|emergencia|lo que ya tengo|lo que tengo)/.test(folded) && /(a (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|del otro ano|en (\d+|dos|tres|cuatro|cinco|seis|doce) (meses|anos)|\b20\d{2}\b|para (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|navidad|fin de)|de aqui a)/.test(folded)) return null;
   if (/%|por ciento|porcentaje|percent/.test(folded)) return null;
   // La diferencia entre montos traídos es de la calculadora: la
   // pregunta compara, no pide un juicio de capacidad.
@@ -12178,6 +12481,10 @@ const GATE_WORDS: string[] = [
    * tendencia…?» no llegaba a ninguna lectura). Se fija como
    * las demás: la palabra legítima no es errata de su vecina. */
   "tendencia",
+  /* HUECO 6 · LA PROYECCIÓN (2026-11-27): «dentro» caía a
+   * «entro» y mataba el horizonte «dentro de N meses» a mitad
+   * de frase. */
+  "dentro",
 ];
 /* LA TANDA DEL AGENTE (puerto de la Rama, 1.3.457): los verbos y
  * las palabras de los cinco escalones, el modismo semilla y las
@@ -13287,6 +13594,15 @@ function answerSingle(
     const r = confirmacionAnswer(c, folded, rawR);
     if (r) return r;
   }
+  /* HUECO 6 · LA PROYECCIÓN, antes del asiento de ahorros: la
+   * pregunta por el estado futuro del guardado con horizonte
+   * es de esta familia — el asiento de ahorros proyectaba con
+   * el ritmo medido pero firmaba «ahorros», y su guarda dejaba
+   * en silencio honesto lo que traía aporte o meta con nombre. */
+  {
+    const r = proyeccionAnswer(c, folded, raw);
+    if (r) return r;
+  }
   // 1 · AHORROS antes que todo lo genérico (la cura del desvío) — pero
   // «sin tocar mis ahorros» es free: su trampa manda sobre la palabra.
   const isFreeTrap = /sin (tocar|afectar|mover|usar).{0,24}(ahorro|apartad|guardad)|without touching/.test(folded);
@@ -14001,7 +14317,8 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(que has aprendido|lo que has aprendido|tus patrones|aprendido de mi)/, "aprendizaje"],
     [/(si (dejo|dejara|dejas) de|si no (gastara|comprara|fuera|gastase)|dejara de gastar)/, "contrafactual"],
     [/(cuanto (me dura|dura) (mi|el|lo)|meses (puedo vivir|de respaldo)|sin trabajo|sin ingresos|me despiden|pierdo mi trabajo|fondo de emergencia|mi colchon|cuanto tiempo aguanto|aguanto sin|lose my job|lost my job|how long could i go|without income)/, "respaldo"],
-    [/(si (ahorro|ahorrara|ahorre|comenzara a ahorrar)|if i (save|start saving)|ahorro (doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos|mil|\d)|save \$\d|save \d).{0,40}(cada (semana|mes|quincena|ano)|semanal|mensual|quincenal|fin de (mes|ano)|en (un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce|\d+) (anos|meses|semanas)|para (diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre)|each (week|month|year)|weekly|monthly|end of the (year|month))/, "proyeccion"],
+    [/(si (ahorro|ahorrara|ahorre|comenzara a ahorrar)|si sigo (metiendo|guardando|apartando|poniendo|ahorrando)|proyect|if i (save|start saving)|ahorro (doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos|mil|\d)|save \$\d|save \d).{0,40}(cada (semana|mes|quincena|ano)|semanal|mensual|quincenal|fin de (mes|ano)|en (un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce|\d+) (anos|meses|semanas)|para (diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|navidad)|each (week|month|year)|weekly|monthly|end of the (year|month))/, "proyeccion"],
+    [/((tendre|tendria|habre|habria) ahorrado|cuanto (tendre|tendria)).{0,30}(en (\d+|un|una|dos|tres|cuatro|cinco|seis|doce) (meses|anos|semanas)|en un ano|a fin de|para (navidad|fin de)|si sigo)/, "proyeccion"],
     [/(tardaria|tardare|cuanto (necesito|debo|tengo) que ahorrar|cuanto (debo|necesito) ahorrar|cuanto ahorrar|quiero (juntar|ahorrar|reunir)|juntar \d|meta de ahorro)/, "meta"],
     [/(en (cordobas|dolares|euros)|a (cordobas|dolares)|tipo de cambio|a como esta el cambio|cuanto (es|son) .{0,30}(dolares|cordobas|euros|pesos))/, "conversor"],
     [/(cuando (vence|es|cae|toca)|en cuantos dias|cuantos dias (faltan|quedan|para)|que dia (es|sera|cumple))/, "calendario"],

@@ -760,7 +760,7 @@ describe("banco · ola 13: la puerta generosa (el oído de la referencia, §21)"
     ["Si gasto 30 en golosinas y 50 en comida, ¿cuánto me queda?", "hipotetico"],
     ["Si divido 1500 dólares en tres partes, ¿cómo me quedaría?", "calculadora"],
     ["¿Cuánto necesito ahorrar al mes para tener 2000 en diciembre?", "meta"],
-    ["¿Cuánto tendré ahorrado en 6 meses si sigo así?", "ahorros"],
+    ["¿Cuánto tendré ahorrado en 6 meses si sigo así?", "proyeccion"],
     ["¿Cuándo termino de pagar la tarjeta?", "futuro"],
     ["¿Cómo fue mi mes pasado?", "relator"],
     ["¿En qué gasto más?", "relator"],

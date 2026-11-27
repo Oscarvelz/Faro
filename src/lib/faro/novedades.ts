@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.516",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La proyección ya tiene su puerta", en: "Projection now has its own door" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«Si sigo poniendo 100 al mes, ¿cuánto tendré en diciembre?» ya lo responde la proyección con su nombre: oye tu aporte con su cadencia (también «los 100 mensuales» o «50 x quincena»), la meta con nombre aunque tu libro aún no la traiga, y la llegada con fecha o sin ella, siempre con el supuesto dicho.",
+      ],
+      en: [
+        "“If I keep putting in 100 a month, how much will I have by December?” is now answered by projection under its own name: it hears your set-aside with its cadence (also “the monthly 100” or “50 per paycheck”), a named goal even if your book doesn't carry it yet, and the arrival with or without a date, always with the assumption stated.",
+      ],
+    },
+  },
+  {
     version: "1.3.515",
     date: "2026-11-27",
     level: "menor",

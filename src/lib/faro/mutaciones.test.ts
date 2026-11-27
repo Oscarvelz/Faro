@@ -427,10 +427,12 @@ function promesas(): Base[] {
   /* LOS OVERRIDES ADJUDICADOS (la onda hostil, 2026-11-24): la
    * promesa se cumple EN CONTENIDO pero su casa diseñada es otra
    * familia — cada uno con su acta, ninguno para tapar un fallo:
-   * - «¿Cuánto tendré apartado en diciembre?» la responde ahorros
-   *   con su proyección por ritmo (stock + ritmo × meses, supuesto
-   *   dicho): la misma respuesta que futuro promete, dicha por la
-   *   casa que guarda la cifra.
+   * - «¿Cuánto tendré apartado en diciembre?» la responde
+   *   proyección con el ritmo medido (stock + ritmo × meses,
+   *   supuesto dicho): la misma respuesta que futuro promete,
+   *   dicha por la casa de su definición. (Hasta la 1.3.515 la
+   *   firmaba ahorros; la corrección de etiqueta es del hueco 6,
+   *   declarada en su acta: la respuesta no cambió.)
    * - «¿Cuánto me quedará el año que viene?» la responde left con
    *   su proyección de cierre anual: el mismo caso.
    * - «¿En qué gasto más?» está archivada en ranking pero su casa
@@ -439,7 +441,7 @@ function promesas(): Base[] {
    *   La higiene del censo (re-archivarla) queda anotada para
    *   canon en el envío de la campaña. */
   const OVERRIDES: Record<string, string[]> = {
-    "¿Cuánto tendré apartado en diciembre?": ["ahorros"],
+    "¿Cuánto tendré apartado en diciembre?": ["proyeccion"],
     "How much will I have set aside by December?": ["ahorros"],
     "¿Cuánto me quedará el año que viene?": ["left"],
     "¿En qué gasto más?": ["relator"],
