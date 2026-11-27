@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.503",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El ranking aprende las fuentes y el peso", en: "Ranking learns the sources and the weight" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Ahora puedes preguntar qué fuente de ingreso te aportó más o menos en un período, y pedir el orden entero de tus fuentes por lo que aportaron.",
+        "Y también qué salida pesó más contra lo que entró: la respuesta da la mayor con su porcentaje de lo que entró en el mismo período; si no entró nada anotado, lo dice en vez de inventar un porcentaje.",
+      ],
+      en: [
+        "You can now ask which income source brought in the most or the least in a period, and ask for the full order of your sources by what they brought in.",
+        "And also which outflow weighed most against what came in: the answer gives the largest with its percentage of what came in over the same period; if nothing came in on record, it says so instead of inventing a percentage.",
+      ],
+    },
+  },
+  {
     version: "1.3.502",
     date: "2026-11-27",
     level: "menor",

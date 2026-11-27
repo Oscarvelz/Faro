@@ -1988,6 +1988,96 @@ function rankingAnswer(c: Ctx, folded: string): BankResult | null {
   return null;
 }
 
+/* LA AMPLIACIÓN DE RANKING (registro RANKING-FUENTES, 2026-11-27):
+ * la fuente de ingreso agregada en el período y la salida con su
+ * peso contra lo que entró. La marca de entrada es estrecha a
+ * propósito — la palabra fuente con su verbo de ingreso, el orden
+ * pedido, o el peso — porque la línea suelta sigue siendo de
+ * extremos y la suma por filtro de historia. */
+function rankingFuentesAnswer(c: Ctx, folded: string): BankResult | null {
+  const p = periodOf(c, folded);
+  const per = p.label;
+  const wantOrder = /(ordena|ordenar|ordenad|rank)/.test(folded);
+  const wantMin = /(menos|menor|least|smallest)/.test(folded);
+  // LA FUENTE: se agrega por concepto sobre las líneas de ingreso
+  // del período; dos líneas del mismo concepto son una sola fuente.
+  if (((/fuente|source/.test(folded) || /(de donde|de que) (entro|vino|llego) (mas|menos)/.test(folded)) && /(ingreso|income|aporto|aportaron|entro|entraron|trajo|trajeron|brought|earned|gano|gana)/.test(folded)) || (wantOrder && /(ingreso|income|fuente)/.test(folded)) || (/(ingreso|income)/.test(folded) && /(aporto|aportaron|trajo|trajeron|brought)/.test(folded) && /(mas|menos|mayor|menor|most|least)/.test(folded))) {
+    const bySource = new Map<string, number>();
+    let total = 0;
+    let n = 0;
+    for (const l of allLines(c)) {
+      if (!l.kind.startsWith("income") || !inPeriod(c, l, p)) continue;
+      const v = view(c, l);
+      if (v <= 0) continue;
+      const name = (l.concept || "").trim() || catLabel(c, l.categoryId);
+      bySource.set(name, (bySource.get(name) ?? 0) + v);
+      total += v; n++;
+    }
+    if (!bySource.size) return null;
+    const ranked = [...bySource.entries()].map(([name, sum]) => ({ name, sum })).sort((a, b) => b.sum - a.sum);
+    if (ranked.length === 1) {
+      return {
+        kind: "answer", family: "ranking",
+        verdict: L(c.lang, `En ${per} solo tienes una fuente de ingreso anotada: «${ranked[0].name}», con ${c.money(ranked[0].sum)}.`, `In ${per} you have only one income source on record: "${ranked[0].name}", with ${c.money(ranked[0].sum)}.`),
+        pieces: [{ label: ranked[0].name, minor: ranked[0].sum }],
+        note: null, source: ["libros.lineas", "estudio.flujo"], lines: n,
+      };
+    }
+    if (wantOrder) {
+      return {
+        kind: "answer", family: "ranking",
+        verdict: L(c.lang, `En ${per}, tus fuentes de ingreso de la que más aportó a la que menos son estas: la primera es «${ranked[0].name}», con ${c.money(ranked[0].sum)} de los ${c.money(total)} que entraron.`, `In ${per}, your income sources from the one that brought in the most to the least are these: first is "${ranked[0].name}", with ${c.money(ranked[0].sum)} of the ${c.money(total)} that came in.`),
+        pieces: ranked.slice(0, 5).map((r) => ({ label: r.name, minor: r.sum })),
+        note: null, source: ["libros.lineas", "estudio.flujo"], lines: n,
+      };
+    }
+    const pick = wantMin ? ranked[ranked.length - 1] : ranked[0];
+    return {
+      kind: "answer", family: "ranking",
+      verdict: L(c.lang, `En ${per}, la fuente que ${wantMin ? "menos" : "más"} te aportó fue «${pick.name}»: ${c.money(pick.sum)}, de los ${c.money(total)} que entraron.`, `In ${per}, the source that brought in the ${wantMin ? "least" : "most"} was "${pick.name}": ${c.money(pick.sum)}, of the ${c.money(total)} that came in.`),
+      pieces: ranked.slice(0, 3).map((r) => ({ label: r.name, minor: r.sum })),
+      note: null, source: ["libros.lineas", "estudio.flujo"], lines: n,
+    };
+  }
+  // EL PESO: la salida agregada por categoría contra el ingreso
+  // del mismo período. Apartar no es salir: el rol de ahorros no
+  // pesa como salida, como en el gasto de extremos.
+  if (/(pesa|pesan|pesaron|peso|weigh|weighed|weighs|outflow)/.test(folded) || /(se (fue|llevo)|fueron) mas de lo que entr/.test(folded)) {
+    const byCat = new Map<string, number>();
+    let income = 0;
+    let n = 0;
+    for (const l of allLines(c)) {
+      if (!inPeriod(c, l, p)) continue;
+      const v = view(c, l);
+      if (v <= 0) continue;
+      if (l.kind.startsWith("income")) { income += v; continue; }
+      if (roleOf(c.state, l.categoryId) === "savings") continue;
+      const name = catLabel(c, l.categoryId);
+      byCat.set(name, (byCat.get(name) ?? 0) + v);
+      n++;
+    }
+    if (!byCat.size) return null;
+    const ranked = [...byCat.entries()].map(([name, sum]) => ({ name, sum })).sort((a, b) => b.sum - a.sum);
+    const top = ranked[0];
+    if (income <= 0) {
+      return {
+        kind: "answer", family: "ranking",
+        verdict: L(c.lang, `En ${per} no entró nada anotado, así que el peso de las salidas no se puede medir contra el ingreso. La salida mayor fue ${top.name}: ${c.money(top.sum)}.`, `In ${per} nothing came in on record, so the weight of the outflows cannot be measured against income. The largest outflow was ${top.name}: ${c.money(top.sum)}.`),
+        pieces: ranked.slice(0, 3).map((r) => ({ label: r.name, minor: r.sum })),
+        note: null, source: ["libros.lineas", "estudio.flujo"], lines: n,
+      };
+    }
+    const pct = Math.round((top.sum * 100) / income);
+    return {
+      kind: "answer", family: "ranking",
+      verdict: L(c.lang, `En ${per}, la salida que más pesó fue ${top.name}: ${c.money(top.sum)}, el ${pct}% de los ${c.money(income)} que entraron.`, `In ${per}, the outflow that weighed most was ${top.name}: ${c.money(top.sum)}, ${pct}% of the ${c.money(income)} that came in.`),
+      pieces: ranked.slice(0, 3).map((r) => ({ label: r.name, minor: r.sum })),
+      note: null, source: ["libros.lineas", "estudio.flujo"], lines: n,
+    };
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* HISTORIA — período × filtro, sumando líneas; $0 también responde.  */
 /* ------------------------------------------------------------------ */
@@ -11285,6 +11375,7 @@ function convoFrameFloor(frame: ConvoFrame): { reached: (m: BookMode) => boolean
 const GATE_WORDS: string[] = [
   "cuanto", "cuanta", "cuantos", "cuantas", "cuando", "donde", "quien", "quienes",
   "gasto", "gastos", "gaste", "gastado", "gastando", "gasolina", "ingreso", "ingresos", "ingrese", "ingreso",
+  "fuente", "fuentes", "source", "sources", "brought", "least", "came", "each", "any",
   "entro", "entran", "entraron", "gane", "ganar", "ganas", "salario", "sueldo",
   "ahorro", "ahorros", "ahorrado", "ahorrar", "aparte", "apartado", "apartados", "aparte", "aparto", "aparte",
   "retiro", "retiros", "retirar", "emergencia", "emergencias", "meta", "metas", "fondo", "fondos",
@@ -12892,6 +12983,15 @@ function answerSingle(
   // agenda oía «when do i pay» y «what … due», pero no la forma con
   // «my dues»: la canónica inglesa de la familia moría en la puerta.
   if (/(primeras cuotas|fechas en las que pago|que vence|cuando pago mis|what.*due|when do i pay|when do my dues|dues (fall|are due)|pagos vienen|viene esta semana|proximos pagos|pagos de esta semana|payments (coming|due)|proximo pago|next payment|next due|que tengo que pagar|que hay que pagar|what do i have to pay)/.test(folded)) return agendaAnswer(c, folded);
+  // 6a · RANKING DE FUENTES Y PESO (la ampliación): entra solo con
+  // la marca de la fuente, del orden o del peso. Va antes del
+  // relator y de extremos porque esas marcas no son suyas: la
+  // línea suelta sigue en extremos y la suma por filtro ya quedó
+  // en historia, que corre antes.
+  if (/fuente|source|pesa|pesan|pesaron|weigh|outflow/.test(folded) || (/(ordena|ordenar|ordenad)/.test(folded) && /(ingreso|fuente|salida|gasto|income)/.test(folded)) || /(de donde|de que) (entro|vino|llego) (mas|menos)/.test(folded) || /(se (fue|llevo)|fueron) mas de lo que entr/.test(folded) || (/(ingreso|income)/.test(folded) && /(aporto|aportaron|trajo|trajeron|brought)/.test(folded) && /(mas|menos|mayor|menor|most|least)/.test(folded))) {
+    const r = rankingFuentesAnswer(c, folded);
+    if (r) return r;
+  }
   // 6c · LA ESTACIONALIDAD (ola 15) antes que el relator: «¿en qué MES
   // gasto más?» es el año, no la categoría del mes.
   {
@@ -13155,7 +13255,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(cuando termino|termino de pagar|acabo de pagar|en \d+ meses|para (diciembre|enero|navidad))/, "futuro"],
     [/(quiero (enviar|mandar)|voy a (enviar|mandar)|necesito (enviar|mandar)|^(envia|manda|enviar|mandar)\b|remesa (a|para|de)|envio (a|para|de))/, "acciones"],
     [/(a estas alturas|voy (mejor|peor)|a este ritmo|como voy (este|el) mes)/, "sintesis"],
-    [/(quien (me debe|gasta|debe) mas|a quien le debo mas|who owes me (the )?most)/, "ranking"],
+    [/(quien (me debe|gasta|debe) mas|a quien le debo mas|who owes me (the )?most|fuente.{0,30}(mas|menos|mayor|menor|aporto)|ordena.{0,30}(ingreso|fuente|salida)|(pesa|pesan|pesaron).{0,30}(salida|gasto|ingreso|entro)|which (income )?source|which.{0,25}(income )?sources|rank my income|(cual|que|which).{0,40}(ingreso|income).{0,30}(aporto|trajo|brought))/, "ranking"],
     [/(cuanto pago de interes|cual deuda (me )?(sale|es)|que pago primero|completa o (el )?minimo|que pasa si no pago|what should i pay first|which debt costs|how much interest do i pay)/, "deudas"],
     [/(avalancha|bola de nieve|avalanche|snowball|que orden|en que orden|cual orden)/, "deudas"],
     [/(debo|deuda|prestamo|me debe|me deben|le debo|saldo de (mi|la) tarjeta|i owe|owes me)/, "deudas"],
