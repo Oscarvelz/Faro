@@ -2812,7 +2812,7 @@ function exceptionTail74(c: Ctx, folded: string, excl: { strip: string } | null)
   return cit ? { ...cit, strip: m[0] } : null;
 }
 
-function historiaAnswer(c: Ctx, folded: string): BankResult {
+function historiaAnswer(c: Ctx, folded: string, aporteLabel?: string): BankResult {
   const p = periodOf(c, folded);
   // OLA 28: la exclusión se lee ANTES que el filtro y se retira del
   // texto que el filtro escanea — «sin la casa» no es un filtro de
@@ -2823,7 +2823,7 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
   // palabras, «¿cuánto gano por día?» recibía el GASTO: la dirección
   // cruzada, peor que el silencio. (Se lee aquí, antes que la
   // exclusión, porque la alberca del desempate la necesita.)
-  const income = /entr|ingres|recibi|gana|gano|gane|cobr|depositaron|me pagaron|cuanto recibo|salario|sueldo|earned|came in|salary|wage/.test(folded);
+  const income = /entr|ingres|recibi|gana|gano|gane|cobr|depositaron|me pagaron|cuanto recibo|salario|sueldo|earned|came in|salary|wage|aporto|aportaron|trajo|trajeron|brought/.test(folded);
   // OLA 35 (C35-1): la alberca del período y la dirección, sin
   // filtro — el desempate del ciudadano (citizenByName) la consulta
   // para no atar a un homónimo que en este período no excluye nada.
@@ -3035,6 +3035,8 @@ function historiaAnswer(c: Ctx, folded: string): BankResult {
       ? (income
         ? L(c.lang, `En ${p.label} entraron ${c.money(total)} (${countTxt}): ${partsText}.${exclText}${medioText}`, `${c.money(total)} came in ${p.label} (${countTxt}): ${partsText}.${exclText}${medioText}`)
         : L(c.lang, `En ${p.label} gastaste ${c.money(total)} (${countTxt}): ${partsText}.${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)} (${countTxt}): ${partsText}.${exclText}${medioText}`))
+      : aporteLabel && income
+      ? L(c.lang, `En ${p.label} entraron ${c.money(total)} de ${aporteLabel} (${countTxt}).${exclText}${medioText}`, `${c.money(total)} came in ${p.label} from ${aporteLabel} (${countTxt}).${exclText}${medioText}`)
       : income
       ? L(c.lang, `En ${p.label} entraron ${c.money(total)}${filterName ? ` en ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`, `${c.money(total)} came in ${p.label}${filterName ? ` under ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`)
       : L(c.lang, `En ${p.label} gastaste ${c.money(total)}${filterName ? ` en ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`, `In ${p.label} you spent ${c.money(total)}${filterName ? ` on ${filterName}` : ""} (${countTxt}).${exclText}${medioText}`),
@@ -12929,6 +12931,23 @@ function answerSingle(
   // caían en silencio con el libro lleno, aunque la familia misma
   // sí conoce esas voces (su regex de ingreso trae recibi y cobr
   // desde la Ola 12). La puerta y la familia vuelven a coincidir.
+  // EL HUECO «¿CUÁNTO APORTÓ X?» (registro propio
+  // HUECO-CUANTO-APORTO-REGISTRO.md; luz verde de Oscar
+  // el 2026-11-27): la puerta de la suma no oía «aportó»
+  // ni «trajo» sobre una fuente nombrada, y la pregunta
+  // caía en silencio con el clasificador diciendo
+  // historia. Es suma de historia sobre un filtro (una
+  // fuente), no ranking: la puerta solo se abre cuando
+  // el nombre resuelve a un ciudadano del libro
+  // (concepto, categoría o tienda), así «¿cuánto aportó
+  // Carlos?» — una persona del lado deuda — no se
+  // disfraza de suma de ingreso.
+  if (/(cuanto|cuanta) (aporto|aportaron|trajo|trajeron)/.test(folded) || /how much did .+ (bring in|brought)/.test(folded)) {
+    const exclH = exclusionIn(c.state, c.names, folded, undefined, otherNamer(c.state, c.lang));
+    const cleanH = exclH ? folded.replace(exclH.strip, " ") : folded;
+    const fH = filterOf(c, cleanH);
+    if (fH) return historiaAnswer(c, folded, filterMetaOf(fH)?.label ?? undefined);
+  }
   if (/(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago|pague|he pagado|recibi|recibimos|cobre)|cuanto dinero (gaste|gasto|gano|gane|recibi|cobre|pague|compre|entro|ingrese|ingreso)|cuanto recibo|cuanto me (entro|entra|pagaron|depositaron|ingresaron|dieron)|cuanto se (recibio|deposito)|cuanto (pago|cuesta|cuestan|costaron|costo) |cuanto (fue|es|ha sido) lo que (gaste|gano|pague|compre|entro|recibi)|how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|gasto hormiga|gastos (chicos|pequenos|menores)|how much (did i earn|do i earn|have i earned|has come in|came in)|how much (tax|did i pay in tax))/.test(folded)) {
     // OLA 47 (F5): la comparación anual se juzga antes que la
     // historia plana — su mitad comparativa se perdía en silencio.
@@ -13263,7 +13282,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(mas que|menos que|diferencia (entre|de)|mejor (mes|que)|peor (mes|que)|comparad|versus)/, "comparar"],
     [/(ahorr|tendre ahorrado|tendria ahorrado|cuanto tengo en|mi cuenta de ahorros)/, "ahorros"],
     [/(cuanto (mande|envie|enviado|enviando)|how much did i (send|sent)).{0,40}(semana|mes|ano|week|month|year|quincena)/, "remesas-periodo"],
-    [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido)|cuanto (fue|es) lo que (gaste|gano|pague|compre)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
+    [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido|aporto|aportaron|trajo|trajeron)|cuanto (fue|es) lo que (gaste|gano|pague|compre)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
   ];
   // La confirmación exige su cifra: sin dígito no hay afirmación que juzgar.
   if (hasDigit && /(verdad|es cierto|es verdad|no es asi|is it true)/.test(folded)) return { isQuestion, family: "confirmacion" };

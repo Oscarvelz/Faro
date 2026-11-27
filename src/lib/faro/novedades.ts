@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.504",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "«¿Cuánto aportó…?» ya tiene respuesta", en: "“How much did … bring in?” now has an answer" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Preguntar cuánto aportó una fuente — «¿Cuánto aportó el salario este mes?» — caía en silencio; ahora el Asesor suma esa fuente en el período y dice el total con su nombre.",
+        "La puerta solo se abre cuando el nombre es una fuente de tu libro: preguntar cuánto aportó una persona no se disfraza de suma de ingreso.",
+      ],
+      en: [
+        "Asking how much a source brought in — “How much did my salary bring in this month?” — used to fall silent; now the Advisor adds up that source over the period and says the total with its name.",
+        "The door only opens when the name is a source in your book: asking how much a person brought in does not dress itself up as an income sum.",
+      ],
+    },
+  },
+  {
     version: "1.3.503",
     date: "2026-11-27",
     level: "menor",
