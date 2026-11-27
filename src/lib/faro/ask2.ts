@@ -1802,11 +1802,32 @@ function conteoAnswer(c: Ctx, folded: string): BankResult | null {
     };
   }
   if (/persona|gente|people|who/.test(folded) || /me deben|me debe/.test(folded)) {
+    /* LA RESPUESTA AFINADA A LA PREGUNTA (fallo de Oscar sobre el
+     * banco de la 512, 2026-11-27): «¿Cuánta lana me debe Carlos?»
+     * entraba por la puerta del conteo — «cuánta» suena a cuántas —
+     * y salía con la lista entera de deudores y las piezas en cero,
+     * cuando la pregunta pide la cifra de UNA persona. Sin la
+     * palabra de gente (personas, gente, people), dos formas son de
+     * monto y esta puerta cede a deudas, que responde afinada: la
+     * que trae la palabra del dinero junto a cuánta/cuánto, y la
+     * que nombra a una persona del libro tras el verbo de deber. El
+     * conteo de verdad («¿cuántas personas me deben?») se queda, y
+     * sus piezas dejan de salir en cero: cada persona lleva lo que
+     * de veras debe, de la misma fuente de deudas. */
+    if (!/(persona|gente|people)/.test(folded)) {
+      const moneyForm = /(cuanta|cuanto)\s+(lana|plata|dinero|money|efectivo|cash|pesos|dolares|euros)\b/.test(folded);
+      const namedForm = [...peopleOf(c.state, "owed", c.today), ...peopleOf(c.state, "owe", c.today)].some((p) => {
+        const f = foldQ(p.name);
+        return f.length >= 3 && (folded.includes(f) || f.split(/\s+/).some((w) => w.length >= 4 && folded.includes(w)));
+      });
+      if (moneyForm || namedForm) return null;
+    }
     const lent = lentOf(c.state).filter((x) => !x.archived);
+    const owedRows = peopleOf(c.state, "owed", c.today);
     return {
       kind: "answer", family: "conteo",
       verdict: L(c.lang, `Te deben ${lent.length} persona${lent.length === 1 ? "" : "s"} con préstamo vivo.`, `${lent.length} ${lent.length === 1 ? "person owes" : "people owe"} you with a live loan.`),
-      pieces: lent.slice(0, 5).map((x) => ({ label: x.person, minor: 0 })),
+      pieces: owedRows.slice(0, 5).map((p) => ({ label: p.name, minor: p.left })),
       note: null, source: ["cobros.mideben"], lines: lent.length,
     };
   }
@@ -9965,7 +9986,7 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
    * otra mitad de la pregunta. El total es el de netBalance
    * (préstamos dados + las recompensas que el banco te guarda),
    * la fuente única de la Ola 44. */
-  if (/(cuanto me deben|cuanto me debe\b|how much am i owed|how much do (they|people) owe me)/.test(folded) && !/(mas|most)/.test(folded)) {
+  if (/(cuanto me deben|cuanto me debe\b|cuanta (lana|plata|dinero) me deben|how much am i owed|how much do (they|people) owe me)/.test(folded) && !/(mas|most)/.test(folded)) {
     const nb = netBalance(c.state, c.today);
     if (nb.owed <= 0) return { kind: "answer", family: "deudas", verdict: L(c.lang, "Nadie te debe nada anotado: no hay préstamos dados vivos ni recompensas por cobrar en tu libro.", "Nobody owes you anything recorded: no live loans given and no rewards to collect in your book."), pieces: [], note: null, source: ["cobros.mideben"], lines: 0 };
     const people = owed.filter((p) => p.left > 0);

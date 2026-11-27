@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.514",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La respuesta se afina a la pregunta", en: "The answer now fits the question" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«¿Cuánta lana me debe Carlos?» ya responde de Carlos y su cifra, no con la lista entera de deudores: la forma de monto cede del conteo a deudas. Y cuando sí pides el conteo («¿cuántas personas me deben?»), cada persona lleva lo que de veras debe, nunca ceros.",
+      ],
+      en: [
+        "“How much money does Carlos owe me?” now answers about Carlos and his figure, not with the whole list of debtors: the amount form yields from counting to debts. And when you do ask for the count (“how many people owe me?”), each person carries what they truly owe, never zeros.",
+      ],
+    },
+  },
+  {
     version: "1.3.513",
     date: "2026-11-27",
     level: "menor",
