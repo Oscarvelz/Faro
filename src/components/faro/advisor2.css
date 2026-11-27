@@ -599,8 +599,14 @@ button.a2-sum-row:active, button.a2-sum-row.is-open { background: rgba(255,255,2
    monto estimado viaja en su propia superficie dentro de la
    tarjetita del borrador — borde y fondo propios, en la tinta del
    tema, nunca fundida en la línea del detalle. */
-.ask-relato-est { display: flex; align-items: flex-start; gap: 7px; margin-top: 6px; padding: 6px 8px; font-size: .78rem; line-height: 1.35; color: var(--fg); background: color-mix(in oklab, var(--fg) 6%, transparent); border: 1px solid var(--line); border-radius: 8px; }
-.ask-relato-est svg { flex: none; margin-top: 1px; }
+.ask-relato-est { display: block; margin-top: 6px; padding: 6px 8px; font-size: .78rem; line-height: 1.35; color: var(--fg); background: color-mix(in oklab, var(--fg) 6%, transparent); border: 1px solid var(--line); border-radius: 8px; }
+/* 1.3.486 · EL ICONO DE LA TARJETA, JUNTO A SU NOMBRE (Oscar, sobre
+   la foto del banco: el icono no va en el aviso — va arriba, con el
+   nombre de la tarjeta a la que el abono liquida): el concepto de un
+   abono es una tarjeta y su glifo la acompaña en la fila principal,
+   alineado con el texto. */
+.ask-relato-concept { display: inline-flex; align-items: center; gap: 7px; }
+.ask-relato-concept svg { flex: none; }
 .ask-relato-row.is-dup { opacity: .62; }
 .ask-relato-dup { font-size: .78rem; color: var(--muted); white-space: nowrap; }
 /* ── EL DIBUJO DE LAS FIGURAS DEL CENSO (1.3.450): la figura que

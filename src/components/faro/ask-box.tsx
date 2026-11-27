@@ -724,9 +724,9 @@ export function AskBox() {
                   <span className="ask-relato-kind">{d.op === "mover" ? L("Mover", "Move") : d.op === "gasto" ? L("Gasto", "Expense") : d.op === "abono" ? L("Abono", "Payment") : d.op === "prestamo" ? (d.debtSide === "debo" ? L("Debo", "I owe") : L("Me deben", "Owed to me")) : L("Ingreso", "Income")}</span>
                   <div className={`ask-relato-row${d.duplicate ? " is-dup" : ""}`}>
                     <span className="ask-relato-main">
-                      <span>{d.op === "mover"
+                      <span className="ask-relato-concept">{d.op === "abono" ? <CreditCard size={15} aria-hidden /> : null}<span>{d.op === "mover"
                         ? `${d.from?.label ?? ""} → ${d.to?.label ?? ""}`
-                        : d.concept}</span>
+                        : d.concept}</span></span>
                       <strong className="num">{formatMoney(d.amountMinor, d.currency, lang)}</strong>
                       {d.duplicate ? <span className="ask-relato-dup">{L("ya estaba asentado", "already posted")}</span> : null}
                     </span>
@@ -739,7 +739,7 @@ export function AskBox() {
                         de actuar, y viaja en su propia superficie dentro
                         de la tarjetita, no fundido en la línea del
                         detalle. */}
-                    {d.op === "abono" && d.estimated ? <span className="ask-relato-est"><CreditCard size={14} aria-hidden /> <span>{L("El monto de la tarjeta es estimado con la tasa de tu libro: corrígelo si tu banco aplicó otra.", "The card amount is estimated at your book's rate: correct it if your bank applied a different one.")}</span></span> : null}
+                    {d.op === "abono" && d.estimated ? <span className="ask-relato-est">{L("El monto de la tarjeta es estimado con la tasa de tu libro: corrígelo si tu banco aplicó otra.", "The card amount is estimated at your book's rate: correct it if your bank applied a different one.")}</span> : null}
                   </div>
                 </div>
               );
