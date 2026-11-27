@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.496",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La vigilancia se presenta sola", en: "The watch presents itself" },
+    topic: "vigilancia",
+    points: {
+      es: [
+        "Central gana la tarjeta «La vigilancia»: lo que cambió en tu libro — una deriva, un salto, un ingreso que no llegó, un gasto sin programar — se presenta sin que preguntes.",
+        "Cada aviso se puede quitar por su mes con su ✕, y un recordatorio ya no se anuncia como un pago de $0.00.",
+      ],
+      en: [
+        "Central gains the “Watch” card: what changed in your book — a drift, a jump, income that did not arrive, an unscheduled expense — presents itself without your asking.",
+        "Each flag can be removed for its month with its ✕, and a reminder is no longer announced as a $0.00 payment.",
+      ],
+    },
+  },
+  {
     version: "1.3.495",
     date: "2026-11-27",
     level: "menor",

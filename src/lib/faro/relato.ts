@@ -1552,8 +1552,10 @@ export function vigilancia(state: LedgerState, key: string, lang: Lang, today: s
   const out: VigilCandidate[] = [];
   const money = (n: number, cur: Currency) => formatMoney(n, cur, lang);
   // Lo que llega: la ventana de vencimientos de la casa, 7 días.
+  // 1.3.496: un monto 0 es un recordatorio, no un vencimiento con
+  // cifra — «vence X: $0.00» era la verruga del recordatorio (446).
   for (const d of duesWindow(state, 7, today)) {
-    if (d.kind === "lent" || d.amt == null) continue;
+    if (d.kind === "lent" || d.amt == null || d.amt === 0) continue;
     out.push({
       kind: "llega", concept: d.name, amountMinor: d.amt, currency: state.settings.display, date: d.on,
       text: L(lang, `El ${fmtDay(d.on, lang)} vence ${d.name}: ${money(d.amt, state.settings.display)}.`, `On ${fmtDay(d.on, lang)}, ${d.name} is due: ${money(d.amt, state.settings.display)}.`),

@@ -4109,6 +4109,17 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         keys: ["settings.due-alerts"],
       },
       {
+        id: "vigilancia",
+        depth: "tip",
+        mode: "esencial",
+        title: ["La vigilancia", "The watch"],
+        sum: ["Lo que cambió en tu libro, presentado sin que preguntes.", "What changed in your book, presented without your asking."],
+        bubble: ["Faro vigila tu libro y te presenta lo que cambió: un gasto que sube de a poco, un ingreso que no llegó, un cobro repetido.", "Faro watches your book and shows you what changed: spending creeping up, income that did not arrive, a repeated charge."],
+        what: ["La tarjeta «La vigilancia» aparece en [[Central]] cuando el libro trae algo que avisar, y no aparece cuando no hay nada.\n\nAvisa de seis cosas medidas, cada una con su vara. La deriva: un gasto que sube de a poco sobre su base. El salto: un mes que pasa la cerca de lo típico. La ausencia: una cuota regular que lleva más de paso y medio sin volver.\n\nEl duplicado: la misma serie cobra el mismo monto dos veces en el mes, pegadas. El primero: un compromiso que cobra por primera vez en el libro. El descubierto: lo que vence en 14 días supera lo que hoy queda del mes.\n\nTambién avisa de tus programas: el ingreso que solía entrar y este mes no se ha anotado, y el gasto que se repite mes tras mes sin estar programado.\n\nLo que vence en estos días no se repite aquí: ya vive en [[Pagos que se acercan y pago automático]].\n\nCada aviso lleva su ✕: quitarlo lo guarda en tu libro y ese episodio no vuelve; el del mes próximo es otro episodio y vuelve solo. Y preguntarle al [[Asesor]] «¿algo cambió?» responde siempre, con supresión o sin ella.", "The “Watch” card appears on [[Central]] when the book holds something to flag, and does not appear when there is nothing.\n\nIt flags six measured things, each with its stated bar. Drift: spending creeping up over its base. A jump: a month clearing the fence of the typical. An absence: a regular payment more than a step and a half overdue.\n\nA duplicate: the same series charging the same amount twice in the month, close together. A first: a commitment charging for the first time in the book. An uncovered due: what comes due in 14 days exceeds what is left of the month today.\n\nIt also flags your schedules: the income that used to come in and has not been recorded this month, and the expense that repeats month after month without being scheduled.\n\nWhat comes due these days is not repeated here: it already lives in [[Upcoming payments and autopay]].\n\nEach flag carries its ✕: removing it saves it in your book and that episode does not return; next month's is another episode and returns on its own. And asking the [[Advisor]] “did anything change?” always answers, muted or not."],
+        go: { screen: "desk", anchor: "drift-card", where: ["Central → La vigilancia", "Central → The watch"] },
+        keys: ["central.drift"],
+      },
+      {
         id: "bateria-app",
         depth: "manual",
         title: ["Protegida de la batería", "Safe from battery saving"],

@@ -102,6 +102,7 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     ["compartir-previa", "ritmo", "books.share-admin"],
     ["compartir-miembros", "ritmo", "books.share-admin"],
     ["compartir-salidas", "ritmo", "books.share-admin"],
+    ["vigilancia", "esencial", "central.drift"],
     ["f-activo", "ritmo", "editor.active-toggle"],
     ["f-recurrente", "ritmo", "editor.recurrent-toggle"],
     ["f-saldo-deuda", "ritmo", "editor.debt-balance"],
@@ -210,9 +211,13 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // books.share-admin — viven en la mesa y en «Compartidos
     // conmigo», la misma hoja de la C5). La distribución se mueve
     // a 133 · 113 · 131 sobre 377.
+    // ENMIENDA OLA 33 (1.3.496): nace «vigilancia» en Esencial (su
+    // función es central.drift — la tarjeta de Central que presenta
+    // los avisos, como la de los pagos que se acercan). La
+    // distribución se mueve a 134 · 113 · 131 sobre 378.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 377);
-    assert.equal(count("esencial"), 133);
+    assert.equal(MANUAL_TOPICS.length, 378);
+    assert.equal(count("esencial"), 134);
     assert.equal(count("ritmo"), 113);
     assert.equal(count("completo"), 131);
   });

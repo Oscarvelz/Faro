@@ -189,6 +189,7 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["settings.due-alerts", E], // 1.3.356 — Ola 6: el interruptor de los avisos de pagos, con su fila
   ["central.due-alerts", E], // 1.3.356 — Ola 6: la tarjeta de Central que anuncia los pagos
   ["central.birthday", E], // 1.3.425 — la tarjeta del cumpleaños en Central: información esencial
+  ["central.drift", E], // 1.3.496 — Ola 33: la tarjeta de la vigilancia en Central: información esencial
   ["editor.autopay", R], // 1.3.356 — Ola 6: el pago automático se configura en el editor de la cuota
   ["editor.split", R], // 1.3.489 — la marca de compartido se pone en el editor de la línea
   ["advisor.waitlist", E], // 1.3.360 — 5c: la lista de espera del Asesor; anotar y decidir un deseo es declarar, declarado antes que la superficie

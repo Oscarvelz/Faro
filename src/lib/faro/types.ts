@@ -528,6 +528,15 @@ export type Settings = {
    * quitarla de Central es momentáneo y JAMÁS toca dueAlerts ni los
    * avisos del teléfono. Missing = la tarjeta se muestra. */
   dueAlertsDismissed?: { sig: string; day: string };
+  /** 1.3.496 (Ola 33): los episodios de la vigilancia que la persona
+   * quitó de Central — los ids de episodio de driftCandidates (el id
+   * lleva el mes: la histéresis hace que el episodio del mes próximo
+   * vuelva solo) y las llaves de las candidatas de vigilancia()
+   * (clase|concepto|mes). Viven en los ajustes del LIBRO, como
+   * dueAlertsDismissed: viajan con él. Missing = nada quitado. La
+   * pregunta al Asesor NO se suprime: preguntar siempre responde. */
+  driftMuted?: string[];
+  vigilMuted?: string[];
   /** One-time seeds already applied (e.g. "remesas"), so a default the user deleted is not added again. */
   seeds?: string[];
   /** 1.3.246: las categorías fijas del widget — los pares (categoría, sub) que la tarjeta

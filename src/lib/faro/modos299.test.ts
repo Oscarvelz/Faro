@@ -301,10 +301,13 @@ describe("tres modos, etapa 5 — el metadato del Manual (T-2)", () => {
     // ENMIENDA PIEZA C9 (1.3.495): nacen los cuatro temas de las
     // mini-ayudas del Libro Compartido en Ritmo (books.share-admin):
     // ritmo +4 por alcance y el total +4 — acumulados 133 · 246 · 377.
-    assert.equal(count("esencial"), 133);
-    assert.equal(count("ritmo"), 246);
-    assert.equal(count("completo"), 377);
-    assert.equal(MANUAL_TOPICS.length, 377);
+    // ENMIENDA OLA 33 (1.3.496): nace «vigilancia» en Esencial
+    // (central.drift): esencial +1 y el total +1, y por alcance
+    // ritmo +1 — acumulados 134 · 247 · 378.
+    assert.equal(count("esencial"), 134);
+    assert.equal(count("ritmo"), 247);
+    assert.equal(count("completo"), 378);
+    assert.equal(MANUAL_TOPICS.length, 378);
   });
 
   it("las excepciones de §6.2 llevan su valor exacto", () => {

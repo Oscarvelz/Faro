@@ -390,6 +390,11 @@ export const FEATURES = {
   /* 1.3.425 (Oscar): la tarjeta del cumpleaños en Central es información
    * esencial — saber que una fecha de alguien llega es Esencial. */
   "central.birthday": E,
+  /* 1.3.496 (Ola 33): la tarjeta de la vigilancia en Central — los
+   * avisos medidos del libro se presentan sin que se pregunte. Es
+   * información esencial, como los pagos que se acercan: ver que algo
+   * cambió en tu dinero es Esencial. */
+  "central.drift": E,
   "debt.facts": E, "cobros.owed-side": E, "cobros.owe-side": E, "cobros.timeline": R,
   "cobros.quick-list": R, "cobros.quick-add": R, "cobros.archive": R, "cobros.see-all": R,
   /* §1.4 Libros — máquina común (el escaneo al añadir es scan.receipt) */

@@ -409,6 +409,11 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // quita «por ahora» compone dueAlertsDismissed con la firma del
   // conjunto (dueAlertsSig); un ajuste ordinario, sin negativa posible.
   "components/faro/due-alerts.tsx|commit|dueAlertsSig|—": ["aterrizaje", 1],
+  // 1.3.496 (Ola 33): la tarjeta de la vigilancia gana sus dos
+  // aterrizajes en línea — la ✕ de cada aviso compone driftMuted o
+  // vigilMuted en los ajustes del libro; ajustes ordinarios, sin
+  // negativa posible, como el descarte de los avisos de pagos.
+  "components/faro/drift-card.tsx|commit|inline|—": ["aterrizaje", 2],
   "components/faro/people.tsx|commitGuarded|peopleOf|—": ["guardada", 1],
   "components/faro/people.tsx|commit|mergeContacts|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],

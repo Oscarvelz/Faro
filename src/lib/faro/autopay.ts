@@ -68,7 +68,13 @@ export const AUTOPAY_WALK_MAX_STEPS = 4000;
  * ordenados por fecha (la ventana ya ordena). Préstamos fuera: su importe
  * no está modelado y un aviso sin cifra no invita a ningún cambio. */
 export function dueAlerts(state: LedgerState, today: string = todayIso()): DueEntry[] {
-  return duesWindow(state, DUE_ALERT_HORIZON_DAYS, today).filter((e) => e.kind === "cuota" || e.kind === "card");
+  // 1.3.496: una cuota con monto 0 es un RECORDATORIO, no un pago —
+  // anunciarla como «$0.00» en Central era la verruga del recordatorio.
+  // La misma filosofía de la casa para préstamos: un aviso de pago
+  // necesita su cifra, y la cifra de un recordatorio no es cero, es
+  // ninguna. La ventana (duesWindow) no cambia: otros consumidores
+  // cuentan la entrada sin sumarla.
+  return duesWindow(state, DUE_ALERT_HORIZON_DAYS, today).filter((e) => (e.kind === "cuota" || e.kind === "card") && e.amt !== 0);
 }
 
 /** 1.3.381: la firma de un conjunto de pagos que se acercan — el
