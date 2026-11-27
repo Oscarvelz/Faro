@@ -1546,6 +1546,14 @@ export type VigilCandidate = {
   currency: Currency;
   date: string;
   text: string;
+  /* LA VIGILANCIA PROPONE Y CUMPLE (1.3.501): la candidata trae
+   * lo que su botón necesita para escribir sin inventar — el
+   * no-llego, la línea del mes pasado que lo esperaba (srcId);
+   * el sin-programar, la categoría de sus líneas (catId/subId)
+   * y en `date` su próxima fecha usual. */
+  srcId?: string;
+  catId?: string;
+  subId?: string;
 };
 
 export function vigilancia(state: LedgerState, key: string, lang: Lang, today: string): VigilCandidate[] {
@@ -1573,21 +1581,23 @@ export function vigilancia(state: LedgerState, key: string, lang: Lang, today: s
     if (curLines.some((x) => x.active && x.seriesId === l.seriesId)) continue;
     const expected = isoOf(Number(key.split("-")[0]), Number(key.split("-")[1]), usualDay);
     out.push({
-      kind: "no-llego", concept: l.concept, amountMinor: l.amountMinor, currency: l.currency, date: expected,
+      kind: "no-llego", concept: l.concept, amountMinor: l.amountMinor, currency: l.currency, date: expected, srcId: l.id,
       text: L(lang, `«${l.concept}» solía entrar el día ${usualDay} y este mes no se ha anotado (se esperaban ${money(l.amountMinor, l.currency)}).`, `"${l.concept}" usually comes in on day ${usualDay} and hasn't been recorded this month (${money(l.amountMinor, l.currency)} were expected).`),
     });
   }
   // Lo que se repite sin estar programado: el mismo concepto de gasto
   // en al menos dos de los últimos tres meses, sin línea recurrente.
   const buckets = [key, prevKeyOf(key), keyMonthsAgo(key, 2)].filter((k) => state.months[k]);
-  const byConcept = new Map<string, { concept: string; months: Set<string>; amounts: number[]; currency: Currency; scheduled: boolean }>();
+  const byConcept = new Map<string, { concept: string; months: Set<string>; amounts: number[]; currency: Currency; scheduled: boolean; days: number[]; catId: string; subId: string }>();
   for (const k of buckets) {
     for (const l of state.months[k]?.lines ?? []) {
       if (!l.active || !isOut(l)) continue;
       const id = l.subId || foldQ(l.concept);
-      const e = byConcept.get(id) ?? { concept: l.concept, months: new Set<string>(), amounts: [], currency: l.currency, scheduled: false };
+      const e = byConcept.get(id) ?? { concept: l.concept, months: new Set<string>(), amounts: [], currency: l.currency, scheduled: false, days: [], catId: "", subId: "" };
       e.months.add(k);
       e.amounts.push(l.amountMinor);
+      if (l.bookedOn) e.days.push(Number(l.bookedOn.split("-")[2]));
+      e.catId = l.categoryId; e.subId = l.subId;
       if (l.recurring || l.nextDue) e.scheduled = true;
       byConcept.set(id, e);
     }
@@ -1596,9 +1606,20 @@ export function vigilancia(state: LedgerState, key: string, lang: Lang, today: s
     if (e.months.size < 2 || e.scheduled || e.amounts.length < 2) continue;
     const sorted = [...e.amounts].sort((a, b) => a - b);
     const median = sorted[Math.floor((sorted.length - 1) / 2)];
+    /* 1.3.501: la próxima fecha usual — el día más frecuente de
+     * sus líneas, este mes si aún viene y si no el próximo — es
+     * la primera fecha del programa que el botón «Programarlo»
+     * asienta. Y el texto ya no promete: la promesa sin puerta
+     * era intolerable (la ley de cero promesas falsas); el botón
+     * de la tarjeta ES la oferta. */
+    const freq = new Map<number, number>();
+    for (const d of e.days) freq.set(d, (freq.get(d) ?? 0) + 1);
+    const usualDay = [...freq.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? 1;
+    const [ty, tm] = key.split("-").map(Number);
+    const nextDate = usualDay > todayDay ? isoOf(ty, tm, usualDay) : isoOf(tm === 12 ? ty + 1 : ty, tm === 12 ? 1 : tm + 1, usualDay);
     out.push({
-      kind: "sin-programar", concept: e.concept, amountMinor: median, currency: e.currency, date: today,
-      text: L(lang, `«${e.concept}» se ha pagado en ${e.months.size} de los últimos meses (mediana ${money(median, e.currency)}) y no está programado: si quieres, lo dejo programado.`, `"${e.concept}" has been paid in ${e.months.size} of the last few months (median ${money(median, e.currency)}) and isn't scheduled: I can schedule it if you want.`),
+      kind: "sin-programar", concept: e.concept, amountMinor: median, currency: e.currency, date: nextDate, catId: e.catId, subId: e.subId,
+      text: L(lang, `«${e.concept}» se ha pagado en ${e.months.size} de los últimos meses (mediana ${money(median, e.currency)}) y no está programado.`, `"${e.concept}" has been paid in ${e.months.size} of the last few months (median ${money(median, e.currency)}) and isn't scheduled.`),
     });
   }
   return out;

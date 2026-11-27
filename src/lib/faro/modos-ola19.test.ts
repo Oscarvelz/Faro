@@ -414,6 +414,16 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // vigilMuted en los ajustes del libro; ajustes ordinarios, sin
   // negativa posible, como el descarte de los avisos de pagos.
   "components/faro/drift-card.tsx|commit|inline|—": ["aterrizaje", 2],
+  // 1.3.501: la misma tarjeta gana el aterrizaje que escribe de
+  // verdad — «Programarlo» delega en settleProgramaDrafts (la
+  // costura de la casa, la misma del Asesor) y suprime el
+  // episodio en el mismo commit; es la confirmación de una
+  // propuesta ya mostrada, sin negativa posible.
+  "components/faro/drift-card.tsx|commit|settleProgramaDrafts|settleProgramaDrafts": ["aterrizaje", 1],
+  // 1.3.501: «Anotarlo hoy» — la receta compone la línea esperada
+  // en el sitio (su firma visible es el uid fresco de la línea que
+  // nace); aterrizaje como sus hermanas de la tarjeta.
+  "components/faro/drift-card.tsx|commit|uid|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commitGuarded|peopleOf|—": ["guardada", 1],
   "components/faro/people.tsx|commit|mergeContacts|—": ["aterrizaje", 1],
   "components/faro/people.tsx|commit|upsertLine|upsertLine": ["aterrizaje", 1],

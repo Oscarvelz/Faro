@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.501",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La vigilancia propone y cumple", en: "The watch proposes and does it" },
+    topic: "vigilancia",
+    points: {
+      es: [
+        "Cada aviso de la tarjeta se lee ahora con el concepto primero y el problema después: «Salario - No llegó».",
+        "El gasto que se repite sin estar programado trae su botón «Programarlo»: su programa mensual nace ahí mismo, por la mediana y en su día usual.",
+        "El ingreso que no llegó trae «Anotarlo hoy»: queda asentado hoy por el monto que se esperaba.",
+      ],
+      en: [
+        "Each flag on the card now reads with the concept first and the problem after: “Salary - Did not arrive”.",
+        "The expense that repeats without being scheduled carries its “Schedule it” button: its monthly schedule is born right there, at the median and on its usual day.",
+        "The income that did not arrive carries “Book it today”: it is recorded today at the expected amount.",
+      ],
+    },
+  },
+  {
     version: "1.3.500",
     date: "2026-11-27",
     level: "menor",

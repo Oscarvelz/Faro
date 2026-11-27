@@ -18,10 +18,18 @@
  * alto del renglón: el detalle se quebraba al 60% y dejaba una
  * banda muerta a la derecha (caza de belleza, 2026-11-27). */
 .drift-top { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
-.drift-kind {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--accent); white-space: nowrap;
+/* El orden del renglón (fallo de Oscar, 1.3.501): viñeta, el
+ * concepto primero y el problema después del guion, en su caso
+ * normal — «• Salario - No llegó». */
+.drift-bullet { color: var(--accent); font-weight: 700; flex: none; }
+.drift-kind { font-size: 13.5px; white-space: nowrap; opacity: 0.9; }
+.drift-act {
+  align-self: flex-start; margin-top: 7px; padding: 6px 13px;
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+  color: var(--accent); background: none;
+  border: 1px solid var(--accent); border-radius: 8px;
 }
+.drift-act:hover, .drift-act:active { background: var(--accent); color: var(--accent-fg, var(--bg)); }
 .drift-concept { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drift-detail { font-size: 13px; line-height: 1.45; opacity: 0.85; }
 .drift-top b.num { white-space: nowrap; margin-left: auto; }

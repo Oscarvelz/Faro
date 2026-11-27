@@ -3,8 +3,10 @@ import { useFaro } from "./provider";
 import { Hint } from "./hint";
 import { driftCandidates, type AskAlert } from "@/lib/faro/ask2";
 import { vigilancia, type VigilCandidate } from "@/lib/faro/relato";
+import { settleProgramaDrafts } from "@/lib/faro/programa-settle";
 import { todayIso } from "@/lib/faro/loans";
-import { formatMoney } from "@/lib/faro/money";
+import { formatMoney, uid } from "@/lib/faro/money";
+import type { Line } from "@/lib/faro/types";
 import "./drift-card.css";
 
 const L = (lang: string, es: string, en: string) => (lang === "en" ? en : es);
@@ -66,6 +68,39 @@ export function DriftCard() {
       (s) => ({ ...s, settings: { ...s.settings, vigilMuted: [...(s.settings.vigilMuted ?? []).filter((x) => x !== k), k] } }),
       L(lang, "Aviso quitado por este mes", "Flag removed for this month"));
   };
+  /* LA VIGILANCIA PROPONE Y CUMPLE (1.3.501, fallo de Oscar):
+   * la tarjeta ya no promete — hace. El sin-programar gana su
+   * botón «Programarlo»: el programa mensual nace por la costura
+   * de la casa (settleProgramaDrafts) con la mediana, la
+   * categoría y la próxima fecha usual que la candidata trae.
+   * El no-llegó gana «Anotarlo hoy»: la línea esperada se asienta
+   * hoy con la identidad de su línea de origen (misma serie: la
+   * vigilancia deja de avisar porque ya llegó), sin marcas de
+   * recurrencia — fue un asiento, no un programa. */
+  const programVigil = (c: VigilCandidate) => commit(
+    (s) => {
+      const settled = settleProgramaDrafts(s, [{ op: "gasto", clase: "fijo", amountMinor: c.amountMinor, currency: c.currency, concept: c.concept, categoryId: c.catId ?? "", subId: c.subId ?? "", cadence: "monthly", firstDate: c.date, clause: "", duplicate: null }]);
+      /* El programa nace en su primera fecha (puede caer el mes
+       * próximo, fuera de las cubetas que la vigilancia de este
+       * mes mira): el episodio se suprime con la misma
+       * confirmación, o la tarjeta seguiría proponiendo lo que
+       * ya se programó. La llave es la de la candidata rendida. */
+      const k = vigilKey(c);
+      return { ...settled, settings: { ...settled.settings, vigilMuted: [...(settled.settings.vigilMuted ?? []).filter((x) => x !== k), k] } };
+    },
+    L(lang, "Quedó programado", "Scheduled"));
+  const bookVigil = (c: VigilCandidate) => commit(
+    (s) => {
+      if (!c.srcId) return s;
+      let src: Line | undefined;
+      for (const m of Object.values(s.months)) { src = m.lines.find((l) => l.id === c.srcId); if (src) break; }
+      if (!src) return s;
+      const { nextDue: _nd, srcMinor: _sm, srcCurrency: _sc, split: _sp, ...rest } = src;
+      const line: Line = { ...rest, id: uid(), monthKey: key, bookedOn: today, startedOn: today, recurring: false, cadence: "", nextDue: "", history: [] };
+      const month = s.months[key] ?? { lines: [] };
+      return { ...s, months: { ...s.months, [key]: { ...month, lines: [...month.lines, line] } } };
+    },
+    L(lang, "Ingreso anotado", "Income recorded"));
 
   return (
     <section className="card drift-card" data-anchor="drift-card">
@@ -77,7 +112,7 @@ export function DriftCard() {
       <div className="drift-rows">
         {drift.map((a) => (
           <div key={a.id} className="drift-row" data-anchor="drift-row">
-            <span className="drift-top"><span className="drift-kind">{L(lang, ...KIND_WORD[a.kind])}</span><span className="drift-concept">{a.concept}</span>{a.amountMinor ? <b className="num">{formatMoney(a.amountMinor, ledger.settings.display, lang)}</b> : null}<button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteDrift(a.id)}>
+            <span className="drift-top"><span className="drift-bullet" aria-hidden>•</span><span className="drift-concept">{a.concept}</span><span className="drift-kind">- {L(lang, ...KIND_WORD[a.kind])}</span>{a.amountMinor ? <b className="num">{formatMoney(a.amountMinor, ledger.settings.display, lang)}</b> : null}<button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteDrift(a.id)}>
               <X aria-hidden />
             </button></span>
             <span className="drift-detail">{a.detail}</span>
@@ -85,10 +120,12 @@ export function DriftCard() {
         ))}
         {vigil.map((c) => (
           <div key={vigilKey(c)} className="drift-row" data-anchor="drift-row">
-            <span className="drift-top"><span className="drift-kind">{c.kind === "no-llego" ? L(lang, "No llegó", "Did not arrive") : L(lang, "Sin programar", "Not scheduled")}</span><span className="drift-concept">{c.concept}</span>{c.amountMinor ? <b className="num">{formatMoney(c.amountMinor, c.currency, lang)}</b> : null}<button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteVigil(c)}>
+            <span className="drift-top"><span className="drift-bullet" aria-hidden>•</span><span className="drift-concept">{c.concept}</span><span className="drift-kind">- {c.kind === "no-llego" ? L(lang, "No llegó", "Did not arrive") : L(lang, "Sin programar", "Not scheduled")}</span>{c.amountMinor ? <b className="num">{formatMoney(c.amountMinor, c.currency, lang)}</b> : null}<button type="button" className="drift-x" data-anchor="drift-dismiss" aria-label={L(lang, "No avisar de este episodio", "Do not flag this episode")} onClick={() => muteVigil(c)}>
               <X aria-hidden />
             </button></span>
             <span className="drift-detail">{c.text}</span>
+            {c.kind === "sin-programar" ? <button type="button" className="drift-act" data-anchor="drift-schedule" onClick={() => programVigil(c)}>{L(lang, "Programarlo", "Schedule it")}</button> : null}
+            {c.kind === "no-llego" ? <button type="button" className="drift-act" data-anchor="drift-book" onClick={() => bookVigil(c)}>{L(lang, "Anotarlo hoy", "Book it today")}</button> : null}
           </div>
         ))}
       </div>
