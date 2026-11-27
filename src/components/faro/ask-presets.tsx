@@ -20,6 +20,7 @@
 import { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { addAskPreset, askPresetsOf, FIXED_PRESET_Q, moveAskPreset, presetCatalogByGroup, removeAskPreset } from "@/lib/faro/askpresets";
+import { Note } from "./finish";
 import { useFaro } from "./provider";
 
 export function AskPresetsManager() {
@@ -41,12 +42,15 @@ export function AskPresetsManager() {
 
   return (
     <div className="ap-wrap" data-anchor="ask-presets-manager">
-      <p className="ap-note">
+      {/* 1.3.491 (la cola de Oscar): la nota ya no va suelta sobre el
+          fondo del pliegue — viste la Note de la casa, como sus
+          hermanas de Ajustes. */}
+      <Note kind="tip">
         {L(
           `La primera es de Faro y no se quita: «${FIXED_PRESET_Q.es}». Después van las tuyas, en tu orden — un toque en la caja del Asesor y la respuesta llega al instante.`,
           `The first one is Faro's and can't be removed: “${FIXED_PRESET_Q.en}”. Then come yours, in your order — one tap in the Advisor's box and the answer comes at once.`,
         )}
-      </p>
+      </Note>
       {list.length ? (
         <div className="ap-list">
           {list.map((p, i) => (
@@ -61,7 +65,7 @@ export function AskPresetsManager() {
           ))}
         </div>
       ) : (
-        <p className="ap-note">{L("Todavía no guardas ninguna: elige del catálogo o escribe la tuya.", "You haven't saved any yet: pick from the catalog or write your own.")}</p>
+        <Note kind="empty">{L("Todavía no guardas ninguna: elige del catálogo o escribe la tuya.", "You haven't saved any yet: pick from the catalog or write your own.")}</Note>
       )}
       <div className="ap-own">
         <input

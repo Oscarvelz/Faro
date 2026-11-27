@@ -17,6 +17,7 @@
  */
 import { X } from "lucide-react";
 import { askPatternsOf, describeLearned, forgetAlias, type LearnedKind } from "@/lib/faro/asklearn";
+import { Note } from "./finish";
 import { useFaro } from "./provider";
 
 export function AskLearnedManager() {
@@ -33,12 +34,14 @@ export function AskLearnedManager() {
 
   return (
     <div className="ap-wrap" data-anchor="ask-learned-manager">
-      <p className="ap-note">
+      {/* 1.3.491 (la cola de Oscar): la nota viste la Note de la casa,
+          no texto suelto sobre el fondo del pliegue. */}
+      <Note kind="tip">
         {L(
           "Tu Asesor aprende tus palabras solo de lo que tú confirmas: cuando te pregunta de vuelta y tocas una tarjeta, tu palabra para esa cosa queda guardada. Ningún dígito vive en un patrón — cada cifra sale de tu libro en el momento de responder.",
           "Your Advisor learns your words only from what you confirm: when it asks you back and you tap a card, your word for that thing is kept. No digit lives in a pattern — every figure comes from your book at the moment of answering.",
         )}
-      </p>
+      </Note>
       {list.length ? (
         <div className="ap-list">
           {list.map((p) => (
@@ -59,7 +62,7 @@ export function AskLearnedManager() {
           ))}
         </div>
       ) : (
-        <p className="ap-note">{L("Todavía no ha aprendido ninguna palabra tuya. Pregúntale algo con tus palabras y, cuando te pregunte de vuelta, toca la tarjeta correcta: así aprende.", "It hasn't learned any of your words yet. Ask it something in your own words and, when it asks you back, tap the right card: that's how it learns.")}</p>
+        <Note kind="empty">{L("Todavía no ha aprendido ninguna palabra tuya. Pregúntale algo con tus palabras y, cuando te pregunte de vuelta, toca la tarjeta correcta: así aprende.", "It hasn't learned any of your words yet. Ask it something in your own words and, when it asks you back, tap the right card: that's how it learns.")}</Note>
       )}
     </div>
   );

@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.491",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "Los pliegues de Ajustes respiran", en: "The Settings folds breathe" },
+    topic: "preguntas-a-la-mano",
+    points: {
+      es: [
+        "El título largo de «Lo que tu Asesor ha aprendido» se salía de su renglón y se montaba sobre su signo de ayuda; ahora parte en dos líneas dentro de su sitio y nada se monta sobre nada.",
+        "Las notas de «Preguntas a la mano» y de «Lo que tu Asesor ha aprendido» ya no van sueltas sobre el fondo: visten la tarjeta de notas de la casa, como sus hermanas de Ajustes.",
+      ],
+      en: [
+        "The long title of “What your Advisor has learned” spilled out of its row and over its help sign; it now wraps onto two lines inside its place and nothing rides over anything.",
+        "The notes in “Questions at hand” and “What your Advisor has learned” no longer sit loose on the background: they wear the house note card, like their Settings sisters.",
+      ],
+    },
+  },
+  {
     version: "1.3.490",
     date: "2026-11-26",
     level: "menor",
