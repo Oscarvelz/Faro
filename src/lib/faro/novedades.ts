@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.508",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Comparar ya oye la semana, la quincena y los meses por nombre", en: "Comparing now hears the week, the pay period and months by name" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«Compara esta semana con la pasada», «esta quincena contra la anterior» y «compara agosto con septiembre» ya responden, a igual tramo y con el corte dicho, como mandaba el fallo de los meses.",
+        "Si tu libro no existía en el tramo anterior, el Asesor lo declara en vez de comparar contra cero.",
+      ],
+      en: [
+        "“Compare this week with last week”, “this pay period against the previous one” and “compare August with September” now answer, over the same stretch and with the cut stated, as the months ruling required.",
+        "If your book didn't exist in the earlier stretch, the Advisor says so instead of comparing against zero.",
+      ],
+    },
+  },
+  {
     version: "1.3.507",
     date: "2026-11-27",
     level: "menor",

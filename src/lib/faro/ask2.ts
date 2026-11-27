@@ -3925,6 +3925,124 @@ function compararAnswer(c: Ctx, folded: string): BankResult | null {
       frame: { kind: "compare2", monthA: c.key, monthB: prevKey(c.key), labelA: L(c.lang, "este mes", "this month"), labelB: L(c.lang, "el mes pasado", "last month"), totalA: a.spend, totalB: b.spend, filter: null },
     };
   }
+  /* EL HUECO 2 DE COBERTURA · LOS OTROS PERÍODOS TAMBIÉN COMPARAN
+   * (registro HUECO-COMPARAR-PERIODOS-REGISTRO.md): la puerta viva
+   * comparaba mes contra mes; la semana, la quincena y los meses
+   * nombrados sin «más» caían en silencio (110 de 164). LA
+   * DOCTRINA ES LA DEL FALLO DE LOS MESES, extendida tramo a
+   * tramo: el período en curso se corta en hoy y el anterior en
+   * el mismo día, y el corte se nombra; si el libro nace dentro
+   * del tramo anterior, su tramo se declara incompleto; si el
+   * libro no existía en el tramo anterior, se declara que no hay
+   * con qué comparar en vez de comparar contra cero. Dos meses
+   * nombrados ya cerrados se comparan enteros; si uno de los dos
+   * es el mes en curso, manda el tramo. La rama es la última de
+   * la familia: las formas con rama propia (el filtro contra su
+   * pasado, los dos filtros, el mejor o peor) ya se juzgaron. */
+  {
+    type Side = { label: string; low: string; piece: string; from: string; to: string; key?: string; cap?: number; cut: boolean };
+    const isoD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const shiftD = (base: string, n: number) => { const d = new Date(`${base}T12:00:00`); d.setDate(d.getDate() + n); return isoD(d); };
+    let pair: [Side, Side] | null = null;
+    if (/semana|week/.test(folded) && /(pasada|anterior|last|contra|frente|versus|vs\b|compara)/.test(folded)) {
+      const cur = periodRange("week", c.today, 1);
+      const prev = periodRange("week", shiftD(c.today, -7), 1);
+      const spanDays = Math.round((Date.parse(c.today) - Date.parse(cur.from)) / 86400000);
+      const cut = c.today !== cur.to;
+      pair = [
+        { label: "Esta semana", low: "esta semana", piece: L(c.lang, cut ? "Esta semana, hasta hoy" : "Esta semana", cut ? "This week, through today" : "This week"), from: cur.from, to: c.today, cut },
+        { label: "La semana pasada", low: "la semana pasada", piece: L(c.lang, cut ? "La semana pasada, al mismo día" : "La semana pasada", cut ? "Last week, by the same day" : "Last week"), from: prev.from, to: shiftD(prev.from, spanDays), cut },
+      ];
+    } else if (/quincena|pay period/.test(folded) && /(pasada|anterior|last|contra|frente|versus|vs\b|compara|diferencia|entre)/.test(folded)) {
+      const y = Number(c.key.slice(0, 4));
+      const m = Number(c.key.slice(5, 7));
+      const inSecond = dayNow > 15;
+      const half = (yy: number, mm: number, second: boolean): { from: string; to: string } => {
+        const di = new Date(yy, mm, 0).getDate();
+        const base = `${yy}-${String(mm).padStart(2, "0")}`;
+        return second ? { from: `${base}-16`, to: `${base}-${String(di).padStart(2, "0")}` } : { from: `${base}-01`, to: `${base}-15` };
+      };
+      const curH = half(y, m, inSecond);
+      let prevH: { from: string; to: string };
+      let prevCutDay: string;
+      if (inSecond) {
+        prevH = half(y, m, false);
+        prevCutDay = `${prevH.from.slice(0, 8)}${String(1 + (dayNow - 16)).padStart(2, "0")}`;
+      } else {
+        const pk = prevKey(c.key);
+        prevH = half(Number(pk.slice(0, 4)), Number(pk.slice(5, 7)), true);
+        prevCutDay = `${prevH.from.slice(0, 8)}${String(16 + (dayNow - 1)).padStart(2, "0")}`;
+      }
+      const cut = c.today !== curH.to;
+      pair = [
+        { label: "Esta quincena", low: "esta quincena", piece: L(c.lang, cut ? "Esta quincena, hasta hoy" : "Esta quincena", cut ? "This pay period, through today" : "This pay period"), from: curH.from, to: c.today, cut },
+        { label: "La quincena pasada", low: "la quincena pasada", piece: L(c.lang, cut ? "La quincena pasada, al mismo día" : "La quincena pasada", cut ? "Last pay period, by the same day" : "Last pay period"), from: prevH.from, to: prevCutDay, cut },
+      ];
+    } else {
+      const namedK: string[] = [];
+      for (let i = 1; i <= 12; i++) {
+        const [es, en] = MONTH_LABELS[String(i)];
+        if (new RegExp(`(^|[^a-z])${es}([^a-z]|$)`).test(folded) || new RegExp(`(^|[^a-z])${en.toLowerCase()}([^a-z]|$)`).test(folded)) {
+          let y = Number(c.key.slice(0, 4));
+          if (i > Number(c.key.slice(5, 7))) y -= 1;
+          namedK.push(`${y}-${String(i).padStart(2, "0")}`);
+        }
+      }
+      const distinct = [...new Set(namedK)];
+      const monthLbl = (k: string) => `${MONTH_LABELS[k.slice(5, 7).replace(/^0/, "")][c.lang === "en" ? 1 : 0]} ${k.slice(0, 4)}`;
+      const vsCurrent = distinct.includes(c.key) || /(este mes|this month)/.test(folded);
+      const pairKeys: string[] | null = distinct.length >= 2 ? [distinct[0], distinct[1]]
+        : distinct.length === 1 && distinct[0] !== c.key && vsCurrent ? [c.key, distinct[0]]
+        : null;
+      if (pairKeys && /(compara|contra|frente|versus|vs\b|diferencia|mas|menos|mejor|peor|rindio|saliendo|caro)/.test(folded)) {
+        const [k1, k2] = pairKeys;
+        const mk = (k: string): Side => {
+          if (k === c.key) return { label: monthLbl(k), low: monthLbl(k), piece: L(c.lang, `${monthLbl(k)}, al día ${dayNow}`, `${monthLbl(k)}, by day ${dayNow}`), from: `${k}-01`, to: c.today, key: k, cap: dayNow, cut: true };
+          if (vsCurrent) {
+            const cap = Math.min(dayNow, new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate());
+            return { label: monthLbl(k), low: monthLbl(k), piece: L(c.lang, `${monthLbl(k)}, al día ${cap}`, `${monthLbl(k)}, by day ${cap}`), from: `${k}-01`, to: `${k}-${String(cap).padStart(2, "0")}`, key: k, cap, cut: true };
+          }
+          return { label: monthLbl(k), low: monthLbl(k), piece: monthLbl(k), from: `${k}-01`, to: `${k}-${String(new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate()).padStart(2, "0")}`, key: k, cap: 31, cut: false };
+        };
+        pair = [mk(k1), mk(k2)];
+      } else if (/(este mes|this month)/.test(folded) && /(contra|frente a|versus|vs\b)/.test(folded) && /(pasado|pasada|anterior|last)/.test(folded)) {
+        const pk = prevKey(c.key);
+        pair = [
+          { label: "Este mes", low: "este mes", piece: L(c.lang, `Este mes, al día ${dayNow}`, `This month, by day ${dayNow}`), from: `${c.key}-01`, to: c.today, key: c.key, cap: dayNow, cut: true },
+          { label: "El mes pasado", low: "el mes pasado", piece: pastLbl, from: `${pk}-01`, to: `${pk}-${String(pastCap).padStart(2, "0")}`, key: pk, cap: pastCap, cut: true },
+        ];
+      }
+    }
+    if (pair) {
+      const [curS, prevS] = pair;
+      const income2 = /(ingres|entro|entraron|gane|ganar|rendimiento|rindio|income|earned|came in)/.test(folded);
+      const excl2 = exclusionIn(c.state, c.names, folded, undefined, otherNamer(c.state, c.lang));
+      const f2 = filterOf(c, excl2 ? folded.replace(excl2.strip, " ") : folded);
+      const sumSide = (s: Side) => allLines(c).filter((l) => (s.key ? l.monthKey === s.key && Number(lineDate(l).slice(8, 10)) <= (s.cap ?? 31) : lineDate(l) >= s.from && lineDate(l) <= s.to) && (income2 ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!f2 || f2(l)) && !(excl2 && excl2.fn(l))).reduce((a, l) => a + view(c, l), 0);
+      const a = sumSide(curS);
+      const b = sumSide(prevS);
+      const cutNow = curS.cut;
+      if (bookStart && bookStart > prevS.to) {
+        return {
+          kind: "answer", family: "comparar",
+          verdict: L(c.lang, `En ${curS.low} ${income2 ? "entraron" : "gastaste"} ${c.money(a)}, y no hay ${prevS.low} en tu libro con qué compararlo: tu libro empieza el ${bookStart.slice(8, 10)}/${bookStart.slice(5, 7)}/${bookStart.slice(0, 4)}.`, `In ${curS.low} ${income2 ? `${c.money(a)} came in` : `you spent ${c.money(a)}`}, and there's no ${prevS.low} in your book to compare it with: your book starts on ${bookStart}.`),
+          pieces: [{ label: curS.piece, minor: a }],
+          note: null, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+          actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+        };
+      }
+      const partial2 = bookStart && bookStart > prevS.from
+        ? L(c.lang, `Tu libro empieza el ${bookStart.slice(8, 10)}/${bookStart.slice(5, 7)}: el tramo de ${prevS.low} no está completo, porque antes de ese día no hay nada anotado.`, `Your book starts on ${bookStart.slice(5, 7)}/${bookStart.slice(8, 10)}: the ${prevS.low} stretch isn't complete, because nothing is recorded before that day.`)
+        : null;
+      return {
+        kind: "answer", family: "comparar",
+        verdict: L(c.lang, `${cutNow ? `A igual tramo (${curS.low} hasta hoy contra ${prevS.low} al mismo día): ` : ""}${income2 ? `entraron ${c.money(a)} en ${curS.low} y ${c.money(b)} en ${prevS.low}` : `gastaste ${c.money(a)} en ${curS.low} y ${c.money(b)} en ${prevS.low}`} — ${a === b ? "van parejos" : `${c.money(Math.abs(a - b))} más en ${a > b ? curS.low : prevS.low}`}${excl2 ? `, sin contar «${excl2.display}»` : ""}.`, `${cutNow ? `Over the same stretch (${curS.low} through today vs ${prevS.low} by the same day): ` : ""}${income2 ? `${c.money(a)} came in ${curS.low} and ${c.money(b)} in ${prevS.low}` : `you spent ${c.money(a)} in ${curS.low} and ${c.money(b)} in ${prevS.low}`} — ${a === b ? "they're tied" : `${c.money(Math.abs(a - b))} more in ${a > b ? curS.low : prevS.low}`}${excl2 ? `, not counting "${excl2.display}"` : ""}.`),
+        pieces: [{ label: curS.piece, minor: a }, { label: prevS.piece, minor: b }],
+        note: partial2, source: ["libros.lineas", "estudio.flujo"], lines: 0,
+        actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+      };
+    }
+  }
   return null;
 }
 
@@ -11432,7 +11550,7 @@ function convoFrameFloor(frame: ConvoFrame): { reached: (m: BookMode) => boolean
 const GATE_WORDS: string[] = [
   "cuanto", "cuanta", "cuantos", "cuantas", "cuando", "donde", "quien", "quienes",
   "gasto", "gastos", "gaste", "gastado", "gastando", "gasolina", "ingreso", "ingresos", "ingrese", "ingreso",
-  "fuente", "fuentes", "source", "sources", "brought", "least", "came", "each", "any", "done",
+  "fuente", "fuentes", "source", "sources", "brought", "least", "came", "each", "any", "done", "compara",
   "entro", "entran", "entraron", "gane", "ganar", "ganas", "salario", "sueldo",
   "ahorro", "ahorros", "ahorrado", "ahorrar", "aparte", "apartado", "apartados", "aparte", "aparto", "aparte",
   "retiro", "retiros", "retirar", "emergencia", "emergencias", "meta", "metas", "fondo", "fondos",
@@ -13078,7 +13196,13 @@ function answerSingle(
    * el territorio de ahorros (ahorr, apartad, guardad, reserv)
    * queda fuera entero: sus puertas ya corrieron. */
   const sumGate5 = /(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago|pague|he pagado|recibi|recibimos|cobre)|cuanto dinero (gaste|gasto|gano|gane|recibi|cobre|pague|compre|entro|ingrese|ingreso)|cuanto recibo|cuanto me (entro|entra|pagaron|depositaron|ingresaron|dieron)|cuanto se (recibio|deposito)|cuanto (pago|cuesta|cuestan|costaron|costo) |cuanto (fue|es|ha sido) lo que (gaste|gano|pague|compre|entro|recibi)|how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|gasto hormiga|gastos (chicos|pequenos|menores)|how much (did i earn|do i earn|have i earned|has come in|came in)|how much (tax|did i pay in tax))/;
-  if (!sumGate5.test(folded)
+  /* EL HUECO 2 DE COBERTURA: la marca de comparación con su
+   * segundo período manda sobre la lista y la suma coloquial —
+   * «¿en qué gasté más esta semana comparado con la pasada?» es
+   * comparar, y las puertas del hueco 1 la tomaban por historia
+   * (la cuenta lo cobró: comparar mal subió de 20 a 33). */
+  const cmpMark = /(comparad[oa] con|contra la (semana|quincena)|que la (semana|quincena) pasada|que el mes pasado|frente a la)/.test(folded);
+  if (!sumGate5.test(folded) && !cmpMark
     && /(muestra|muestrame|ensena|ensename|dame (el|la|los|las|todo|toda) |lista|listado|historial|movimientos|log de|busca|buscame|que se movio|que (compre|anote|pague|gaste|entro|salio|pagos|cargos|entradas|gastos)\b|que pago (se|hubo|fueron|salieron|cayeron)\b|que cobro (hubo|se|fueron|salieron|cayeron)\b|que hubo\b|lo que anote|todo lo (que|de)|dime todo lo que)/.test(folded)
     && !(/\bultim/.test(folded) && !/(semana|mes|quincena|ano|hoy|ayer)/.test(folded) && !/(ultimos|ultimas) (gastos|pagos|cobros|movimientos|compras|cargos|\d)/.test(folded))
     && !/(pesaron|pesan|pesa\b|peso\b)/.test(folded)
@@ -13086,7 +13210,7 @@ function answerSingle(
     return historiaListaAnswer(c, folded);
   }
   if (!/(ahorr|apartad|guardad|reserv|colchon)/.test(folded)) {
-    if (!sumGate5.test(folded) && /((cuanto|cuanta|cuantos|cuantas|que tanto) (se (me )?(fue|fueron|ha ido|han ido|va)|he (dejado|botado|gastado|metido|pagado|quemado|echado)|hemos (dejado|gastado|pagado))|que tanto (llevo|dinero llevo)|lo que (va|llevo) en )/.test(folded)) {
+    if (!sumGate5.test(folded) && !cmpMark && /((cuanto|cuanta|cuantos|cuantas|que tanto) (se (me )?(fue|fueron|ha ido|han ido|va)|he (dejado|botado|gastado|metido|pagado|quemado|echado)|hemos (dejado|gastado|pagado))|que tanto (llevo|dinero llevo)|lo que (va|llevo) en )/.test(folded)) {
       return historiaAnswer(c, folded);
     }
     // «¿En qué se me fue…?» es la suma; «¿en qué se fue MÁS, en X
@@ -13264,7 +13388,9 @@ function answerSingle(
   // gasto?», «¿en qué mes gasté más, agosto o septiembre?») muriendo
   // en una puerta que solo dejaba pasar dos frases. compararAnswer
   // devuelve null ante lo que no es suyo: la puerta ancha no roba.
-  if (/(mas|more|menos|less|mejor|peor|better|worse|diferencia|difference|mucho|poco|a lot|too much)/.test(folded)) {
+  if (/(mas|more|menos|less|mejor|peor|better|worse|diferencia|difference|mucho|poco|a lot|too much)/.test(folded)
+    || /(compara|comparame|comparar|comparando|versus|vs\b)/.test(folded)
+    || (/(contra|frente a)/.test(folded) && /(semana|quincena|mes|ano|trimestre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|week|month|year)/.test(folded))) {
     const r = compararAnswer(c, folded);
     if (r) return r;
   }
@@ -13422,6 +13548,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(ha subido|subio de precio|subieron los precios|(subio|subieron).{0,24}suscripcion|no se cobro|no me cobraron|al ano en suscripciones|cuanto.*al ano.*suscripcion|subscription.{0,24}(go up|went up|goes up)|which subscription|didnt charge|did not charge|subscriptions? cost)/, "series"],
     [/(cuantas veces|cada cuanto|cada cuantos|que suscripciones tengo|mas frecuente|duplicad|ha subido|subio de precio|que dia (gasto|compro) mas|how many times)/, "frecuencia"],
     [/(dias de trabajo|horas de trabajo|por (dia|hora) de trabajo|cuesta.{0,30}de trabajo)/, "precio-tiempo"],
+    [/(semana|quincena) (contra|frente a|vs) /, "comparar"],
     [/(como (fue|va|me fue)|en que se me va|en que gasto mas|resumen de|como cerro|mi mes (pasado|anterior))/, "relator"],
     [/(vence|vencen|proximo pago|tengo que pagar|por pagar|se me vence|upcoming|next payment)/, "agenda"],
     [/(tendre ahorrado|tendria ahorrado|ahorrado en \d+ meses)/, "ahorros"],
@@ -13433,7 +13560,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(avalancha|bola de nieve|avalanche|snowball|que orden|en que orden|cual orden)/, "deudas"],
     [/(debo|deuda|prestamo|me debe|me deben|le debo|saldo de (mi|la) tarjeta|i owe|owes me)/, "deudas"],
     [/(mas (grande|caro|alto|chico|chica)|menor (gasto|compra|ingreso)|mayor (gasto|compra|ingreso)|biggest|largest|smallest|gasto mas (grande|caro)|compra mas (grande|cara))/, "extremos"],
-    [/(mas que|menos que|diferencia (entre|de)|mejor (mes|que)|peor (mes|que)|comparad|versus)/, "comparar"],
+    [/(mas que|menos que|diferencia (entre|de)|mejor (mes|que)|peor (mes|que)|comparad|versus|compara (mis|esta|este|lo|la)|comparame|(semana|quincena) (contra|frente|vs|con la)|contra (la|el) (semana|quincena|mes|pasado|anterior))/, "comparar"],
     [/(ahorr|tendre ahorrado|tendria ahorrado|cuanto tengo en|mi cuenta de ahorros)/, "ahorros"],
     [/(cuanto (mande|envie|enviado|enviando)|how much did i (send|sent)).{0,40}(semana|mes|ano|week|month|year|quincena)/, "remesas-periodo"],
     [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido|aporto|aportaron|trajo|trajeron)|cuanto (fue|es) lo que (gaste|gano|pague|compre)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|se me (fue|fueron|ha ido)|he (dejado|botado)|historial|movimientos|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
