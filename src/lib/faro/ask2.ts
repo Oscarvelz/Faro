@@ -2812,6 +2812,61 @@ function exceptionTail74(c: Ctx, folded: string, excl: { strip: string } | null)
   return cit ? { ...cit, strip: m[0] } : null;
 }
 
+/* EL HUECO 1 DE COBERTURA · LA LISTA DE MOVIMIENTOS (registro
+ * HUECO-HISTORIA-LISTA-REGISTRO.md; luz verde de Oscar el
+ * 2026-11-27): la historia viva era una puerta de sumas y el
+ * pedido de la lista («qué se movió hoy», «muéstrame los
+ * movimientos», «dame el historial de septiembre») caía en
+ * silencio — 163 de las 234 preguntas de historia de la cuenta
+ * de cobertura. Esta rama responde la lista dentro de la misma
+ * familia: las líneas del período, en orden, con su suma dicha
+ * en el veredicto. El período, la exclusión, el filtro y la
+ * dirección son los de la suma; lo que cambia es la forma de la
+ * respuesta. El cero se declara como en la suma: el período sin
+ * movimientos también es la respuesta del libro. (En canon el
+ * filtro se nombra por su etiqueta, como manda la redacción
+ * clara de la 499: nada de «en eso».) */
+function historiaListaAnswer(c: Ctx, folded: string): BankResult {
+  const p = periodOf(c, folded);
+  const excl = exclusionIn(c.state, c.names, folded, undefined, otherNamer(c.state, c.lang));
+  const clean = excl ? folded.replace(excl.strip, " ") : folded;
+  const filter = filterOf(c, clean);
+  const fname = filter ? (filterMetaOf(filter)?.label ?? null) : null;
+  const income = /entr|ingres|recibi|gana|gano|gane|cobr|depositaron|me pagaron|cuanto recibo|salario|sueldo|earned|came in|salary|wage|aporto|aportaron|trajo|trajeron|brought/.test(folded);
+  let pool = allLines(c).filter((l) => inPeriod(c, l, p) && (income ? l.kind.startsWith("income") : isOut(l) && roleOf(c.state, l.categoryId) !== "savings") && (!filter || filter(l)) && (!excl || !excl.fn(l)));
+  const thr = folded.match(/mayores? (a|de) ([\d][\d.,]*)/);
+  if (thr) {
+    const num = Number(thr[2].replace(/,/g, ""));
+    if (Number.isFinite(num) && num > 0) {
+      const cur: Currency = /cordobas/.test(folded) ? "NIO" : c.display;
+      const thrView = cur === c.display ? Math.round(num * 100) : convertMinor(Math.round(num * 100), cur, c.display, c.rateE4);
+      pool = pool.filter((l) => view(c, l) >= thrView);
+    }
+  }
+  // «Los últimos…» pide la lista al revés: lo más reciente
+  // primero. Sin esa palabra, la lista va en orden de fecha.
+  if (/\bultim|last\b/.test(folded)) pool.sort((a, b) => lineDate(b).localeCompare(lineDate(a)) || b.id.localeCompare(a.id));
+  else pool.sort((a, b) => lineDate(a).localeCompare(lineDate(b)) || a.id.localeCompare(b.id));
+  const total = pool.reduce((a, l) => a + view(c, l), 0);
+  if (pool.length === 0) {
+    return {
+      kind: "answer", family: "historia",
+      verdict: L(c.lang, `En ${p.label} no tienes movimientos anotados${fname ? ` en ${fname}` : ""}: la lista sale vacía, y ese vacío también es la respuesta de tu libro.`, `In ${p.label} you have no recorded movements${fname ? ` under ${fname}` : ""}: the list comes out empty, and that emptiness is your book's answer too.`),
+      pieces: [{ label: p.label, minor: 0 }],
+      note: null, source: ["libros.lineas", "historial.stream"], lines: 0,
+      actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+    };
+  }
+  return {
+    kind: "answer", family: "historia",
+    verdict: L(c.lang, `En ${p.label} tienes ${pool.length} movimiento${pool.length === 1 ? "" : "s"}${income ? " de entrada" : " de salida"}${fname ? ` en ${fname}` : ""}, que suman ${c.money(total)}.`, `In ${p.label} you have ${pool.length} ${income ? "incoming" : "outgoing"} movement${pool.length === 1 ? "" : "s"}${fname ? ` under ${fname}` : ""}, adding up to ${c.money(total)}.`),
+    pieces: pool.slice(0, 5).map((l) => ({ label: `${l.concept} · ${fmtFecha(c, lineDate(l))}`, minor: view(c, l) })),
+    note: pool.length > 5 ? L(c.lang, `Te muestro los primeros 5 de ${pool.length}; el total del veredicto los cuenta todos.`, `I'm showing the first 5 of ${pool.length}; the verdict's total counts them all.`) : null,
+    source: ["libros.lineas", "historial.stream"], lines: pool.length,
+    actions: reportDoor(c, "estudio.flujo", "Verlo en Estudio · Flujo", "See it in Study · Flow"),
+  };
+}
+
 function historiaAnswer(c: Ctx, folded: string, aporteLabel?: string): BankResult {
   const p = periodOf(c, folded);
   // OLA 28: la exclusión se lee ANTES que el filtro y se retira del
@@ -13008,7 +13063,46 @@ function answerSingle(
     const fH = filterOf(c, cleanH);
     if (fH) return historiaAnswer(c, folded, filterMetaOf(fH)?.label ?? undefined);
   }
-  if (/(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago|pague|he pagado|recibi|recibimos|cobre)|cuanto dinero (gaste|gasto|gano|gane|recibi|cobre|pague|compre|entro|ingrese|ingreso)|cuanto recibo|cuanto me (entro|entra|pagaron|depositaron|ingresaron|dieron)|cuanto se (recibio|deposito)|cuanto (pago|cuesta|cuestan|costaron|costo) |cuanto (fue|es|ha sido) lo que (gaste|gano|pague|compre|entro|recibi)|how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|gasto hormiga|gastos (chicos|pequenos|menores)|how much (did i earn|do i earn|have i earned|has come in|came in)|how much (tax|did i pay in tax))/.test(folded)) {
+  /* EL HUECO 1 DE COBERTURA · LA LISTA Y LAS FORMAS COLOQUIALES
+   * DE LA SUMA (registro HUECO-HISTORIA-LISTA-REGISTRO.md): la
+   * puerta 5 enumera «cuánto + verbo» y el habla pide la historia
+   * de otras dos maneras que caían en silencio — la lista de
+   * movimientos («qué se movió», «muéstrame los movimientos»,
+   * «dame el historial») y la suma coloquial («cuánto se me fue
+   * en…», «qué tanto he dejado en…», «gasto en transporte este
+   * mes»). La lista se juzga primero: si la pregunta trae una
+   * forma de suma de la puerta 5, manda la suma; si trae
+   * «último» sin período, manda la recencia de la puerta 6. Las
+   * formas desnudas («gasto en X», «total en X») solo abren si
+   * un ciudadano del libro resuelve o un período se nombra, y
+   * el territorio de ahorros (ahorr, apartad, guardad, reserv)
+   * queda fuera entero: sus puertas ya corrieron. */
+  const sumGate5 = /(cuanto (gaste|gasto|gano|gane|entro|ingrese|ingreso|llevo|pago|pague|he pagado|recibi|recibimos|cobre)|cuanto dinero (gaste|gasto|gano|gane|recibi|cobre|pague|compre|entro|ingrese|ingreso)|cuanto recibo|cuanto me (entro|entra|pagaron|depositaron|ingresaron|dieron)|cuanto se (recibio|deposito)|cuanto (pago|cuesta|cuestan|costaron|costo) |cuanto (fue|es|ha sido) lo que (gaste|gano|pague|compre|entro|recibi)|how much (did|do) i (spend|earn|pay)|cuanto he (gastado|ganado|recibido)|cuanto (ha entrado|dinero ha entrado|dinero entro)|cuanto es mi (ingreso|sueldo|salario)|mi ingreso mensual|gasto hormiga|gastos (chicos|pequenos|menores)|how much (did i earn|do i earn|have i earned|has come in|came in)|how much (tax|did i pay in tax))/;
+  if (!sumGate5.test(folded)
+    && /(muestra|muestrame|ensena|ensename|dame (el|la|los|las|todo|toda) |lista|listado|historial|movimientos|log de|busca|buscame|que se movio|que (compre|anote|pague|gaste|entro|salio|pagos|cargos|entradas|gastos)\b|que pago (se|hubo|fueron|salieron|cayeron)\b|que cobro (hubo|se|fueron|salieron|cayeron)\b|que hubo\b|lo que anote|todo lo (que|de)|dime todo lo que)/.test(folded)
+    && !(/\bultim/.test(folded) && !/(semana|mes|quincena|ano|hoy|ayer)/.test(folded) && !/(ultimos|ultimas) (gastos|pagos|cobros|movimientos|compras|cargos|\d)/.test(folded))
+    && !/(pesaron|pesan|pesa\b|peso\b)/.test(folded)
+    && !/(mas|menos) (grande|caro|cara|alto|alta|fuerte|pesado|pesada|importante)/.test(folded)) {
+    return historiaListaAnswer(c, folded);
+  }
+  if (!/(ahorr|apartad|guardad|reserv|colchon)/.test(folded)) {
+    if (!sumGate5.test(folded) && /((cuanto|cuanta|cuantos|cuantas|que tanto) (se (me )?(fue|fueron|ha ido|han ido|va)|he (dejado|botado|gastado|metido|pagado|quemado|echado)|hemos (dejado|gastado|pagado))|que tanto (llevo|dinero llevo)|lo que (va|llevo) en )/.test(folded)) {
+      return historiaAnswer(c, folded);
+    }
+    // «¿En qué se me fue…?» es la suma; «¿en qué se fue MÁS, en X
+    // o en Y?» es comparar entre dos ciudadanos y no se toca.
+    if (!sumGate5.test(folded) && /(en que|a donde) se (me )?(fue|fueron|ha ido)/.test(folded) && !/(fue|fueron|ha ido) mas\b/.test(folded) && !/ o en /.test(folded)) {
+      return historiaAnswer(c, folded);
+    }
+    if (/(total( gastado| acumulado)?|gasto( acumulado)?) (en|de) /.test(folded)) {
+      const exclH2 = exclusionIn(c.state, c.names, folded, undefined, otherNamer(c.state, c.lang));
+      const cleanH2 = exclH2 ? folded.replace(exclH2.strip, " ") : folded;
+      if (filterOf(c, cleanH2) || /(este mes|esta semana|esta quincena|hoy|ayer|este ano|pasad|desde|en lo que va)/.test(folded)) {
+        return historiaAnswer(c, folded);
+      }
+    }
+  }
+  if (sumGate5.test(folded)) {
     // OLA 47 (F5): la comparación anual se juzga antes que la
     // historia plana — su mitad comparativa se perdía en silencio.
     const aa = anoContraAnoAnswer(c, folded);
@@ -13342,7 +13436,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(mas que|menos que|diferencia (entre|de)|mejor (mes|que)|peor (mes|que)|comparad|versus)/, "comparar"],
     [/(ahorr|tendre ahorrado|tendria ahorrado|cuanto tengo en|mi cuenta de ahorros)/, "ahorros"],
     [/(cuanto (mande|envie|enviado|enviando)|how much did i (send|sent)).{0,40}(semana|mes|ano|week|month|year|quincena)/, "remesas-periodo"],
-    [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido|aporto|aportaron|trajo|trajeron)|cuanto (fue|es) lo que (gaste|gano|pague|compre)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
+    [/(cuanto (gaste|gastado|gano|gane|ganado|pague|pagado|compre|recibi|recibido|aporto|aportaron|trajo|trajeron)|cuanto (fue|es) lo que (gaste|gano|pague|compre)|he (gastado|ganado|pagado|comprado)|gasto en|gaste en|cuanto gasto|el mes pasado|este mes|este ano|la semana pasada|se me (fue|fueron|ha ido)|he (dejado|botado)|historial|movimientos|en (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b)/, "historia"],
   ];
   // La confirmación exige su cifra: sin dígito no hay afirmación que juzgar.
   if (hasDigit && /(verdad|es cierto|es verdad|no es asi|is it true)/.test(folded)) return { isQuestion, family: "confirmacion" };

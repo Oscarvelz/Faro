@@ -40,6 +40,23 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.507",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La lista de movimientos ya se puede pedir", en: "You can now ask for the list of movements" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "«Muéstrame los movimientos de este mes» o «dame el historial de septiembre» ya responden: la lista del período, en orden, con la suma dicha arriba y la puerta a verla en Estudio.",
+        "Las sumas del habla también entran: «¿cuánto se me fue en transporte?» y «gasto en comida este mes» suman como las formas de siempre.",
+      ],
+      en: [
+        "“Show me this month's movements” or “give me September's history” now answer: the period's list, in order, with the total said up top and the door to see it in Study.",
+        "Everyday sum phrasings count too: “how much slipped away on transport?” and “spending on food this month” add up like the usual forms.",
+      ],
+    },
+  },
+  {
     version: "1.3.506",
     date: "2026-11-27",
     level: "menor",
