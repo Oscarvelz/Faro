@@ -226,7 +226,16 @@
    pantalla. La ventana tiene ahora límites fijos (la regla de .news-card) y
    es la página — cabecera, puntos y puerta — la que se desliza por dentro;
    la ✕, la navegación y el botón quedan fijos en la ventana. */
-.news-page { animation: news-page-in .34s cubic-bezier(.22, 1, .36, 1) both; overflow-y: auto; min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; }
+.news-page { animation: news-page-in .34s cubic-bezier(.22, 1, .36, 1) both; overflow-y: auto; min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; padding: 15px 0 0 15px; margin: -15px 0 0 -15px; }
+/* 1.3.490 (Oscar, con su foto del 2026-11-25): el anillo del disco
+   (news-ping, 15px de sombra) nacía ya recortado — la página desliza
+   con overflow y su filo cortaba el anillo por arriba y por la
+   izquierda, donde el disco toca el borde del contenido. La página
+   lleva ahora 15px de aire propio arriba y a la izquierda, pagados
+   con el mismo margen en negativo: el contenido queda donde estaba,
+   la zona de recorte crece esos 15px y el anillo entero respira
+   dentro. Nada más se mueve: ni la ventana, ni la navegación, ni el
+   botón. */
 .news-page[data-dir="-1"] { animation-name: news-page-in-back; }
 @keyframes news-page-in { from { opacity: 0; transform: translateX(18px); } }
 @keyframes news-page-in-back { from { opacity: 0; transform: translateX(-18px); } }

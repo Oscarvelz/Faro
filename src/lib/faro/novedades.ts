@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.490",
+    date: "2026-11-26",
+    level: "menor",
+    title: { es: "El anillo de las novedades ya se ve entero", en: "The what's-new ring now shows whole" },
+    topic: "novedades",
+    points: {
+      es: [
+        "El anillo que nace del disco de esta ventana salía cortado por arriba y por un lado; ahora se ve completo, sin que nada más se mueva.",
+      ],
+      en: [
+        "The ring that blooms from this window's disc used to come out clipped at the top and one side; it now shows whole, with nothing else moved.",
+      ],
+    },
+  },
+  {
     version: "1.3.489",
     date: "2026-11-26",
     level: "menor",
