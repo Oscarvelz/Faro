@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.498",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "La moneda que nombras, se oye", en: "The currency you name is heard" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Si preguntas un gasto «en córdobas» en un libro en dólares — o al revés — el Asesor responde primero en la moneda que nombraste, con la tasa de tu libro dicha y el mismo total en tu moneda al lado.",
+      ],
+      en: [
+        "If you ask about spending “in córdobas” in a dollar book — or the other way around — the Advisor answers first in the currency you named, with your book's rate stated and the same total in your currency beside it.",
+      ],
+    },
+  },
+  {
     version: "1.3.497",
     date: "2026-11-27",
     level: "menor",

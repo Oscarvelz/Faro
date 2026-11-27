@@ -140,19 +140,20 @@ describe("la moneda oída en la pregunta", () => {
     assert.equal(r.kind, "answer");
     assert.equal(sum(r), 25000);
   });
-  // HUECO MAPEADO (2026-11-27), sin cerca todavía: la doctrina
-  // dice LA MONEDA SE OYE — el monto que nombra su moneda se oye
-  // en esa moneda — pero historia responde en la moneda de vista
-  // e ignora la nombrada: «¿cuánto gasté en comida en córdobas?»
-  // da «$250.00» sin nombrar los córdobas. La cura (responder con
-  // las piezas convertidas a la moneda nombrada) es su propia
-  // ola; este espécimen la espera y no afirma el comportamiento
-  // de hoy.
-  it.skip("«¿Cuánto gasté en comida en córdobas?» responde en la moneda pedida", () => {
+  it("«¿Cuánto gasté en comida en córdobas?» responde en la moneda pedida", () => {
+    // LA MONEDA SE OYE: el total se dice primero en la moneda
+    // nombrada, con la tasa del libro nombrada y el total del
+    // libro al lado; las piezas siguen en la moneda de vista.
     const r = ask(ledger, "¿Cuánto gasté en comida en córdobas?");
     assert.equal(r.kind, "answer");
     if (r.kind !== "answer") return;
-    const texto = r.verdict + " " + (r.note ?? "");
-    assert.ok(r.pieces.some((p) => p.minor === 366243) || /córdoba|NIO/i.test(texto), "la respuesta nombra la moneda pedida o da su cifra");
+    assert.match(r.verdict, /córdobas/);
+    assert.ok(r.verdict.includes("C$9,156.08"), "el total convertido a la tasa del libro (36.6243)");
+    assert.equal(sum(r), 25000);
+  });
+  it("«¿Cuánto gasté en comida en dólares?» en un libro en dólares no cambia nada", () => {
+    const r = ask(ledger, "¿Cuánto gasté en comida en dólares?");
+    assert.equal(r.kind, "answer");
+    assert.equal(sum(r), 25000);
   });
 });
