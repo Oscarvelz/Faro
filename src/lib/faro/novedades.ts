@@ -40,6 +40,20 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.524", date: "2026-11-27", level: "menor", topic: "preguntar-asesor",
+    title: { es: "La proyección ya oye el ritmo en inglés", en: "The projection now hears the pace in English" },
+    points: {
+      es: [
+        "Preguntas como “How much will I have in 6 months if I keep this up?” ya se responden con tu ritmo medido, igual que su gemela en español.",
+        "El futuro inglés sin ritmo ni aporte sigue donde estaba: “How much will I have set aside by December?” lo sigue firmando ahorros.",
+      ],
+      en: [
+        "Questions like “How much will I have in 6 months if I keep this up?” are now answered with your measured pace, just like their Spanish twin.",
+        "The English future with no pace and no amount stays where it was: “How much will I have set aside by December?” is still signed by savings.",
+      ],
+    },
+  },
+  {
     version: "1.3.523",
     date: "2026-11-27",
     level: "menor",

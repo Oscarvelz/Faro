@@ -16,6 +16,12 @@ function ctx(ledger: LedgerState): ParseCtx {
 function ask(ledger: LedgerState, raw: string) {
   return answerBankQuestion(ledger, KEY, "es", makeNamer(ledger.structure, "es"), raw, ctx(ledger), TODAY);
 }
+function ctxEn(ledger: LedgerState): ParseCtx {
+  return { ledger, lang: "en", today: TODAY, display: "USD", makeId: () => "q1", now: `${TODAY}T12:00:00.000Z` };
+}
+function askEn(ledger: LedgerState, raw: string) {
+  return answerBankQuestion(ledger, KEY, "en", makeNamer(ledger.structure, "en"), raw, ctxEn(ledger), TODAY);
+}
 function line(partial: Partial<Line> & Pick<Line, "id" | "kind" | "concept" | "amountMinor">): Line {
   return {
     seriesId: partial.id, monthKey: KEY, currency: "USD", active: true, note: "",
@@ -122,5 +128,67 @@ describe("hueco 6 · proyección: el stock más el aporte repetido", () => {
     assert.equal(r.family, "proyeccion");
     assert.ok(/^If you set aside/.test(r.verdict), r.verdict);
     assert.ok(/, by the end of the year you'd have/.test(r.verdict), r.verdict);
+  });
+  /* EL OÍDO INGLÉS DEL RITMO (puerto de la línea del banco,
+   * 2026-11-27; en la copia son P7 a P10: aquí P10 a P13
+   * porque P7 a P9 ya son la cerca de la mayúscula de la
+   * 1.3.523): las formas inglesas del ritmo medido firman
+   * proyección con su cifra, y las guardas C5 a C9 cercan
+   * las cesiones (el futuro pelado, lo que queda, el pago de
+   * deuda, la premisa de ingreso y la canónica inglesa, que
+   * conserva su firma asentada de ahorros). */
+  it("P10: el ritmo inglés sin monto ni palabra de ahorro: «How much will I have in 6 months if I keep this up?» → proyección, 300 + 6 × 100 = 900", () => {
+    const r = askEn(libroProyeccion(), "How much will I have in 6 months if I keep this up?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    const total = r.pieces[r.pieces.length - 1];
+    assert.equal(total.minor, 90000);
+  });
+  it("P11: el ritmo inglés con «have saved»: «How much will I have saved in 6 months if I keep going like this?» → proyección, 900", () => {
+    const r = askEn(libroProyeccion(), "How much will I have saved in 6 months if I keep going like this?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    const total = r.pieces[r.pieces.length - 1];
+    assert.equal(total.minor, 90000);
+  });
+  it("P12: el ritmo inglés con «keep saving»: «How much will I have saved in 6 months if I keep saving like this?» → proyección, 900", () => {
+    const r = askEn(libroProyeccion(), "How much will I have saved in 6 months if I keep saving like this?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    const total = r.pieces[r.pieces.length - 1];
+    assert.equal(total.minor, 90000);
+  });
+  it("P13: el aporte inglés con su cadencia pelada: «If I keep putting $100 a month, how much will I have in 6 months?» → proyección, 300 + 6 × 100 = 900", () => {
+    const r = askEn(libroProyeccion(), "If I keep putting $100 a month, how much will I have in 6 months?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    const total = r.pieces[r.pieces.length - 1];
+    assert.equal(total.minor, 90000);
+  });
+  it("C5: el futuro inglés pelado, sin ritmo ni guardado: «How much will I have in 6 months?» no la abre", () => {
+    const r = askEn(libroProyeccion(), "How much will I have in 6 months?");
+    if (r.kind === "answer") assert.notEqual(r.family, "proyeccion");
+  });
+  it("C6: lo que queda no es proyección: «How much will I have left in 6 months?» no la abre", () => {
+    const r = askEn(libroProyeccion(), "How much will I have left in 6 months?");
+    if (r.kind === "answer") assert.notEqual(r.family, "proyeccion");
+  });
+  it("C7: el futuro de un pago de deuda no es proyección: «¿cuánto habré pagado de la tarjeta en 6 meses si sigo así?» no la abre", () => {
+    const r = ask(libroProyeccion(), "¿Cuánto habré pagado de la tarjeta en 6 meses si sigo así?");
+    if (r.kind === "answer") assert.notEqual(r.family, "proyeccion");
+  });
+  it("C8: la premisa de ingreso en inglés no es proyección: «If I earned $500 more a month, how much would I have in a year?» no la abre", () => {
+    const r = askEn(libroProyeccion(), "If I earned $500 more a month, how much would I have in a year?");
+    if (r.kind === "answer") assert.notEqual(r.family, "proyeccion");
+  });
+  it("C9: la canónica inglesa del futuro sin ritmo conserva su firma asentada: «How much will I have set aside by December?» la firma ahorros, no proyección (override registrado en mutaciones)", () => {
+    const r = askEn(libroProyeccion(), "How much will I have set aside by December?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "ahorros");
   });
 });

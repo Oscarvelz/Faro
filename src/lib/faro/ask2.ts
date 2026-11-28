@@ -289,14 +289,30 @@ function proyeccionAnswer(c: Ctx, folded: string, raw: string): BankResult | nul
   let horizon = horizonOf(folded, c.today);
   const proyectaVerb = /\b(proyecta|proyectame|proyectar|proyeccion|project)\b/.test(folded)
     || /\b(extiende|extendeme|estira|estirame)\b[^.]{0,35}\b(ahorro|fondo|apartado|mensual|semanal|quincenal|ritmo|aporte|meses)/.test(folded);
-  const savingsCtx = /(ahorr|guard|apart|fondo|meta|alcancia|cajita|401k|retiro|jubil|emergencia|cooperativa|junto|juntar|acumul)/.test(folded);
+  const savingsCtx = /(ahorr|guard|apart|fondo|meta|alcancia|cajita|401k|retiro|jubil|emergencia|cooperativa|junto|juntar|acumul|saving|savings|saved|set aside|setting aside|put aside|putting aside)/.test(folded);
   /* EL BLANCO POR SU FIN: la cuenta o la meta de una cosa
    * nombrada (la universidad, el viaje, el carro) también es
    * contexto de guardado cuando la frase trae horizonte. */
   const targetCtx = /(cuenta de (la |mi )?(universidad|casa|boda|viaje)|universidad|graduacion|viaje de|fiestas patrias|(pal|para|pa) (el |mi |la |un |una )?(carro|casa|viaje|boda|terreno|negocio|refri))/.test(folded);
-  const futureVerb = /(tendr|habr|junto|juntaria|acumularia|alcanzaria|voy a tener|va a tener)/.test(folded);
-  const rateMark = /(si sigo|siguiera|manteniendo|sin cambiar|mismo (aporte|ahorro|ritmo)|ahorrando igual|guardando igual|metiendo igual|metiendole|con el mismo|al ritmo|ritmo actual|no cambio nada|no bajo el ritmo|si no fallo|sigo (metiendo|guardando|apartando|poniendo|ahorrando|con))/.test(folded);
+  /* EL OÍDO INGLÉS DEL RITMO (encargo de canon, 2026-11-27):
+   * la forma inglesa del ritmo medido (futuro + horizonte +
+   * «keep this up / keep going like this / keep saving»)
+   * moría fuera o firmada «ahorros»: el futuro inglés, la
+   * marca de ritmo inglesa y el contexto «saved/saving» no
+   * existían en esta puerta, y el aporte pelado no oía la
+   * cadencia inglesa («$100 a month»). La marca de ritmo
+   * también hace de contexto: «sigo así» nombra el ritmo
+   * medido del libro, que es el de apartar. */
+  const futureVerb = /(tendr|habr|junto|juntaria|acumularia|alcanzaria|voy a tener|va a tener|will have|would have|will i have|would i have|will i save|would i save)/.test(folded);
+  const rateMark = /(si sigo|siguiera|manteniendo|sin cambiar|mismo (aporte|ahorro|ritmo)|ahorrando igual|guardando igual|metiendo igual|metiendole|con el mismo|al ritmo|ritmo actual|no cambio nada|no bajo el ritmo|si no fallo|sigo (metiendo|guardando|apartando|poniendo|ahorrando|con)|keep this up|keep it up|keep going like this|keep going|keep saving like this|keep saving|keep putting|keep setting aside|keep adding)/.test(folded);
   const coverMark = /\b(me da|alcanza para|cubro|cubre|cubierto)\b/.test(folded);
+  /* EL FUTURO DE UN PAGO DE DEUDA no es proyección del
+   * guardado: «¿cuánto habré pagado de la tarjeta en 6 meses
+   * si sigo así?» trae futuro, horizonte y ritmo, pero su
+   * sujeto es el pago — sin contexto de guardado a la vista,
+   * esta puerta cede (la marca de ritmo como contexto, que
+   * abrió el oído inglés, no puede firmar sola un pago). */
+  if (/(pagad|pagando|pagar)/.test(folded) && /(tarjeta|deuda|prestamo|credito|cuota)/.test(folded) && !savingsCtx) return null;
   const { list: vlist, toks } = verbAmounts(raw);
   const disp = (a: FoundAmount) => convertMinor(a.minor, a.currency, c.display, c.rateE4);
   const isYearAmt = (s: VerbAmount) => { const v = s.a.minor / 100; return Number.isInteger(v) && v >= 2024 && v <= 2060 && /^(en|para|hasta|by)$/.test(toks[s.start - 1] ?? ""); };
@@ -326,13 +342,20 @@ function proyeccionAnswer(c: Ctx, folded: string, raw: string): BankResult | nul
       if (val === undefined || !Number.isFinite(val) || val <= 0 || val >= 2024) continue;
       if (llegoTok >= 0 && i > llegoTok && i - llegoTok <= 3) continue;
       const n1 = toksF[i + 1] ?? ""; const n2 = toksF[i + 2] ?? ""; const n3 = toksF[i + 3] ?? "";
-      const adjCad = /^(mensuales|mensual)$/.test(n1) ? "monthly" as const : /^(semanales|semanal)$/.test(n1) ? "weekly" as const : /^(quincenales|quincenal)$/.test(n1) ? "biweekly" as const : null;
-      const afterCad = n1 === "x" ? unitCad(n2) : (n1 === "cada" || n1 === "al" || n1 === "por") ? unitCad(n2) : (n1 === "a" && n2 === "la") ? unitCad(n3) : null;
+      const adjCad = /^(mensuales|mensual|monthly)$/.test(n1) ? "monthly" as const : /^(semanales|semanal|weekly)$/.test(n1) ? "weekly" as const : /^(quincenales|quincenal)$/.test(n1) ? "biweekly" as const : /^(anuales|anual|yearly)$/.test(n1) ? "yearly" as const : null;
+      const afterCad = n1 === "x" ? unitCad(n2) : (n1 === "cada" || n1 === "al" || n1 === "por") ? unitCad(n2) : (n1 === "a" && n2 === "la") ? unitCad(n3) : (n1 === "a" && n2 === "month") ? "monthly" as const : (n1 === "a" && n2 === "week") ? "weekly" as const : (n1 === "a" && n2 === "year") ? "yearly" as const : null;
       const c2 = adjCad ?? afterCad;
       if (c2) { barePer = val * 100; bareCad = c2; break; }
     }
   }
   const hasContrib = !!contribSpan || barePer !== null;
+  /* LA COMPARACIÓN CONTRA EL PASADO no es proyección: «¿la
+   * Navidad me va a salir más cara que la pasada al ritmo
+   * que voy?» trae ritmo y horizonte, pero su pregunta es un
+   * cotejo (pasado contra futuro: la casa de la síntesis), no
+   * la cifra del guardado — sin contexto de guardado ni
+   * aporte traído, esta puerta cede. */
+  if (/(mas (caro|cara|barato|barata) que|contra lo que (cerre|gaste|pague)|que (la|el) (pasada|pasado)|del ano pasado)/.test(folded) && !savingsCtx && !hasContrib) return null;
   const sumVoice = /(cuanto (suma|quedaria|queda|tengo|tendre|habra|junto)|a cuanto (llega|suma|llego)|a donde llego)/.test(folded);
   /* EL HORIZONTE PELADO DEL VERBO PROYECTAR: «estirá el
    * fondo doce meses» trae su plazo sin preposición; con el
@@ -359,10 +382,20 @@ function proyeccionAnswer(c: Ctx, folded: string, raw: string): BankResult | nul
    * frase es del stock. */
   if (/(cuanto tengo|cuanto hay)/.test(folded) && !futureVerb && !rateMark && !hasContrib && !proyectaVerb) return null;
   const signature = proyectaVerb
-    || (!!horizon && (futureVerb || rateMark || goal !== null || hasContrib || sumVoice) && (savingsCtx || targetCtx || hasContrib || /(alcanzaria|acumularia|juntaria)/.test(folded)))
+    || (!!horizon && (futureVerb || rateMark || goal !== null || hasContrib || sumVoice) && (savingsCtx || targetCtx || hasContrib || rateMark || /(alcanzaria|acumularia|juntaria)/.test(folded)))
     || (goal !== null && (rateMark || hasContrib || savingsCtx))
     || (hasContrib && !!cad && /(cuanto (junto|tengo|tendre|habra|llego|tiene)|a cuanto (llego|llegaria)|con cuanto (quedo|queda))/.test(folded));
   if (!signature) return null;
+  /* LA FORMA INGLESA SIN RITMO NI APORTE conserva la firma
+   * de ahorros (override asentado en la batería de
+   * mutaciones): «How much will I have set aside by
+   * December?» la firma ahorros por decisión registrada de
+   * la casa, aunque su gemela española firme proyección. El
+   * oído nuevo de esta puerta es el del ritmo (keep…) y el
+   * del aporte traído: el futuro inglés a secas, sin ritmo
+   * ni aporte ni meta, cede al asiento de ahorros. */
+  const enFutureOnly = /(will|would) (i )?(have|save)/.test(folded) && !/(tendr|habr|juntaria|acumularia|alcanzaria)/.test(folded);
+  if (enFutureOnly && !rateMark && !hasContrib && goal === null) return null;
   if (!horizon && goal === null) return null;
   /* EL FONDO: emergencia y retiro por su clase; la meta o el
    * fondo con nombre, por su bolsillo; sin nombre, el total. */
@@ -14822,6 +14855,8 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(cuanto (me dura|dura) (mi|el|lo)|meses (puedo vivir|de respaldo)|sin trabajo|sin ingresos|me despiden|pierdo mi trabajo|fondo de emergencia|mi colchon|cuanto tiempo aguanto|aguanto sin|lose my job|lost my job|how long could i go|without income)/, "respaldo"],
     [/(si (ahorro|ahorrara|ahorre|comenzara a ahorrar)|si sigo (metiendo|guardando|apartando|poniendo|ahorrando)|proyect|if i (save|start saving)|ahorro (doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos|mil|\d)|save \$\d|save \d).{0,40}(cada (semana|mes|quincena|ano)|semanal|mensual|quincenal|fin de (mes|ano)|en (un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce|\d+) (anos|meses|semanas)|para (diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|navidad)|each (week|month|year)|weekly|monthly|end of the (year|month))/, "proyeccion"],
     [/((tendre|tendria|habre|habria) ahorrado|cuanto (tendre|tendria)).{0,30}(en (\d+|un|una|dos|tres|cuatro|cinco|seis|doce) (meses|anos|semanas)|en un ano|a fin de|para (navidad|fin de)|si sigo)/, "proyeccion"],
+    [/(how much (will|would) i have( saved)?).{0,45}(in (\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve) (months|years|weeks)|end of the (year|month)).{0,45}(keep (this up|it up|going|saving|putting|setting aside)|like this)/, "proyeccion"],
+    [/(keep (putting|setting aside|saving) .{0,25}(a month|a week|a year|each month|each week|per month)).{0,50}how much (will|would) i have/, "proyeccion"],
     [/(tardaria|tardare|cuanto (necesito|debo|tengo) que ahorrar|cuanto (debo|necesito) ahorrar|cuanto ahorrar|quiero (juntar|ahorrar|reunir)|juntar \d|meta de ahorro)/, "meta"],
     [/(saldo neto|quitando (las |mis )?deudas|sin contar lo q|saldo total en|fondos (libres|en dolares)|lo disponible|disponible en checking|available en checking|en cuanto ando|con cuanto cuento|cuantos reales me quedan|tengo feria|me queda algo|me da el billete|balance actual|me queda (plata|dinero|billete|efectivo) en la cuenta principal|me quedan siquiera|me sobran|how much me queda|que tanto billete|cuanto m queda|blance|balance de la cuenta corriente)/, "total"],
     [/(en (cordobas|dolares|euros)|a (cordobas|dolares)|tipo de cambio|a como esta el cambio|cuanto (es|son) .{0,30}(dolares|cordobas|euros|pesos))/, "conversor"],
