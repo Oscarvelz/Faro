@@ -52,9 +52,9 @@ import { guideOf } from "./coach.ts";
 import { aliasIn, describeLearned, frequentAliases, type LearnedAlias } from "./asklearn.ts";
 import { answerQuestion, askReaches, askReachesFloor, modeWord, pieceFloor, type AskResult } from "./ask.ts";
 import { functionOfQuestion, FARO_FUNCTION_MAP } from "./askmap.ts";
-import { cardFigures, cardsOf } from "./cards.ts";
+import { cardFigures, cardsOf, storedCards } from "./cards.ts";
 import { payoffPlan, monthAhead, peopleOf, lentOf, simulatePlan, planDebts, netBalance, totalDebt, lineDebtLines, type PlanRun } from "./debts.ts";
-import { loansOf, loanState } from "./loans.ts";
+import { loanPays, loansOf, loanState } from "./loans.ts";
 import { duesWindow } from "./dues.ts";
 import { intervalOf, stepDate } from "./cadence.ts";
 import { inView, isSpendLine, monthLines, summarize } from "./engine.ts";
@@ -748,7 +748,7 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
   {
     const pocketVoice = /(cuanto|guardad|hay|queda|tengo|how much|saved|have)/.test(folded);
     if (pocketVoice) {
-      let bestP: { name: string; minor: number; len: number } | null = null;
+      let bestP: { name: string; minor: number; len: number; subId: string } | null = null;
       for (const [subId, minor] of bySub61) {
         if (/\.(meta|retiro|emergencia)$/.test(subId)) continue;
         const name = c.names.sub(subId);
@@ -756,10 +756,41 @@ function ahorrosAnswer(c: Ctx, folded: string, raw: string): BankResult {
         const f = foldQ(name).trim();
         if (f.length < 3) continue;
         const whole = new RegExp(`(^|[^a-z0-9])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
-        if (whole.test(folded) && (!bestP || f.length > bestP.len)) bestP = { name, minor, len: f.length };
+        if (whole.test(folded) && (!bestP || f.length > bestP.len)) bestP = { name, minor, len: f.length, subId };
       }
       if (bestP) {
-        const b = bestP as { name: string; minor: number };
+        const b = bestP as { name: string; minor: number; subId: string };
+        /* PUNTO 4 (examen de conversaciones, 2026-11-28): EL
+         * FLUJO DEL BOLSILLO NOMBRADO — «¿cuánto aparté para el
+         * carro este mes?» recibía el total guardado ($5,800)
+         * en vez de lo del mes ($200): la rama del flujo (ola
+         * 61) solo oye las clases, y el bolsillo con nombre caía
+         * aquí y respondía su stock a una pregunta de período.
+         * Con verbo de flujo y período nombrado, el bolsillo
+         * responde SU flujo del período, con su total de
+         * segunda pieza — el mismo molde de la rama de clase.
+         * «Guardado» no es verbo de flujo: es el estado, y su
+         * casa sigue siendo el stock de abajo. */
+        const flowVerb = /(aparte|aparto|guarde|meti|puse|ingrese|deposite|ahorre|set aside|saved|deposited)/.test(folded);
+        if (flowVerb && /(este mes|this month)/.test(folded)) {
+          const m = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && l.subId === b.subId && roleOf(c.state, l.categoryId) === "savings").reduce((a, l) => a + view(c, l), 0);
+          return {
+            kind: "answer", family: "ahorros",
+            verdict: L(c.lang, `Este mes apartaste ${c.money(m)} para ${b.name}. En total, ${b.name} suma ${c.money(b.minor)}.`, `This month you set aside ${c.money(m)} for ${b.name}. In total, ${b.name} adds up to ${c.money(b.minor)}.`),
+            pieces: [{ label: L(c.lang, "Este mes", "This month"), minor: m }, { label: b.name, minor: b.minor }],
+            note: null, source: ["ahorros.mes", "ahorros.stock"], lines: 0,
+          };
+        }
+        if (flowVerb && /(este ano|this year)/.test(folded)) {
+          const yr = c.key.slice(0, 4);
+          const y = Object.keys(c.state.months).filter((k) => k.startsWith(yr) && k <= c.key).reduce((a, k) => a + (c.state.months[k]?.lines ?? []).filter((l) => l.active && l.subId === b.subId && roleOf(c.state, l.categoryId) === "savings").reduce((s, l) => s + view(c, l), 0), 0);
+          return {
+            kind: "answer", family: "ahorros",
+            verdict: L(c.lang, `Este año apartaste ${c.money(y)} para ${b.name}. En total, ${b.name} suma ${c.money(b.minor)}.`, `This year you set aside ${c.money(y)} for ${b.name}. In total, ${b.name} adds up to ${c.money(b.minor)}.`),
+            pieces: [{ label: L(c.lang, "Este año", "This year"), minor: y }, { label: b.name, minor: b.minor }],
+            note: null, source: ["ahorros.mes", "ahorros.stock"], lines: 0,
+          };
+        }
         return {
           kind: "answer", family: "ahorros",
           verdict: L(c.lang, `Para ${b.name} tienes ${c.money(b.minor)} guardados.`, `For ${b.name} you have ${c.money(b.minor)} saved.`),
@@ -1201,16 +1232,26 @@ function gustosAnswer(c: Ctx, folded: string, raw: string, parseCtx: ParseCtx): 
 /* ------------------------------------------------------------------ */
 function yaPagueAnswer(c: Ctx, folded: string): BankResult {
   const lines = allLines(c).filter((l) => isOut(l) && l.monthKey === c.key);
+  // PUNTO 4 (examen de conversaciones, 2026-11-28): EL NOMBRE
+  // CORTO — la cerca de 4 letras dejaba fuera conceptos enteros
+  // («luz», 3 letras): la línea de la luz estaba pagada en el
+  // libro y la respuesta decía que no se encontraba. La palabra
+  // larga sigue casando por inclusión; la de 3 letras casa solo
+  // como palabra entera de la pregunta, que es donde su fuerza
+  // alcanza, y la de menos no casa nunca.
+  const nameHit = (hayText: string): boolean => {
+    const hay = foldQ(hayText);
+    if (hay.split(/\s+/).some((w) => w.length >= 4 && folded.includes(w))) return true;
+    const qToks = folded.split(/[^a-z0-9]+/);
+    return hay.split(/\s+/).some((w) => w.length === 3 && qToks.includes(w));
+  };
   // OLA P5 · LA COSTURA BILINGÜE TAMBIÉN AQUÍ: el pajar trae los
   // nombres en los dos idiomas (el namer del otro, como en
   // filterOf y citizenByName desde la Ola 51) — «how much did I
   // pay in rent?» no encontraba la línea «Renta» y respondía que
   // no estaba pagada, con la renta pagada en el libro.
   const namesOther = otherNamer(c.state, c.lang);
-  const wordHit = lines.find((l) => {
-    const hay = foldQ(`${l.concept} ${c.names.cat(l.categoryId)} ${c.names.sub(l.subId)} ${namesOther.cat(l.categoryId)} ${namesOther.sub(l.subId)}`);
-    return hay.split(/\s+/).some((w) => w.length >= 4 && folded.includes(w));
-  });
+  const wordHit = lines.find((l) => nameHit(`${l.concept} ${c.names.cat(l.categoryId)} ${c.names.sub(l.subId)} ${namesOther.cat(l.categoryId)} ${namesOther.sub(l.subId)}`));
   // Y si la palabra no casó, el ciudadano resuelto manda: el sub
   // «Rent» abraza la línea «Renta» aunque la línea no lleve el sub
   // puesto (la misma costura, por el escaneo del hilo).
@@ -1228,10 +1269,7 @@ function yaPagueAnswer(c: Ctx, folded: string): BankResult {
     // se dice — una sola fuente de verdad (R1), el Asesor jamás se
     // contradice con la pantalla.
     const exactDay = !!(hit.bookedOn && hit.bookedOn.startsWith(hit.monthKey));
-    const dueAhead = duesWindow(c.state, 62, c.today).find((d) => {
-      const hay = foldQ(d.name);
-      return hay.split(/\s+/).some((w) => w.length >= 4 && folded.includes(w));
-    });
+    const dueAhead = duesWindow(c.state, 62, c.today).find((d) => nameHit(d.name));
     return {
       kind: "answer", family: "ya-pague",
       verdict: exactDay
@@ -1244,10 +1282,7 @@ function yaPagueAnswer(c: Ctx, folded: string): BankResult {
       source: ["libros.lineas", "cobros.cuotas"], lines: 1,
     };
   }
-  const due = duesWindow(c.state, 62, c.today).find((d) => {
-    const hay = foldQ(d.name);
-    return hay.split(/\s+/).some((w) => w.length >= 4 && folded.includes(w));
-  });
+  const due = duesWindow(c.state, 62, c.today).find((d) => nameHit(d.name));
   if (due) {
     return {
       kind: "answer", family: "ya-pague",
@@ -2086,7 +2121,11 @@ function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
 /* ------------------------------------------------------------------ */
 function conteoAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(cuantas?|cuantos|how many)/.test(folded)) return null;
-  if (/cuota|suscripcion|subscription|dues/.test(folded)) {
+  // PUNTO 4 (examen de conversaciones, 2026-11-28): la cuota DEL
+  // PRÉSTAMO no es la cuota de suscripción — con «préstamo»
+  // nombrado, esta rama cede y la pregunta llega a la puerta del
+  // préstamo en deudas, que cuenta SUS pagos.
+  if (/cuota|suscripcion|subscription|dues/.test(folded) && !/(prestamo|loan)/.test(folded)) {
     const latest = new Map<string, Line>();
     for (const l of allLines(c)) {
       if (l.kind !== "subscription") continue;
@@ -2107,7 +2146,14 @@ function conteoAnswer(c: Ctx, folded: string): BankResult | null {
     };
   }
   if (/tarjeta|card/.test(folded)) {
-    const cards = cardsOf(c.state);
+    /* PUNTO 4 (examen de conversaciones, 2026-11-28): LAS
+     * TARJETAS ANOTADAS SON LAS GUARDADAS — el conteo leía
+     * cardsOf, la lista de pantalla, que trae los presets
+     * virtuales (nombres sin números, jamás adoptados), y
+     * decía «tienes 5 tarjetas» sobre un libro con 2. Contar
+     * también es una cifra: la cuenta sale de las tarjetas
+     * guardadas, no del catálogo. */
+    const cards = storedCards(c.state).filter((x) => !x.archived);
     return {
       kind: "answer", family: "conteo",
       verdict: L(c.lang, `Tienes ${cards.length} tarjeta${cards.length === 1 ? "" : "s"} anotada${cards.length === 1 ? "" : "s"}.`, `You have ${cards.length} recorded card${cards.length === 1 ? "" : "s"}.`),
@@ -10558,6 +10604,62 @@ function deudasAnswer(c: Ctx, folded: string): BankResult | null {
   // CUÁL. Con el superlativo y su objeto, la familia calla y el
   // paso 7 sirve la suya.
   if (/(cual|which|what)\b[^?]{0,24}(cuenta|tarjeta|account|card)/.test(folded) && /(mas|most)/.test(folded)) return null;
+  /* PUNTO 4 (examen de conversaciones, 2026-11-28): EL PRÉSTAMO
+   * POR SUS CIFRAS — «¿cuántas cuotas he pagado del préstamo?»,
+   * «¿cuánto me queda por pagar del préstamo?», «¿de cuánto es
+   * la cuota del préstamo?» no tenían puerta: la primera caía en
+   * el conteo de suscripciones («cuota» es su palabra y esta
+   * familia va después), la segunda en la queda del mes del
+   * delegado y la tercera en el silencio, mientras la cifra
+   * vivía aquí. La puerta oye el préstamo nombrado — por su
+   * prestamista, por su nota, o siendo el único — y responde de
+   * loanState y loanPays, la fuente de siempre de esta familia.
+   * Con varios préstamos y ninguno nombrado, responde el total
+   * con la pieza de cada uno: jamás elige uno en silencio. */
+  if (/(prestamo|loan)/.test(folded) && /(\bcuotas?\b|\bpagos?\b|\bqueda\b|\bresta\b|\bfalta\b|\bsaldo\b|\bdebo\b|he pagado|\bpague\b|\binstallments?\b|\bpayments?\b|still owe|\bleft\b|\bbalance\b|\bowe\b)/.test(folded)) {
+    const loans = loansOf(c.state).filter((x) => !x.archived);
+    if (loans.length) {
+      const vw = (minor: number, cur: (typeof loans)[number]["currency"]) => convertMinor(minor, cur, c.display, c.rateE4);
+      const nameOf = (l: (typeof loans)[number]) => l.lender;
+      const scoreOf = (l: (typeof loans)[number]) => foldQ(`${l.lender} ${l.note ?? ""}`).split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !/^(prestamo|loan|del|de|el|la|mi|the|my|para|con)$/.test(w) && folded.includes(w)).length;
+      const scored = loans.map((l) => ({ l, s: scoreOf(l) })).sort((a, b) => b.s - a.s);
+      const one = loans.length === 1 ? loans[0] : (scored[0].s > 0 && scored[0].s > (scored[1]?.s ?? 0) ? scored[0].l : null);
+      const paysOf = (l: (typeof loans)[number]) => loanPays(c.state, l.id).filter((p) => !p.rest && (p.bookedOn || `${p.monthKey}-01`) <= c.today);
+      if (/(de cuanto es la cuota|cuanto es la cuota|cuanto es el pago|cuanto pago de cuota|how much is (my|the) (loan )?(payment|installment)|what is (my|the) loan payment)/.test(folded)) {
+        if (one) {
+          const pays = paysOf(one);
+          const last = pays[pays.length - 1];
+          if (!last) return { kind: "answer", family: "deudas", verdict: L(c.lang, `Del préstamo de ${nameOf(one)} no consta ninguna cuota pagada todavía, y el libro no guarda una cuota fija para él: la primera que anotes fija la cifra.`, `No payment is recorded yet on the ${nameOf(one)} loan, and the book keeps no fixed installment for it: the first one you record sets the figure.`), pieces: [{ label: nameOf(one), minor: vw(loanState(c.state, one, c.today).left, one.currency) }], note: null, source: ["cobros.debo"], lines: 0 };
+          return { kind: "answer", family: "deudas", verdict: L(c.lang, `La cuota del préstamo de ${nameOf(one)} es de ${c.money(vw(last.amountMinor, last.currency))}${one.dueDay ? ` y cae los días ${one.dueDay} de cada mes` : ""}: la última que consta es del ${fmtFecha(c, lineDate(last))}.`, `The ${nameOf(one)} loan payment is ${c.money(vw(last.amountMinor, last.currency))}${one.dueDay ? `, due on day ${one.dueDay} of each month` : ""}: the latest recorded one is from ${fmtFecha(c, lineDate(last))}.`), pieces: [{ label: nameOf(one), minor: vw(last.amountMinor, last.currency) }], note: null, source: ["cobros.debo"], lines: pays.length };
+        }
+        return { kind: "answer", family: "deudas", verdict: L(c.lang, `Tienes ${loans.length} préstamos y la cuota es de cada uno: ${loans.map((l) => { const p = paysOf(l); const last = p[p.length - 1]; return last ? `«${nameOf(l)}» ${c.money(vw(last.amountMinor, last.currency))}` : `«${nameOf(l)}» sin cuotas todavía`; }).join(", ")}. Nómbrame uno y te la digo sola.`, `You have ${loans.length} loans and each has its own payment: ${loans.map((l) => { const p = paysOf(l); const last = p[p.length - 1]; return last ? `"${nameOf(l)}" ${c.money(vw(last.amountMinor, last.currency))}` : `"${nameOf(l)}" with no payments yet`; }).join(", ")}. Name one and I'll give you just that one.`), pieces: loans.slice(0, 5).map((l) => { const p = paysOf(l); const last = p[p.length - 1]; return { label: nameOf(l), minor: last ? vw(last.amountMinor, last.currency) : 0 }; }), note: null, source: ["cobros.debo"], lines: 0 };
+      }
+      if (/(cuantas? cuotas|cuantos pagos|how many (installments|payments))/.test(folded)) {
+        if (one) {
+          const f = loanState(c.state, one, c.today);
+          const n = paysOf(one).length;
+          return { kind: "answer", family: "deudas", verdict: L(c.lang, `Del préstamo de ${nameOf(one)} llevas ${n} cuota${n === 1 ? "" : "s"} pagada${n === 1 ? "" : "s"}: ${c.money(vw(f.paid, one.currency))} de los ${c.money(vw(one.amountMinor, one.currency))}; te quedan ${c.money(vw(f.left, one.currency))}.`, `On the ${nameOf(one)} loan you've paid ${n} installment${n === 1 ? "" : "s"}: ${c.money(vw(f.paid, one.currency))} of the ${c.money(vw(one.amountMinor, one.currency))}; ${c.money(vw(f.left, one.currency))} left.`), pieces: [{ label: L(c.lang, "Pagado", "Paid"), minor: vw(f.paid, one.currency) }, { label: L(c.lang, "Queda", "Left"), minor: vw(f.left, one.currency) }], note: null, source: ["cobros.debo"], lines: n };
+        }
+        const parts = loans.map((l) => `${paysOf(l).length} de «${nameOf(l)}»`);
+        const totalN = loans.reduce((a, l) => a + paysOf(l).length, 0);
+        return { kind: "answer", family: "deudas", verdict: L(c.lang, `Entre tus ${loans.length} préstamos llevas ${totalN} cuotas pagadas en total: ${parts.join(", ")}.`, `Across your ${loans.length} loans you've paid ${totalN} installments in total: ${parts.join(", ")}.`), pieces: loans.slice(0, 5).map((l) => ({ label: nameOf(l), minor: vw(loanState(c.state, l, c.today).paid, l.currency) })), note: null, source: ["cobros.debo"], lines: totalN };
+      }
+      if (/(cuanto he pagado|cuanto pague|cuanto llevo pagado|how much have i paid|how much did i pay)/.test(folded)) {
+        if (one) {
+          const f = loanState(c.state, one, c.today);
+          return { kind: "answer", family: "deudas", verdict: L(c.lang, `Del préstamo de ${nameOf(one)} has pagado ${c.money(vw(f.paid, one.currency))} de los ${c.money(vw(one.amountMinor, one.currency))}: te quedan ${c.money(vw(f.left, one.currency))}.`, `On the ${nameOf(one)} loan you've paid ${c.money(vw(f.paid, one.currency))} of the ${c.money(vw(one.amountMinor, one.currency))}: ${c.money(vw(f.left, one.currency))} left.`), pieces: [{ label: L(c.lang, "Pagado", "Paid"), minor: vw(f.paid, one.currency) }, { label: L(c.lang, "Queda", "Left"), minor: vw(f.left, one.currency) }], note: null, source: ["cobros.debo"], lines: paysOf(one).length };
+        }
+        const totalPaid = loans.reduce((a, l) => a + vw(loanState(c.state, l, c.today).paid, l.currency), 0);
+        return { kind: "answer", family: "deudas", verdict: L(c.lang, `En préstamos has pagado ${c.money(totalPaid)} en total.`, `On loans you've paid ${c.money(totalPaid)} in total.`), pieces: loans.slice(0, 5).map((l) => ({ label: nameOf(l), minor: vw(loanState(c.state, l, c.today).paid, l.currency) })), note: null, source: ["cobros.debo"], lines: 0 };
+      }
+      if (one) {
+        const f = loanState(c.state, one, c.today);
+        return { kind: "answer", family: "deudas", verdict: L(c.lang, `Del préstamo de ${nameOf(one)} te quedan ${c.money(vw(f.left, one.currency))} por pagar: fueron ${c.money(vw(one.amountMinor, one.currency))} y has pagado ${c.money(vw(f.paid, one.currency))}.`, `On the ${nameOf(one)} loan you have ${c.money(vw(f.left, one.currency))} left to pay: it was ${c.money(vw(one.amountMinor, one.currency))} and you've paid ${c.money(vw(f.paid, one.currency))}.`), pieces: [{ label: nameOf(one), minor: vw(f.left, one.currency) }, { label: L(c.lang, "Pagado", "Paid"), minor: vw(f.paid, one.currency) }], note: null, source: ["cobros.debo"], lines: paysOf(one).length };
+      }
+      const totalLeft = loans.reduce((a, l) => a + vw(loanState(c.state, l, c.today).left, l.currency), 0);
+      return { kind: "answer", family: "deudas", verdict: L(c.lang, `En préstamos te quedan ${c.money(totalLeft)} por pagar en total.`, `On loans you have ${c.money(totalLeft)} left to pay in total.`), pieces: loans.slice(0, 5).map((l) => ({ label: nameOf(l), minor: vw(loanState(c.state, l, c.today).left, l.currency) })), note: null, source: ["cobros.debo"], lines: 0 };
+    }
+  }
   const owed = peopleOf(c.state, "owed", c.today); // ellos me deben
   const owe = peopleOf(c.state, "owe", c.today);   // yo les debo
   // OLA 20 (el instrumento cazó el disfraz): «no quiero saber cuánto
