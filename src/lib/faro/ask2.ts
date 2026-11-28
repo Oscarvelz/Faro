@@ -12252,6 +12252,16 @@ function framePersonHit(state: LedgerState, folded: string, today = ""): FramePe
     if (f.length >= 3 && wholeWordIn(folded, f)) consider(f, f);
     const first = f.split(/\s+/)[0];
     if (first !== f && first.length >= 4 && wholeWordIn(folded, first)) consider(first, f);
+    /* GUARDA DE PERSONA (examen de conversaciones, 2026-11-28):
+     * el nombre que el usuario dice no siempre es el primer
+     * token: de «Primo Diego» dice «Diego» y de «Tía Rosa» dice
+     * «Rosa» — el parentesco va primero y el nombre después.
+     * Cada token de 4 o más del nombre entero es una forma corta
+     * posible, con la misma vara (la coincidencia más larga
+     * manda; el marco desempata las cortas, como en la Ola 34). */
+    for (const tok of f.split(/\s+/)) {
+      if (tok !== f && tok !== first && tok.length >= 4 && wholeWordIn(folded, tok)) consider(tok, f);
+    }
   }
   return best ? { form: (best as { form: string }).form, full: (best as { full: string }).full } : null;
 }
@@ -12271,6 +12281,13 @@ function framePersonFull(state: LedgerState, form: string, today = ""): string |
   for (const p of people) {
     const f = foldQ(p.name);
     if (f.split(/\s+/)[0] === form) return f;
+  }
+  /* GUARDA DE PERSONA (2026-11-28): la forma corta también se
+   * resuelve por cualquier token del nombre, no solo el primero
+   * («diego» → «primo diego»), en el mismo orden de la vara. */
+  for (const p of people) {
+    const f = foldQ(p.name);
+    if (f.split(/\s+/).includes(form)) return f;
   }
   return null;
 }
@@ -12544,7 +12561,16 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
   if (acct2) rest = replaceWholeWord(rest, acct2, " ");
   if (swap) rest = replaceWholeWord(rest, swap.cit2.span, " ");
   if (reroutedWord) rest = replaceWholeWord(rest, reroutedWord, " ");
-  if (rest.split(/\s+/).filter((w) => w && !FOLLOWUP_STOP.has(w)).length) return null;
+  /* GUARDA DE PERSONA (examen de conversaciones, 2026-11-28):
+   * la forma entera también es seguimiento — «¿y a Tía Rosa
+   * cuánto le mandé?» re-pregunta la pregunta del marco con un
+   * eje cambiado, y sus palabras («le», «mande») no son
+   * muletillas: son las de la pregunta guardada. La prueba
+   * acepta las muletillas y las palabras del propio marco; lo
+   * que sigue sin pasar es la palabra de contenido que el marco
+   * no trae, que es donde una pregunta nueva se escondería. */
+  const frameWords = new Set(frame.question.split(/\s+/).filter(Boolean));
+  if (rest.split(/\s+/).filter((w) => w && !FOLLOWUP_STOP.has(w) && !frameWords.has(w)).length) return null;
   // LOS CAMBIOS (Q32-3): un eje solo cambia si su valor difiere del
   // que el marco ya trae. Sin cambios, la pregunta se sirve tal cual.
   const parts: Array<{ solo: string; plain: string }> = [];
@@ -12673,7 +12699,25 @@ function followUpRewrite(state: LedgerState, key: string, names: Namer, frame: C
     });
     forkParts.push(swap.cit2.folded);
   }
-  if (!parts.length) return { question: frame.question, echo: null, fork: frame.forkName };
+  if (!parts.length) {
+    /* GUARDA DE PERSONA (2026-11-28): el re-servir sin cambios
+     * exige que el turno conserve el alcance del marco. Si el
+     * marco trae ciudadano, persona o cuenta y una pregunta
+     * ENTERA los deja caer sin nombrarlos ni cambiarlos, el
+     * turno es una pregunta MÁS ANCHA que la del marco (el
+     * total tras la comida), no su repetición: la reescritura
+     * muere y la lectura fresca responde lo que se preguntó.
+     * La frase de eje desnuda («¿y el mes pasado?» otra vez)
+     * no es una pregunta entera: repetirla es idempotente y
+     * re-sirve, como siempre. La señal de la pregunta entera
+     * es el resto: palabras fuera de las muletillas. */
+    const fullReask = rest.split(/\s+/).filter((w) => w && !FOLLOWUP_STOP.has(w)).length > 0;
+    const oldCitAny = frame.family === "historia" ? frameCitizenIn(state, names, frame.question, lang) : null;
+    if (fullReask && oldCitAny && !cit2) return null;
+    if (fullReask && frame.personName && !person2) return null;
+    if (fullReask && frame.accountName && !acct2) return null;
+    return { question: frame.question, echo: null, fork: frame.forkName };
+  }
   const echo = parts.length === 1
     ? parts[0].solo
     : L(lang, `cambié ${parts.slice(0, -1).map((p) => p.plain).join(", ")} y ${parts[parts.length - 1].plain}`, `I changed ${parts.slice(0, -1).map((p) => p.plain).join(", ")} and ${parts[parts.length - 1].plain}`);

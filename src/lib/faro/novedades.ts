@@ -40,6 +40,22 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.525", date: "2026-11-28", level: "menor", topic: "manual",
+    title: { es: "El Asesor responde lo que tu libro dice, y el Manual creció", en: "The Advisor answers what your book says, and the Manual grew" },
+    points: {
+      es: [
+        "El examen de conversaciones cazó cifras que no cuadraban con el libro y ya están curadas: el conteo de tarjetas cuenta solo las tuyas, la cuota de un préstamo ya no se confunde con una suscripción, y preguntar por un préstamo por su prestamista trae su cuota, lo pagado y lo que queda.",
+        "Los seguimientos cortos heredan la conversación: “¿Y el doble de eso?” y “¿Y el mes pasado fue más?” se responden sobre la cifra de la que venías hablando, y un seguimiento que nombra a una persona, como “¿Y a Diego?”, trae lo de esa persona en el período del que venían hablando.",
+        "El Manual creció con la Regla de 50: temas nuevos como eliminar tu cuenta, tu privacidad, las confirmaciones y la ayuda misma, y temas crecidos en casi todos los capítulos, cada uno con su signo de ayuda en su superficie.",
+      ],
+      en: [
+        "The conversation exam caught figures that did not match the book, and they are cured: the card count counts only yours, a loan payment is no longer confused with a subscription, and asking about a loan by its lender brings its payment, what you have paid and what is left.",
+        "Short follow-ups inherit the conversation: “And double that?” and “Was last month more?” are answered on the figure you were just talking about, and a follow-up naming a person, like “And to Diego?”, brings that person's figures in the period you were talking about.",
+        "The Manual grew under the 50 Rule: new topics such as deleting your account, your privacy, confirmations and help itself, and grown topics in almost every chapter, each with its help sign on its surface.",
+      ],
+    },
+  },
+  {
     version: "1.3.524", date: "2026-11-27", level: "menor", topic: "preguntar-asesor",
     title: { es: "La proyección ya oye el ritmo en inglés", en: "The projection now hears the pace in English" },
     points: {
