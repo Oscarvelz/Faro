@@ -190,6 +190,8 @@ const MANIFEST: readonly (readonly [FeatureId, Mode])[] = [
   ["central.due-alerts", E], // 1.3.356 — Ola 6: la tarjeta de Central que anuncia los pagos
   ["central.birthday", E], // 1.3.425 — la tarjeta del cumpleaños en Central: información esencial
   ["central.drift", E], // 1.3.496 — Ola 33: la tarjeta de la vigilancia en Central: información esencial
+  ["central.budgets", E], // 1.3.522 — la tarjeta de presupuestos en Central: nace solo con topes; información esencial
+  ["study.budgets", E], // 1.3.522 — el pliegue de presupuestos en Estudio lee la misma cuenta; información esencial
   ["editor.autopay", R], // 1.3.356 — Ola 6: el pago automático se configura en el editor de la cuota
   ["editor.split", R], // 1.3.489 — la marca de compartido se pone en el editor de la línea
   ["advisor.waitlist", E], // 1.3.360 — 5c: la lista de espera del Asesor; anotar y decidir un deseo es declarar, declarado antes que la superficie

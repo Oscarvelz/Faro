@@ -92,6 +92,13 @@ export type Category = Named & {
   role: string;
   subs: Sub[];
   color?: string;
+  /** EL PRESUPUESTO (1.3.522, diseño aprobado por Oscar): el tope
+   * mensual que EL USUARIO fija para esta categoría, en su moneda
+   * (capCurrency). Ausente = sin presupuesto, y se dice: jamás se
+   * infiere de la historia. Aditivo: un libro viejo sin los campos
+   * funciona igual. */
+  capMinor?: number;
+  capCurrency?: string;
 };
 
 export type PurchaseCat = Named & { color?: string };
@@ -528,6 +535,12 @@ export type Settings = {
    * quitarla de Central es momentáneo y JAMÁS toca dueAlerts ni los
    * avisos del teléfono. Missing = la tarjeta se muestra. */
   dueAlertsDismissed?: { sig: string; day: string };
+  /** 1.3.522 (Oscar, 2026-11-27): la tarjeta de Presupuestos quitada
+   * de Central por voluntad de la persona. Vive en los ajustes del
+   * LIBRO, como dueAlertsDismissed: viaja con él. El pliegue de
+   * Presupuestos en Estudio queda, y desde él vuelve la tarjeta.
+   * Missing = la tarjeta se muestra. */
+  budgetsCardHidden?: boolean;
   /** 1.3.496 (Ola 33): los episodios de la vigilancia que la persona
    * quitó de Central — los ids de episodio de driftCandidates (el id
    * lleva el mes: la histéresis hace que el episodio del mes próximo

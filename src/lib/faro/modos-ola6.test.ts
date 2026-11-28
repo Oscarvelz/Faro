@@ -215,9 +215,13 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // función es central.drift — la tarjeta de Central que presenta
     // los avisos, como la de los pagos que se acercan). La
     // distribución se mueve a 134 · 113 · 131 sobre 378.
+    // ENMIENDA PRESUPUESTO (1.3.522): nace «presupuestos» en Esencial
+    // (su función es central.budgets — la tarjeta de Central, el
+    // pliegue de Estudio y la ficha de la categoría). La distribución
+    // se mueve a 135 · 113 · 131 sobre 379.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 378);
-    assert.equal(count("esencial"), 134);
+    assert.equal(MANUAL_TOPICS.length, 379);
+    assert.equal(count("esencial"), 135);
     assert.equal(count("ritmo"), 113);
     assert.equal(count("completo"), 131);
   });

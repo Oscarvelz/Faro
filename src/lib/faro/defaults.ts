@@ -514,6 +514,10 @@ export interface CardEdits {
   subHidden?: Record<string, boolean>;
   subNames?: Record<string, string>;
   newSubs?: string[];
+  /** EL PRESUPUESTO (1.3.522): el tope preparado de la tarjeta —
+   * {minor, currency} lo fija o lo cambia, null lo quita; ausente
+   * no lo toca. Viaja en el MISMO commit del Guardar. */
+  cap?: { minor: number; currency: string } | null;
 }
 
 /** 1.3.188 (R-6 de la auditoría de Estructura, cierra E-6): el ÚNICO commit del
@@ -529,7 +533,7 @@ export function applyCardEdits(structure: Structure, catId: string, edits: CardE
   const subNames = edits.subNames ?? {};
   const newSubs = (edits.newSubs ?? []).map((n) => n.trim()).filter(Boolean);
   const hiddenIds = Object.keys(subHidden);
-  if (edits.name === undefined && edits.catHidden === undefined && !hiddenIds.length && !Object.keys(subNames).length && !newSubs.length) return structure;
+  if (edits.name === undefined && edits.catHidden === undefined && edits.cap === undefined && !hiddenIds.length && !Object.keys(subNames).length && !newSubs.length) return structure;
   let out: Structure = {
     ...structure,
     categories: structure.categories.map((c) => {
@@ -544,6 +548,7 @@ export function applyCardEdits(structure: Structure, catId: string, edits: CardE
         ...c,
         ...(edits.name !== undefined ? { customName: edits.name } : {}),
         ...(edits.catHidden !== undefined ? { hidden: edits.catHidden } : {}),
+        ...(edits.cap !== undefined ? (edits.cap === null ? { capMinor: undefined, capCurrency: undefined } : { capMinor: edits.cap.minor, capCurrency: edits.cap.currency }) : {}),
         subs,
       };
     }),

@@ -58,6 +58,7 @@ import { loansOf, loanState } from "./loans.ts";
 import { duesWindow } from "./dues.ts";
 import { intervalOf, stepDate } from "./cadence.ts";
 import { inView, isSpendLine, monthLines, summarize } from "./engine.ts";
+import { budgetFigures, type BudgetFigure } from "./budgets.ts";
 import { cushionOf, hostAccounts, libreOf } from "./funds.ts";
 import { periodRange } from "./historial.ts";
 import { foldQ, parseQuestion } from "./lexicon.ts";
@@ -66,7 +67,7 @@ import { QUESTION_BANK } from "./questionbank.ts";
 import { remitByPerson, remitHistory, recipientName, remitPeopleOf } from "./remit-people.ts";
 import { savingsStock } from "./savings.ts";
 import { parsePhrase, type ParseCtx } from "./textparse.ts";
-import type { Currency, Lang, LedgerState, Line } from "./types.ts";
+import type { Category, Currency, Lang, LedgerState, Line } from "./types.ts";
 
 type Namer = {
   cat: (id: string) => string;
@@ -1836,6 +1837,63 @@ function remitUnclearPerson(c: Ctx, family: BankFamilyId): BankResult {
 /* ------------------------------------------------------------------ */
 function recenciaAnswer(c: Ctx, folded: string): BankResult | null {
   const lines = allLines(c);
+  // LAS LLEGADAS (fallo de Oscar en el hueco 1, 2026-11-27;
+  // orden de corrida del mismo día): «¿ya cayó el salario?»
+  // no pregunta por lo último en general — pregunta si UNA
+  // entrada esperada ya llegó, y la respuesta debe
+  // CONFIRMARLA CON SU FECHA («sí, cayó el martes»). La
+  // recencia de hoy no oía la forma: las cuatro frases de la
+  // verificación caían en silencio sobre un libro que sí
+  // traía los movimientos. La vara de honestidad es la del
+  // mes en curso: la última entrada que calza es de este
+  // mes → sí, con su fecha y su día de la semana; es de un
+  // mes anterior → «todavía no», con la fecha de la última;
+  // el libro no trae nada con ese nombre → se declara.
+  const arrivalVerb = /(cayo|callo|entro|llego|aparecio|se reflejo|reflejo|depositaron|deposito el|has (it|the|my) .* (arrived|come in|landed)|did (it|the|my) .* (arrive|come in)|come in yet|arrived yet|been deposited)/.test(folded);
+  const arrivalShape = arrivalVerb
+    && (/\bya\b/.test(folded)
+      || /(revisa|checa|fijate|confirmame|revisame|verifica|ensename|muestrame) si/.test(folded)
+      || /(todavia|aun) no/.test(folded)
+      || /(has (it|the|my)|did (it|the|my)|come in yet|arrived yet)/.test(folded));
+  if (arrivalShape) {
+    const incomes = lines.filter((l) => l.kind.startsWith("income"));
+    const filter = filterOf(c, folded);
+    let pool = filter ? incomes.filter((l) => filter(l)) : [];
+    if (!pool.length) {
+      // Sin ciudadano: la palabra del concepto, como en la
+      // recencia amplia — y «depósito» a secas, la última
+      // entrada del libro.
+      pool = incomes.filter((l) =>
+        foldQ(l.concept).split(/[^a-z0-9]+/).some((w) => w.length >= 4 && new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`).test(folded)));
+      if (!pool.length && /(deposito|deposit|paycheck|cheque|pago|ingreso|reembolso|refund)/.test(folded)) pool = incomes;
+    }
+    const last = pool.sort((a, b) => lineDate(b).localeCompare(lineDate(a)) || b.id.localeCompare(a.id))[0];
+    if (!last) {
+      return {
+        kind: "answer", family: "recencia",
+        verdict: L(c.lang, "No veo en tu libro ninguna entrada con ese nombre: si cayó, no está anotada todavía.", "I don't see any entry with that name in your book: if it landed, it isn't recorded yet."),
+        pieces: [], note: L(c.lang, "Solo puedo confirmar lo que tu libro trae anotado.", "I can only confirm what your book has recorded."),
+        source: ["historial.stream"], lines: 0,
+      };
+    }
+    const d = lineDate(last);
+    const exactDay = !!(last.bookedOn && last.bookedOn.startsWith(last.monthKey));
+    const WD_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+    const WD_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const wd = new Date(`${d}T12:00:00Z`).getUTCDay();
+    const when = exactDay
+      ? L(c.lang, `el ${WD_ES[wd]} ${fmtFecha(c, d)}`, `on ${WD_EN[wd]}, ${fmtFecha(c, d)}`)
+      : L(c.lang, `en ${MONTH_WORDS_ES[Number(last.monthKey.slice(5, 7)) - 1]} de ${last.monthKey.slice(0, 4)}`, `in ${MONTH_WORDS_EN[Number(last.monthKey.slice(5, 7)) - 1]} ${last.monthKey.slice(0, 4)}`);
+    const thisMonth = last.monthKey === c.key;
+    return {
+      kind: "answer", family: "recencia",
+      verdict: thisMonth
+        ? L(c.lang, `Sí: cayó ${when} — «${last.concept}», ${c.money(view(c, last))}.`, `Yes: it landed ${when} — "${last.concept}", ${c.money(view(c, last))}.`)
+        : L(c.lang, `Todavía no: la última que veo es de ${when} — «${last.concept}», ${c.money(view(c, last))}. De este mes no trae otra anotada.`, `Not yet: the last one I see is from ${when} — "${last.concept}", ${c.money(view(c, last))}. This month has no other one recorded.`),
+      pieces: [{ label: last.concept, minor: view(c, last) }],
+      note: null, source: ["historial.stream"], lines: 1,
+    };
+  }
   // OLA 60 · LA PRÓXIMA PAGA: «¿cuándo me van a pagar de nuevo?»
   // no tenía familia — la recencia solo miraba atrás, y la mitad
   // futura de la pregunta se perdía (captura de Oscar, 2026-11-24).
@@ -9376,7 +9434,7 @@ function factibilidadAnswer(c: Ctx, folded: string, raw: string): BankResult | n
  * el dinero que el LIBRO conoce — no cuenta efectivo fuera del
  * libro ni bienes, y NO resta lo que debes (eso es el patrimonio,
  * la pregunta de la familia falta). */
-function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
+function totalTodoAnswer(c: Ctx, folded: string, raw: string): BankResult | null {
   // OLA 66 · EL DINERO CON SU NOMBRE DE TODOS LOS DÍAS (palabra
   // traída por Oscar, 2026-11-24: «preguntarle tengo billete — para
   // que me dé así: tienes tanto»): «¿cuánto dinero tengo?» sin el
@@ -9411,7 +9469,45 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
   // familia y nunca casa aquí; la cuenta llamada Saldo sigue
   // yendo por su puerta de ahorros, que oye el «en».
   const bareSaldo = /^(cual es (mi|el) saldo|cuanto es (mi|el) saldo|cuanto tengo de saldo|cuanto hay de saldo|cuanto saldo tengo|mi saldo|saldo|what is my balance|how much is my balance|my balance)$/.test(bare);
-  if (classNamed || (!moneyHow && !bareMoney && !bareHave && !bareSaldo)) return null;
+  /* HUECO 5 · EL SALDO CON OTROS NOMBRES (fallo de Oscar,
+   * 2026-11-27, camino (b): el reparto total/left/free/how se
+   * declara correcto y se cura SOLO el silencio: 31 formas del
+   * grupo «total» que callaban enteras). Cinco voces nuevas, cada
+   * una con su guarda: el neto (la resta pedida en palabras), lo
+   * disponible, el andar y el contar (la calle: ando, cuento,
+   * reales, feria), la moneda nombrada (el total dicho en ella,
+   * con la tasa del libro) y el umbral (siquiera o sobrar con un
+   * monto traído, juzgado contra el total). Los lugares genéricos
+   * (el banco a secas, la cuenta principal, la cuenta corriente,
+   * el checking) no son una clase ni una cuenta con apellido: no
+   * vetan, y lo que el libro no separa se declara en la nota, no
+   * se inventa. La frontera declarada de la pieza: el saldo
+   * corrido tras un pago nombrado y el sobrante tras pagar una
+   * cuenta nombrada no son esta casa y quedan fuera. */
+  const genericPlace = /(en el banco|cuenta principal|cuenta corriente|en checking|en la de debito|en la bolsa)/.test(folded);
+  const classSpecific = /(ahorr|retiro|emergencia|\bmeta\b|cuenta de|de ahorro|paypal|cochinito|savings|retirement)/.test(folded);
+  const genericOnly = genericPlace && !classSpecific;
+  const netAsked = /(saldo neto|quitando (las |mis )?deudas|sin contar (lo q(ue)? debo|las deudas|mis deudas)|descontando (lo que debo|las deudas|mis deudas))/.test(folded);
+  const hasNIO = /(cordobas|corodbas|pesos|\bnio\b|c\$)/.test(folded);
+  const hasUSD = /(dolares|\busd\b|\$)/.test(folded);
+  const bothCur = /(ambas monedas?|por separado)/.test(folded) || (hasNIO && hasUSD);
+  const namedCur: Currency | null = bothCur ? null : hasNIO ? "NIO" : hasUSD ? "USD" : null;
+  const dispAsked = /(disponible|available|fondos libres|lo disponible|fondos en (dolares|cordobas))/.test(folded);
+  /* El «saldo total» de un instrumento nombrado (la tarjeta, la
+   * deuda, el préstamo) es el total DE ESE instrumento, no el de
+   * todo: la puerta cede cuando la frase lo nombra. */
+  const instrumentNamed = /(saldo|balance) total/.test(folded) && /(tarjeta|deuda|prestamo|credito)/.test(folded);
+  const walkAsked = /(en cuanto ando|en cuanto anda mi (cuenta|saldo|dinero|plata)|cuantos reales me quedan|cuanto cash tengo|me queda algo|estoy limpio|tengo feria|ando raspando|me da el billete|con cuanto arranco|que tanto (billete|plata|dinero|efectivo|cash) me queda|cuanto billete me queda|cuanto m queda|cuanto me queda pa\b|how much me queda|me queda (plata|dinero|billete|efectivo) en la cuenta principal|balance actual|saldo total|blance|(saldo|balance|blance) de la cuenta corriente)/.test(folded)
+    /* El «con cuánto cuento» cede cuando la frase trae el ritmo
+     * o el horizonte de la proyección («con 100 al mes», «en
+     * 2044», «al retirarme»): contar lo que hay es de esta casa;
+     * contar con un aporte repetido hacia una fecha, no. */
+    || (/(con cuanto cuento|cuanto cuento)/.test(folded) && !/(al mes|por mes|cada (mes|semana|quincena|ano)|\b20\d\d\b|retir|en \d+ (meses|anos))/.test(folded));
+  const amts5 = amountsIn(raw);
+  const thresholdAsked = /(siquiera|me sobran)/.test(folded) && amts5.length > 0;
+  const yesNoAsked = bareMoney || /(tengo feria|me queda algo|estoy limpio)/.test(folded);
+  const noSeparate = /(checking|pendings?|cuenta principal|cuenta corriente|en la bolsa|de debito|tarjeta de debito)/.test(folded);
+  if ((classNamed && !genericOnly) || instrumentNamed || (!moneyHow && !bareMoney && !bareHave && !bareSaldo && !netAsked && !dispAsked && !walkAsked && !thresholdAsked)) return null;
   const reading = readAdvisor(c.state, c.key, c.lang, c.names, { today: new Date(`${c.today}T12:00:00`) });
   const stock = savingsStock(c.state, c.key);
   const nb = netBalance(c.state, c.today);
@@ -9421,14 +9517,66 @@ function totalTodoAnswer(c: Ctx, folded: string): BankResult | null {
   if (left !== 0) pieces.push({ label: L(c.lang, "Tu queda de hoy", "Your left today"), minor: left });
   if (stock.total !== 0) pieces.push({ label: L(c.lang, "En ahorros", "In savings"), minor: stock.total });
   if (nb.owed !== 0) pieces.push({ label: L(c.lang, "Que te deben", "Owed to you"), minor: nb.owed });
+  const note5 = noSeparate ? L(c.lang, "Ojo: tu libro no guarda el dinero separado por cuenta, tarjeta ni bolsillo, ni aparta lo pendiente de cobro: la cifra es todo tu dinero junto, tal como el libro lo conoce.", "Note: your book doesn't keep money separated by account, card or pocket, and it doesn't set pending items aside: the figure is all your money together, as the book knows it.") : null;
   if (!pieces.length) {
-    return { kind: "answer", family: "total", verdict: L(c.lang, "En total, tu libro no guarda dinero en ningún lado todavía: ni queda del mes, ni ahorros, ni préstamos dados por cobrar. Lo que se anote, se suma aquí.", "In total, your book doesn't hold money anywhere yet: no month's left, no savings, and no loans given to collect. Whatever gets recorded adds up here."), pieces: [], note: null, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0 };
+    return { kind: "answer", family: "total", verdict: L(c.lang, "En total, tu libro no guarda dinero en ningún lado todavía: ni queda del mes, ni ahorros, ni préstamos dados por cobrar. Lo que se anote, se suma aquí.", "In total, your book doesn't hold money anywhere yet: no month's left, no savings, and no loans given to collect. Whatever gets recorded adds up here."), pieces: [], note: note5, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0 };
+  }
+  const bagsTxt = L(c.lang, `${c.money(left)} de queda de hoy, ${c.money(stock.total)} en ahorros y ${c.money(nb.owed)} que te deben`, `${c.money(left)} of today's left, ${c.money(stock.total)} in savings and ${c.money(nb.owed)} owed to you`);
+  /* EL NETO (hueco 5): la resta pedida en palabras se hace, con
+   * las dos cifras a la vista: el total y lo que debes. */
+  if (netAsked) {
+    const owe = nb.owe;
+    const net = total - owe;
+    const netPieces = [...pieces];
+    if (owe !== 0) netPieces.push({ label: L(c.lang, "Lo que debes", "What you owe"), minor: -owe });
+    netPieces.push({ label: L(c.lang, "Tu saldo neto", "Your net balance"), minor: net });
+    return {
+      kind: "answer", family: "total",
+      verdict: L(c.lang, `Tu saldo neto es ${c.money(net)}: tienes ${c.money(total)} en total (${bagsTxt}) y debes ${c.money(owe)}; al restar lo que debes, quedan ${c.money(net)}. Es tu patrimonio sobre el dinero que el libro conoce: no cuenta efectivo fuera del libro ni el valor de tus bienes.`, `Your net balance is ${c.money(net)}: you have ${c.money(total)} in total (${bagsTxt}) and you owe ${c.money(owe)}; subtracting what you owe leaves ${c.money(net)}. That's your net worth over the money the book knows: it doesn't count cash outside the book or the value of your things.`),
+      pieces: netPieces.slice(0, 5),
+      note: note5, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0,
+      actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
+    };
+  }
+  /* EL UMBRAL (hueco 5): sí o no contra el total, con las dos
+   * cifras nombradas; el monto traído se oye en su moneda y se
+   * convierte solo para juzgar. */
+  if (thresholdAsked) {
+    const a = amts5[0];
+    const aCur: Currency = hasNIO && !hasUSD ? "NIO" : hasUSD && !hasNIO ? "USD" : c.display;
+    const aView = aCur === c.display ? a.minor : convertMinor(a.minor, aCur, c.display, c.rateE4);
+    const yes = total >= aView;
+    return {
+      kind: "answer", family: "total",
+      verdict: (yes ? L(c.lang, "Sí. ", "Yes. ") : L(c.lang, "No. ", "No. ")) + L(c.lang, `En total tienes ${c.money(total)} (${bagsTxt}), y lo que nombras es ${formatMoney(a.minor, aCur, c.lang)}: ${yes ? "cabe en lo que tienes" : "no cabe en lo que tienes"}. La cifra es todo tu dinero junto, sin separar cuentas.`, `In total you have ${c.money(total)} (${bagsTxt}), and what you name is ${formatMoney(a.minor, aCur, c.lang)}: ${yes ? "it fits in what you have" : "it doesn't fit in what you have"}. The figure is all your money together, with no accounts separated.`),
+      pieces,
+      note: note5, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0,
+      actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
+    };
+  }
+  /* LA MONEDA NOMBRADA (hueco 5): el mismo total dicho en la
+   * moneda pedida, con la tasa del libro nombrada; en ambas, las
+   * dos cifras. Las piezas quedan en la moneda de vista. */
+  if (bothCur || (namedCur && namedCur !== c.display)) {
+    const other: Currency = bothCur ? (c.display === "USD" ? "NIO" : "USD") : (namedCur as Currency);
+    const conv = convertMinor(total, c.display, other, c.rateE4);
+    const rateTxt = String(c.rateE4 / 10000);
+    const otherName = other === "NIO" ? L(c.lang, "córdobas", "cordobas") : L(c.lang, "dólares", "dollars");
+    return {
+      kind: "answer", family: "total",
+      verdict: bothCur
+        ? L(c.lang, `En total tienes ${c.money(total)}; dicho en ${otherName}, son ${formatMoney(conv, other, c.lang)}, con la tasa de tu libro (${rateTxt} córdobas por dólar). El desglose: ${bagsTxt}. Es todo el dinero que tu libro conoce, sin separar cuentas ni monedas en el libro mismo.`, `In total you have ${c.money(total)}; said in ${otherName}, that's ${formatMoney(conv, other, c.lang)}, at your book's rate (${rateTxt} cordobas per dollar). The breakdown: ${bagsTxt}. It's all the money your book knows, with no accounts or currencies separated in the book itself.`)
+        : L(c.lang, `En total tienes ${formatMoney(conv, other, c.lang)} (${c.money(total)} en tu moneda de vista, con la tasa de tu libro: ${rateTxt} córdobas por dólar). El desglose: ${bagsTxt}. Es todo el dinero que tu libro conoce: no cuenta efectivo fuera del libro ni el valor de tus bienes.`, `In total you have ${formatMoney(conv, other, c.lang)} (${c.money(total)} in your display currency, at your book's rate: ${rateTxt} cordobas per dollar). The breakdown: ${bagsTxt}. It's all the money your book knows: it doesn't count cash outside the book or the value of your things.`),
+      pieces,
+      note: note5, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0,
+      actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
+    };
   }
   return {
     kind: "answer", family: "total",
-    verdict: (bareMoney ? (total > 0 ? L(c.lang, "Sí. ", "Yes. ") : L(c.lang, "No. ", "No. ")) : "") + L(c.lang, `En total tienes ${c.money(total)}: ${c.money(left)} de queda de hoy, ${c.money(stock.total)} en ahorros y ${c.money(nb.owed)} que te deben. Es todo el dinero que tu libro conoce — no cuenta efectivo fuera del libro ni el valor de tus bienes, y no resta lo que debes: eso ya es tu patrimonio, otra pregunta.`, `In total you have ${c.money(total)}: ${c.money(left)} of today's left, ${c.money(stock.total)} in savings and ${c.money(nb.owed)} owed to you. It's all the money your book knows — it doesn't count cash outside the book or the value of your things, and it doesn't subtract what you owe: that's your net worth, a different question.`),
+    verdict: (yesNoAsked ? (total > 0 ? L(c.lang, "Sí. ", "Yes. ") : L(c.lang, "No. ", "No. ")) : "") + L(c.lang, `En total tienes ${c.money(total)}: ${bagsTxt}. Es todo el dinero que tu libro conoce — no cuenta efectivo fuera del libro ni el valor de tus bienes, y no resta lo que debes: eso ya es tu patrimonio, otra pregunta.`, `In total you have ${c.money(total)}: ${bagsTxt}. It's all the money your book knows — it doesn't count cash outside the book or the value of your things, and it doesn't subtract what you owe: that's your net worth, a different question.`),
     pieces,
-    note: null, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0,
+    note: note5, source: ["libros.lineas", "ahorros.stock", "cobros.mideben"], lines: 0,
     actions: reportDoor(c, "ahorros.stock", "Ver mis ahorros", "See my savings"),
   };
 }
@@ -10915,24 +11063,88 @@ function capacidadesProbeAnswer(c: Ctx, folded: string): BankResult | null {
  * Oscar apruebe. */
 function presupuestoAnswer(c: Ctx, folded: string): BankResult | null {
   if (!/(presupuest|budget|\btope\b|\btopes\b)/.test(folded)) return null;
+  const figs = budgetFigures(c.state, c.key);
   const hit = filterHitOf(c, folded);
-  const monthLines = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
-  if (hit?.desc) {
-    const sum = monthLines.filter(hit.fn).reduce((a, l) => a + convertMinor(l.amountMinor, l.currency, c.display, c.rateE4), 0);
+  const fm = (minor: number, cur: Currency) => formatMoney(minor, cur, c.lang);
+  // La categoría nombrada: por su golpe de ciudadano, o por el
+  // subconcepto nombrado (el tope vive en la categoría madre).
+  let namedCat: Category | undefined;
+  if (hit?.desc?.kind === "category") namedCat = c.state.structure.categories.find((x) => x.id === (hit.desc as { id: string }).id);
+  if (hit?.desc?.kind === "sub") namedCat = c.state.structure.categories.find((x) => x.subs.some((s) => s.id === (hit.desc as { id: string }).id));
+  const figNote = (f: BudgetFigure): string | null => {
+    const parts: string[] = [];
+    if (f.converted) parts.push(L(c.lang, `Parte del gasto estaba en la otra moneda: lo convertí con la tasa anotada en tu libro (${(f.rateE4 / 10000).toFixed(4).replace(/\.?0+$/, "")} córdobas por dólar).`, `Part of the spending was in the other currency: I converted it at the rate recorded in your book (${(f.rateE4 / 10000).toFixed(4).replace(/\.?0+$/, "")} córdobas per dollar).`));
+    for (const u of f.uncounted) parts.push(L(c.lang, `No conté ${fm(u.minor, u.currency)} de ${c.names.cat(f.cat.id)}: están en ${u.currency === "NIO" ? "córdobas" : "dólares"} y tu libro no trae una tasa anotada para convertirlos — sin tasa no invento la cifra.`, `I didn't count ${fm(u.minor, u.currency)} of ${c.names.cat(f.cat.id)}: they're in ${u.currency === "NIO" ? "córdobas" : "dollars"} and your book holds no recorded rate to convert them — with no rate I don't invent the figure.`));
+    return parts.length ? parts.join(" ") : null;
+  };
+  const figVerdict = (f: BudgetFigure): string => {
+    const label = c.names.cat(f.cat.id);
+    return f.over
+      ? L(c.lang, `Te pasaste de tu presupuesto de ${label}: llevas ${fm(f.spentMinor, f.capCurrency)} de ${fm(f.capMinor, f.capCurrency)} este mes — pasado por ${fm(f.overMinor, f.capCurrency)}.`, `You're over your ${label} budget: you've spent ${fm(f.spentMinor, f.capCurrency)} of ${fm(f.capMinor, f.capCurrency)} this month — over by ${fm(f.overMinor, f.capCurrency)}.`)
+      : L(c.lang, `De tu presupuesto de ${label} te quedan ${fm(f.leftMinor, f.capCurrency)}: llevas ${fm(f.spentMinor, f.capCurrency)} de ${fm(f.capMinor, f.capCurrency)} este mes.`, `You have ${fm(f.leftMinor, f.capCurrency)} left of your ${label} budget: you've spent ${fm(f.spentMinor, f.capCurrency)} of ${fm(f.capMinor, f.capCurrency)} this month.`);
+  };
+  const figPiece = (f: BudgetFigure): { label: string; minor: number } | null => {
+    if (f.capCurrency === c.display) return { label: c.names.cat(f.cat.id), minor: f.spentMinor };
+    if (Number.isFinite(c.rateE4) && c.rateE4 > 0) return { label: c.names.cat(f.cat.id), minor: convertMinor(f.spentMinor, f.capCurrency, c.display, c.rateE4) };
+    return null;
+  };
+  if (namedCat) {
+    const f = figs.find((x) => x.cat.id === namedCat.id);
+    if (f) {
+      const piece = figPiece(f);
+      return {
+        kind: "answer", family: "presupuesto",
+        verdict: figVerdict(f),
+        pieces: piece ? [piece] : [],
+        note: figNote(f),
+        source: ["libros.lineas"], lines: 0,
+      };
+    }
+    // La nombrada no trae tope: la voz de la cerca, intacta.
+    const monthLines = (c.state.months[c.key]?.lines ?? []).filter((l) => l.active && isOut(l) && roleOf(c.state, l.categoryId) !== "savings");
+    const sum = hit ? monthLines.filter(hit.fn).reduce((a, l) => a + convertMinor(l.amountMinor, l.currency, c.display, c.rateE4), 0) : 0;
+    const label = hit?.desc ? hit.desc.label : c.names.cat(namedCat.id);
     return {
       kind: "answer", family: "presupuesto",
-      verdict: L(c.lang, `No tienes presupuesto fijado para ${hit.desc.label}: tu libro no guarda ningún tope todavía. Lo que sí consta: llevas ${c.money(sum)} en ${hit.desc.label} este mes.`, `You have no budget set for ${hit.desc.label}: your book doesn't keep any cap yet. What is recorded: you've spent ${c.money(sum)} on ${hit.desc.label} this month.`),
-      pieces: sum > 0 ? [{ label: hit.desc.label, minor: sum }] : [],
+      verdict: L(c.lang, `No tienes presupuesto fijado para ${label}: tu libro no guarda ningún tope todavía. Lo que sí consta: llevas ${c.money(sum)} en ${label} este mes.`, `You have no budget set for ${label}: your book doesn't keep any cap yet. What is recorded: you've spent ${c.money(sum)} on ${label} this month.`),
+      pieces: sum > 0 ? [{ label, minor: sum }] : [],
       note: L(c.lang, "El dato que falta es el tope: hoy el libro no lo guarda en ninguna categoría.", "The missing datum is the cap: today the book doesn't keep one for any category."),
-      source: ["libros.lineas"], lines: monthLines.filter(hit.fn).length,
+      source: ["libros.lineas"], lines: hit ? monthLines.filter(hit.fn).length : 0,
+    };
+  }
+  if (!figs.length) {
+    return {
+      kind: "answer", family: "presupuesto",
+      verdict: L(c.lang, "No tienes presupuesto fijado: tu libro no guarda ningún tope todavía — ni por categoría ni para el mes.", "You have no budget set: your book doesn't keep any cap yet — not per category and not for the month."),
+      pieces: [],
+      note: L(c.lang, "El dato que falta es el tope: hoy el libro no lo guarda en ninguna categoría.", "The missing datum is the cap: today the book doesn't keep one for any category."),
+      source: ["libros.lineas"], lines: 0,
+    };
+  }
+  // Sin nombre y con topes: la lista de pasadas si la pregunta la
+  // pide; si no, el resumen de los topes, peor primero.
+  const overs = figs.filter((f) => f.over);
+  const asksOver = /(pase|pasad|exced|over)/.test(folded);
+  const pieces = figs.map(figPiece).filter((p): p is { label: string; minor: number } => p !== null);
+  if (asksOver) {
+    if (!overs.length) {
+      return {
+        kind: "answer", family: "presupuesto",
+        verdict: L(c.lang, `No te has pasado de ningún presupuesto este mes: ${figs.map((f) => `en ${c.names.cat(f.cat.id)} te quedan ${fm(f.leftMinor, f.capCurrency)}`).join("; ")}.`, `You haven't gone over any budget this month: ${figs.map((f) => `${c.names.cat(f.cat.id)} has ${fm(f.leftMinor, f.capCurrency)} left`).join("; ")}.`),
+        pieces, note: null, source: ["libros.lineas"], lines: 0,
+      };
+    }
+    return {
+      kind: "answer", family: "presupuesto",
+      verdict: L(c.lang, `Te has pasado en ${overs.length === 1 ? "una categoría" : `${overs.length} categorías`}: ${overs.map((f) => `${c.names.cat(f.cat.id)}, por ${fm(f.overMinor, f.capCurrency)} (llevas ${fm(f.spentMinor, f.capCurrency)} de ${fm(f.capMinor, f.capCurrency)})`).join("; ")}.`, `You're over in ${overs.length === 1 ? "one category" : `${overs.length} categories`}: ${overs.map((f) => `${c.names.cat(f.cat.id)}, by ${fm(f.overMinor, f.capCurrency)} (you've spent ${fm(f.spentMinor, f.capCurrency)} of ${fm(f.capMinor, f.capCurrency)})`).join("; ")}.`),
+      pieces: overs.map(figPiece).filter((p): p is { label: string; minor: number } => p !== null),
+      note: null, source: ["libros.lineas"], lines: 0,
     };
   }
   return {
     kind: "answer", family: "presupuesto",
-    verdict: L(c.lang, "No tienes presupuesto fijado: tu libro no guarda ningún tope todavía — ni por categoría ni para el mes.", "You have no budget set: your book doesn't keep any cap yet — not per category and not for the month."),
-    pieces: [],
-    note: L(c.lang, "El dato que falta es el tope: hoy el libro no lo guarda en ninguna categoría.", "The missing datum is the cap: today the book doesn't keep one for any category."),
-    source: ["libros.lineas"], lines: 0,
+    verdict: L(c.lang, `Tienes ${figs.length === 1 ? "un presupuesto fijado" : `${figs.length} presupuestos fijados`}: ${figs.map((f) => f.over ? `${c.names.cat(f.cat.id)} va pasado por ${fm(f.overMinor, f.capCurrency)}` : `a ${c.names.cat(f.cat.id)} le quedan ${fm(f.leftMinor, f.capCurrency)}`).join("; ")}.`, `You have ${figs.length === 1 ? "one budget set" : `${figs.length} budgets set`}: ${figs.map((f) => f.over ? `${c.names.cat(f.cat.id)} is over by ${fm(f.overMinor, f.capCurrency)}` : `${c.names.cat(f.cat.id)} has ${fm(f.leftMinor, f.capCurrency)} left`).join("; ")}.`),
+    pieces, note: null, source: ["libros.lineas"], lines: 0,
   };
 }
 
@@ -13773,7 +13985,7 @@ function answerSingle(
   // me deben), con su borde declarado. Su puerta trae «en total»:
   // la queda a secas sigue siendo del delegado.
   {
-    const tt = totalTodoAnswer(c, folded);
+    const tt = totalTodoAnswer(c, folded, rawR);
     if (tt) return tt;
   }
   // 0b · HIPOTÉTICOS Y CALCULADORA (ola 4): «si…» con números TRAÍDOS
@@ -14320,7 +14532,7 @@ function answerSingle(
   // pagar de nuevo?» es su otra mitad y el gatillo viejo («ultim»)
   // no la dejaba ni entrar; las voces de la próxima paga se suman
   // a las de la Ola 28 sin quitar ninguna.
-  if (/(ultim|last time|last thing|last (remittance|remesa|amount|send|sent|payment|pago)|last (get|got) paid|cuando fue|pagar de nuevo|van a pagar|cuando (me pagan|cobro)|proximo (pago|sueldo|salario|ingreso)|proxima paga|next pay|get paid again|when (will|do) i get paid|when did i last|what was the last|the last (amount|payment|paycheck|remittance))/.test(folded)) {
+  if (/(ultim|last time|last thing|last (remittance|remesa|amount|send|sent|payment|pago)|last (get|got) paid|cuando fue|pagar de nuevo|van a pagar|cuando (me pagan|cobro)|proximo (pago|sueldo|salario|ingreso)|proxima paga|next pay|get paid again|when (will|do) i get paid|when did i last|what was the last|the last (amount|payment|paycheck|remittance)|ya (cayo|callo|entro|llego|aparecio)|todavia no (cayo|entro|llego|aparece)|(revisa|checa|fijate|confirmame|revisame|verifica) si ya|has it arrived|come in yet)/.test(folded)) {
     const r = recenciaAnswer(c, folded);
     if (r) return r;
   }
@@ -14605,12 +14817,13 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     [/(si (ahorro|ahorrara|ahorre|comenzara a ahorrar)|si sigo (metiendo|guardando|apartando|poniendo|ahorrando)|proyect|if i (save|start saving)|ahorro (doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos|mil|\d)|save \$\d|save \d).{0,40}(cada (semana|mes|quincena|ano)|semanal|mensual|quincenal|fin de (mes|ano)|en (un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce|\d+) (anos|meses|semanas)|para (diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|navidad)|each (week|month|year)|weekly|monthly|end of the (year|month))/, "proyeccion"],
     [/((tendre|tendria|habre|habria) ahorrado|cuanto (tendre|tendria)).{0,30}(en (\d+|un|una|dos|tres|cuatro|cinco|seis|doce) (meses|anos|semanas)|en un ano|a fin de|para (navidad|fin de)|si sigo)/, "proyeccion"],
     [/(tardaria|tardare|cuanto (necesito|debo|tengo) que ahorrar|cuanto (debo|necesito) ahorrar|cuanto ahorrar|quiero (juntar|ahorrar|reunir)|juntar \d|meta de ahorro)/, "meta"],
+    [/(saldo neto|quitando (las |mis )?deudas|sin contar lo q|saldo total en|fondos (libres|en dolares)|lo disponible|disponible en checking|available en checking|en cuanto ando|con cuanto cuento|cuantos reales me quedan|tengo feria|me queda algo|me da el billete|balance actual|me queda (plata|dinero|billete|efectivo) en la cuenta principal|me quedan siquiera|me sobran|how much me queda|que tanto billete|cuanto m queda|blance|balance de la cuenta corriente)/, "total"],
     [/(en (cordobas|dolares|euros)|a (cordobas|dolares)|tipo de cambio|a como esta el cambio|cuanto (es|son) .{0,30}(dolares|cordobas|euros|pesos))/, "conversor"],
     [/(cuando (vence|es|cae|toca)|en cuantos dias|cuantos dias (faltan|quedan|para)|que dia (es|sera|cumple))/, "calendario"],
     [/(de que cuenta (saco|pago|tomo)|cual cuenta (uso|conviene)|de donde saco)/, "cuenta-origen"],
     [/(50.?30.?20|la regla|the rule|deberia gastar en|cuanto deberia (gastar|ahorrar))/, "regla"],
     [/(cuanto necesito (al mes|para vivir)|necesito para vivir|cuanto (me )?cuesta vivir|que (porcentaje|parte) de (lo que gano|mi sueldo|mi salario)|cuanto (me |nos )?(cuesta|cuestan) .{1,30} al mes|cuanto gastamos en|me alcanza con lo que gano|alcanza mi sueldo|how much do i need to live|what (percentage|share) of my income|how much does .{1,30} cost)/, "promedio"],
-    [/(cuanto (dinero )?tengo en total|cuanto (dinero|billete|efectivo) hay|todo mi dinero|^cuanto tengo$|^how much do i have$|how much money do i have in total|how much (money|cash) is there|^cual es (mi|el) saldo$|^cuanto es (mi|el) saldo$|^cuanto tengo de saldo$|^cuanto hay de saldo$|^mi saldo$|^what is my balance$|^how much is my balance$)/, "total"],
+    [/(cuanto (dinero|billete|efectivo) tengo|cuanto (dinero|billete|efectivo) hay|cuanto (dinero )?tengo en total|todo mi dinero|^(y )?(no )?(tengo|tenes|me queda) (dinero|billete|efectivo)\b|^cuanto tengo$|^how much do i have$|how much (money|cash) do i have|how much (money|cash) is there|how much money do i have in total|^do i have (any )?(money|cash)\b|^cual es (mi|el) saldo$|^cuanto es (mi|el) saldo$|^cuanto tengo de saldo$|^cuanto hay de saldo$|^mi saldo$|^what is my balance$|^how much is my balance$)/, "total"],
     [/(promedio|gasto fijo|cuanto puedo gastar hoy|seguro gastar)/, "promedio"],
     [/(gustos|antojos|puedo gastar|darme el gusto|capricho)/, "gustos"],
     // OLA 25: la verificación nombra «promedio» en el oído — DESPUÉS
@@ -14618,6 +14831,7 @@ export function classifyBankQuestion(raw: string): { isQuestion: boolean; family
     // gustos?» es de gustos, no de la verificación.
     [/(tengo|puedo|alcanza|me alcanza|have|can i).{0,24}(para gastar|gastar.{0,24}hoy|to spend|spend.{0,24}today)/, "promedio"],
     [/(cuantas|cuantos) (cuotas|tarjetas|cuentas|prestamos|deudas|suscripciones)/, "conteo"],
+    [/(ya (cayo|callo|entro|llego|aparecio)|todavia no (cayo|entro|llego|aparece)|(revisa|checa|confirmame) si ya|has it arrived|come in yet)/, "recencia"],
     [/(ultima vez|cuando fue la ultima|la ultima (cosa|compra|vez)|ultima remesa|last time|last (remittance|amount|send|sent)|last (get|got) paid)/, "recencia"],
     [/(ha subido|subio de precio|subieron los precios|(subio|subieron).{0,24}suscripcion|no se cobro|no me cobraron|al ano en suscripciones|cuanto.*al ano.*suscripcion|subscription.{0,24}(go up|went up|goes up)|which subscription|didnt charge|did not charge|subscriptions? cost)/, "series"],
     [/(cuantas veces|cada cuanto|cada cuantos|que suscripciones tengo|mas frecuente|duplicad|ha subido|subio de precio|que dia (gasto|compro) mas|how many times)/, "frecuencia"],

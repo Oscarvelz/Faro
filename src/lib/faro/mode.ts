@@ -395,6 +395,10 @@ export const FEATURES = {
    * información esencial, como los pagos que se acercan: ver que algo
    * cambió en tu dinero es Esencial. */
   "central.drift": E,
+  /* 1.3.522: la tarjeta de presupuestos en Central y su pliegue en
+   * Estudio — ver el gasto contra el tope que tú fijaste es
+   * información esencial, como los pagos que se acercan. */
+  "central.budgets": E, "study.budgets": E,
   "debt.facts": E, "cobros.owed-side": E, "cobros.owe-side": E, "cobros.timeline": R,
   "cobros.quick-list": R, "cobros.quick-add": R, "cobros.archive": R, "cobros.see-all": R,
   /* §1.4 Libros — máquina común (el escaneo al añadir es scan.receipt) */

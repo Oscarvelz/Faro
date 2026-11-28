@@ -167,22 +167,7 @@ describe("ola28 · F2 el barrido: toda canónica llega a su familia", () => {
           if (q.includes("(tras confirmar")) continue;
           const r = ask(ledger, lang, q);
           if (f.status === "declarada") {
-            // EXCEPCIÓN ESCRITA · presupuesto (1.3.520, el fallo de
-            // consistencia de Oscar): la familia sigue declarada
-            // — no se promete en el menú ni en los catálogos,
-            // porque el libro todavía no guarda ningún tope y
-            // ningún tope se puede fijar — pero sus canónicas NO
-            // callan: desde la cerca de la 1.3.519 las responde la
-            // puerta de la ausencia, firmadas por la familia, con
-            // la verdad del dato que falta. Callarlas de nuevo las
-            // devolvería a la queda del mes disfrazada, que es lo
-            // que la cerca vino a cerrar. Cuando el dato exista,
-            // la familia pasará a viva y esta excepción muere.
-            if (f.id === "presupuesto") {
-              assert.ok(r.kind === "answer" && r.family === "presupuesto" && (r.verdict.includes("No tienes presupuesto fijado") || r.verdict.includes("no budget set")), `«${q}» — la cerca responde la ausencia: ${r.kind}${r.kind === "answer" ? "/" + r.family : ""}`);
-            } else {
-              assert.equal(r.kind, "unknown", `«${q}» — la familia declarada calla: ${r.kind === "answer" ? r.verdict : r.kind}`);
-            }
+            assert.equal(r.kind, "unknown", `«${q}» — la familia declarada calla: ${r.kind === "answer" ? r.verdict : r.kind}`);
           } else {
             const exc = EXCEPCIONES.get(`${f.id}|${lang}|${q}`);
             if (exc) {

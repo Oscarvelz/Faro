@@ -414,6 +414,12 @@ const CENSO19: Record<string, [ClasePuerta, number]> = {
   // vigilMuted en los ajustes del libro; ajustes ordinarios, sin
   // negativa posible, como el descarte de los avisos de pagos.
   "components/faro/drift-card.tsx|commit|inline|—": ["aterrizaje", 2],
+  // 1.3.522: la tarjeta de Presupuestos gana sus dos aterrizajes en
+  // línea — la ✕ que la quita de Central y la pastilla de Estudio que
+  // la devuelve componen budgetsCardHidden en los ajustes del libro;
+  // ajustes ordinarios, sin negativa posible, como los de la
+  // vigilancia.
+  "components/faro/budgets-card.tsx|commit|inline|—": ["aterrizaje", 2],
   // 1.3.501: la misma tarjeta gana el aterrizaje que escribe de
   // verdad — «Programarlo» delega en settleProgramaDrafts (la
   // costura de la casa, la misma del Asesor) y suprime el

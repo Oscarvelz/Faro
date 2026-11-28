@@ -3,6 +3,7 @@ import { useTabletOne as useTabletOneAA } from "./book-side";
 import { DueAlertsCard } from "./due-alerts";
 import { BirthdayCards } from "./birthday-card";
 import { DriftCard } from "./drift-card";
+import { BudgetsCard, BudgetRows, BudgetsShowCentralPill } from "./budgets-card";
 import { YearAnnouncementCard } from "./bitacora";
 import type { AreaId } from "@/lib/faro/area-advice";
 import { PeopleAdviceCard, PeopleBox, PeopleStudy } from "./people";
@@ -36,7 +37,7 @@ import { AskLearnedManager } from "@/components/faro/ask-learned";
 import { WaitlistSection, WishEntry, WishSheet } from "@/components/faro/waitlist";
 import { ProjectionSection } from "@/components/faro/projection";
 import { useMasonry, usePinchZoom } from "@/components/faro/pinch";
-import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, Lock, LockOpen, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, ClipboardList, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, Users, X } from "lucide-react";
+import { RotateCcw, Languages, FolderTree, SlidersHorizontal, Keyboard, Hand, Hourglass, Lock, LockOpen, ShieldCheck, UserRound, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp, CreditCard, Eraser, Eye, EyeOff, Filter, Gauge, GraduationCap, GripVertical, Image as ImageIcon, Info, Landmark, ListChecks, ClipboardList, Minus, Palette, Pencil, Pin, Plus, Repeat2, Search, Send, Settings as Gear, Smartphone, Sparkles, Trash2, Users, Wallet, X } from "lucide-react";
 import { APK_URL, androidBrowser, inAndroidApp, nativeCanPickContactName, nativePickContactName } from "@/spa/native";
 import { WidgetCard, WIDGET_REFRESH } from "./widget-host";
 import { AccountLocalNote, NameRow, UserButton } from "@/lib/auth/gates";
@@ -47,6 +48,7 @@ import { hasStorePin, hasWidgetPin, toggleStorePin, toggleWidgetPin } from "@/li
 import { sampleOn } from "@/lib/faro/samplemode";
 import { deskSeedDecision, withDeskSeedFlag } from "@/lib/faro/deskseed";
 import { cashSankey, foldSlices, studyBoard, spanPoints, compareSpans } from "@/lib/faro/engine";
+import { budgetFigures } from "@/lib/faro/budgets";
 import { yearReport, yearsWithData } from "@/lib/faro/year";
 import { todayText } from "@/lib/faro/today";
 import { projectLeft, readAdvisor, type FigurePart, type ScenarioId } from "@/lib/faro/advisor";
@@ -3699,6 +3701,9 @@ export function Desk({ focus }: { focus?: "save" | "meta" | "retiro" | "emergenc
       {/* 1.3.496 (Ola 33): la vigilancia se presenta sola — las
           candidatas medidas del libro, sin que nadie pregunte. */}
       <DriftCard />
+      {/* 1.3.522: los presupuestos — la tarjeta nace solo si hay al
+          menos un tope fijado, junto a la vigilancia. */}
+      <BudgetsCard />
       <div className="lenses" data-focus={btnOn ?? cardOn ?? undefined}>
         <div className="lens-wrap">
           <Hint topic="tengo" className="is-lens" group="lens" avoid=".lens-wrap .lens-kicker > span:last-child" />
@@ -5174,6 +5179,7 @@ export function Study() {
   // línea nunca cuenten dos verdades del mismo mes.
   const activePoint = points.find((p) => p.key === activeKey);
   const board = session ? studyBoard(session.ledger, `${ui.year}-${String(ui.month).padStart(2, "0")}`, lang, names) : null;
+  const budgetRows = session ? budgetFigures(session.ledger, `${ui.year}-${String(ui.month).padStart(2, "0")}`) : [];
   const sankey = session ? cashSankey(session.ledger, `${ui.year}-${String(ui.month).padStart(2, "0")}`, lang, names) : { nodes: [], links: [] };
   const parts = summary
     ? [
@@ -5280,7 +5286,7 @@ export function Study() {
   const FOLD_FEATURE = {
     pulse: "pano.month-ring", health: "pano.health-note", pace: "pano.runway-linear", agenda: "pano.next-dues-reduced",
     waffle: "pano.hundred", where: "study.where", rule: "pano.rule-503020", movers: "pano.movers", time: "study.flow-simple",
-    cushion: "study.month-jar", plan: "study.budget-caps", numeros: "study.key-numbers", sankey: "study.sankey",
+    cushion: "study.month-jar", plan: "study.budget-caps", budgets: "study.budgets", numeros: "study.key-numbers", sankey: "study.sankey",
     owed: "study.owed", loans: "study.loans", people: "study.people", remesas: "study.remit", earnings: "study.income-sources",
     prices: "study.prices",
     year: "study.income-sources", rewards: "cards.rewards", seguro: "ins.premiums-paid",
@@ -5308,6 +5314,7 @@ export function Study() {
         { id: "sankey", label: t("study.sankey"), section: "spend" },
         { id: "rule", label: es ? "La regla 50 · 30 · 20" : "The 50 · 30 · 20 rule", section: "general" },
         { id: "plan", label: es ? "¿Vas dentro del tope?" : "Within your limits?", section: "general" },
+        { id: "budgets", label: es ? "Presupuestos" : "Budgets", section: "general" },
         { id: "movers", label: es ? "Qué se movió" : "What moved", section: "general" },
         { id: "time", label: es ? "Entra, sale y queda" : "In, out and left", section: "time" },
         { id: "earnings", label: es ? "De dónde viene tu dinero" : "Where your money comes from", section: "time" },
@@ -5351,6 +5358,7 @@ export function Study() {
       {earnAny && has("study.income-sources") ? <StatFold id="earnings"><EarningsStudy /></StatFold> : null}
       {pricesAny && has("study.prices") ? <StatFold id="prices"><PriceWatchStudy /></StatFold> : null}
       {board?.envelopes.length && has("study.budget-caps") ? <StatFold id="plan"><LimitsCard rows={board.envelopes} /></StatFold> : null}
+      {budgetRows.length && has("study.budgets") ? <StatFold id="budgets"><section className="card bud-card is-study"><div className="bud-head"><Wallet aria-hidden /><h2 className="serif">{es ? "Presupuestos" : "Budgets"}</h2><BudgetsShowCentralPill /><Hint topic="presupuestos" /></div><BudgetRows rows={budgetRows} lang={lang} names={names} /></section></StatFold> : null}
       {numerosAny && has("study.key-numbers") ? <StatFold id="numeros"><KeyNumbers items={insights} /></StatFold> : null}
       <StudyCharts
         points={points}
@@ -7222,6 +7230,28 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // Las fijas viven en los ajustes del libro (settings.widgetPins), no en la Estructura:
   // por eso no viajan dentro de CardEdits sino junto a él en la misma receta.
   const [stagedPins, setStagedPins] = useState<Record<string, boolean>>({});
+  // EL PRESUPUESTO (1.3.522): el tope de la categoría también se
+  // PREPARA (stagedCap: undefined = sin tocar, null = quitarlo,
+  // {minor, currency} = fijarlo o cambiarlo) y Guardar lo escribe en
+  // el MISMO commit que todo lo demás de la tarjeta, por CardEdits.
+  const [stagedCap, setStagedCap] = useState<{ minor: number; currency: string } | null | undefined>(undefined);
+  const [capOpen, setCapOpen] = useState(false);
+  const [capAmt, setCapAmt] = useState("");
+  const [capCur, setCapCur] = useState<string>("USD");
+  const effCap = stagedCap !== undefined ? stagedCap : (cat.capMinor !== undefined && cat.capMinor > 0 ? { minor: cat.capMinor, currency: cat.capCurrency === "NIO" ? "NIO" : "USD" } : null);
+  const capKey = stagedCap === undefined ? "" : stagedCap === null ? "none" : `${stagedCap.minor}|${stagedCap.currency}`;
+  const openCapEditor = () => {
+    setCapAmt(effCap ? String(effCap.minor / 100) : "");
+    setCapCur(effCap ? effCap.currency : (session?.ledger.settings.display ?? "USD"));
+    setCapOpen(true);
+  };
+  const stageCap = () => {
+    const minor = parseAmount(capAmt);
+    if (minor === null || minor <= 0) return;
+    const next = { minor, currency: capCur };
+    setStagedCap(cat.capMinor === next.minor && (cat.capCurrency ?? "USD") === next.currency ? undefined : next);
+    setCapOpen(false);
+  };
   const savedPins = session?.ledger.settings.widgetPins;
   const pinKeyOf = (subId: string) => `${cat.id}|${subId}`;
   const effPin = (subId: string) => stagedPins[pinKeyOf(subId)] ?? hasWidgetPin(savedPins, cat.id, subId);
@@ -7294,8 +7324,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   const editingSub = editSub ? cat.subs.find((x) => x.id === editSub) : undefined;
   const stagedIds = Object.keys(stagedVis);
   const panelDirty = formDirty(
-    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean>, catVis: null as boolean | null, newSubs: [] as string[], renames: {} as Record<string, string>, pins: {} as Record<string, boolean> },
-    { name, sub: subName, edit: editingSub && subEdit !== (stagedNames[editingSub.id] ?? displayName(editingSub, lang)) ? subEdit : "", vis: stagedVis, catVis: stagedCatVis, newSubs: stagedSubs, renames: stagedNames, pins: stagedPins },
+    { name: nameBaseRef.current, sub: "", edit: "", vis: {} as Record<string, boolean>, catVis: null as boolean | null, newSubs: [] as string[], renames: {} as Record<string, string>, pins: {} as Record<string, boolean>, cap: "" },
+    { name, sub: subName, edit: editingSub && subEdit !== (stagedNames[editingSub.id] ?? displayName(editingSub, lang)) ? subEdit : "", vis: stagedVis, catVis: stagedCatVis, newSubs: stagedSubs, renames: stagedNames, pins: stagedPins, cap: capKey },
   );
   const revealRow = () => {
     const row = rootRef.current?.closest("[data-row]");
@@ -7582,7 +7612,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
   // revierte entero). Guardado, la línea base del nombre se renueva y toda la
   // preparación se vacía: la tarjeta queda limpia.
   const nameStaged = name.trim() !== "" && name.trim() !== displayName(cat, lang);
-  const hasStaged = nameStaged || !!subName.trim() || stagedSubs.length > 0 || stagedIds.length > 0 || stagedCatVis !== null || Object.keys(stagedNames).length > 0 || Object.keys(stagedPins).length > 0;
+  const hasStaged = nameStaged || !!subName.trim() || stagedSubs.length > 0 || stagedIds.length > 0 || stagedCatVis !== null || Object.keys(stagedNames).length > 0 || Object.keys(stagedPins).length > 0 || stagedCap !== undefined;
   const savePanel = () => {
     if (!hasStaged) return;
     const fresh = [...stagedSubs, ...(subName.trim() ? [subName.trim()] : [])];
@@ -7592,6 +7622,7 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
       ...(stagedIds.length ? { subHidden: stagedVis } : {}),
       ...(Object.keys(stagedNames).length ? { subNames: stagedNames } : {}),
       ...(fresh.length ? { newSubs: fresh } : {}),
+      ...(stagedCap !== undefined ? { cap: stagedCap } : {}),
     };
     const pinChanges = Object.entries(stagedPins);
     commit((s) => {
@@ -7611,6 +7642,8 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
     setSubName("");
     setStagedSubs([]);
     setStagedNames({});
+    if (stagedCap !== undefined) setStagedCap(undefined);
+    setCapOpen(false);
     if (stagedIds.length) setStagedVis({});
     if (stagedCatVis !== null) setStagedCatVis(null);
     // 1.3.258: si el gesto llevó fijas, la foto del widget se refresca AL MOMENTO,
@@ -7883,6 +7916,42 @@ function TreePanel({ cat, onClose, exitRef }: { cat: Category; onClose: () => vo
         <span className="tree-pin-lab">{effPin("") ? t("widget.pin.on") : t("widget.pin")}{sampleOn() ? <span className="tree-pin-sub">{t("widget.pin.sample")}</span> : null}</span>
         <i className="smp-switch" aria-hidden><b /></i>
       </button>
+      {/* EL PRESUPUESTO (1.3.522): el renglón del tope de la categoría —
+          su propio renglón bajo la fija, con la geometría de la casa:
+          el estado en una línea (la cifra o la ausencia dicha), sus
+          botones en tinte sutil, y el editor en línea cuando se abre.
+          Todo se PREPARA: Guardar es el único commit, como el resto
+          de la tarjeta. Su «?» abre el tema del Manual. */}
+      <div className="tree-budget" data-anchor="est-budget">
+        <div className="tree-budget-head">
+          <Wallet className="size-4 tree-budget-ico" aria-hidden />
+          <span className="tree-budget-lab">{t("budget.title")}</span>
+          <FieldTip topic="presupuestos" />
+        </div>
+        <div className="tree-budget-row">
+          {effCap
+            ? <span className="tree-budget-now num">{formatMoney(effCap.minor, effCap.currency as "USD" | "NIO", lang)} {t("budget.perMonth")}</span>
+            : <span className="tree-budget-none">{t("budget.none")}</span>}
+          <span className="tree-budget-btns">
+            <button type="button" className="bud-tint-btn" data-anchor="est-budget-set" onClick={() => (capOpen ? setCapOpen(false) : openCapEditor())}>{effCap ? t("budget.change") : t("budget.set")}</button>
+            {effCap ? <button type="button" className="bud-quiet-btn" data-anchor="est-budget-remove" onClick={() => { setStagedCap(cat.capMinor === undefined ? undefined : null); setCapOpen(false); }}>{t("budget.remove")}</button> : null}
+          </span>
+        </div>
+        {capOpen ? (
+          <div className="tree-budget-edit">
+            <label className="label">
+              <span className="lab-head">{t("budget.amount")}</span>
+              <input className="field" value={capAmt} inputMode="decimal" onChange={(e) => setCapAmt(e.target.value)} aria-label={t("budget.amount")} />
+            </label>
+            <div className="tree-budget-curs" role="group" aria-label={t("budget.amount")}>
+              {(["USD", "NIO"] as const).map((cur) => (
+                <button key={cur} type="button" className={capCur === cur ? "bud-cur is-on" : "bud-cur"} aria-pressed={capCur === cur} onClick={() => setCapCur(cur)}>{cur === "USD" ? "$ USD" : "C$ NIO"}</button>
+              ))}
+            </div>
+            <button type="button" className="bud-quiet-btn" data-anchor="est-budget-stage" onClick={stageCap}>{t("budget.stage")}</button>
+          </div>
+        ) : null}
+      </div>
       {/* 1.3.223 (pedido de Oscar): una línea profesional separa la cabecera de
           la categoría (nombre y color) de su rejilla de subconceptos — sin ella
           las tarjetas se confunden con la categoría misma. */}

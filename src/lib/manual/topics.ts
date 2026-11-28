@@ -4120,6 +4120,18 @@ export const MANUAL_CHAPTERS: Chapter[] = [
         keys: ["central.drift"],
       },
       {
+        id: "presupuestos",
+        depth: "tip",
+        mode: "esencial",
+        title: ["El presupuesto de una categoría", "A category's budget"],
+        sum: ["El tope mensual que tú fijas por categoría, contado igual en Central, en Estudio y por el Asesor.", "The monthly cap you set per category, counted the same on Central, in Estudio and by the Advisor."],
+        bubble: ["Un tope mensual por categoría, fijado por ti: Faro cuenta el gasto del mes contra él y te dice cuánto te queda.", "A monthly cap per category, set by you: Faro counts this month's spending against it and tells you what is left."],
+        what: ["Un presupuesto es un tope mensual que tú fijas para una categoría: cuánto te permites gastar en ella este mes.\n\nLa cuenta es una sola y la leen tres superficies: la tarjeta «Presupuestos» de [[Central]], el pliegue de [[Estudio]] y el [[Asesor]].\n\nCuenta el gasto del mes en curso en la categoría.\n\nLas subcategorías suman a su categoría.\n\nLo que no se gastó no pasa al mes siguiente: cada mes la cuenta empieza de cero contra el mismo tope.\n\nSi el gasto está en la otra moneda, se convierte con la tasa anotada en tu libro, y la respuesta lo dice.\n\nSin tasa anotada, esa parte no se cuenta y se declara: ninguna cifra se inventa.\n\nSin tope fijado no hay cuenta: el [[Asesor]] lo dice así, y ninguna superficie muestra una tarjeta vacía.\n\nLa tarjeta de [[Central]] se pliega y se puede quitar de [[Central]]; vuelve desde el pliegue de [[Estudio]].", "A budget is a monthly cap you set for a category: how much you allow yourself to spend on it this month.\n\nThe count is one single count, read by three surfaces: the “Budgets” card on [[Central]], the [[Study]] fold and the [[Advisor]].\n\nIt counts this month's spending in the category.\n\nSubcategories add up into their category.\n\nWhat you didn't spend doesn't roll into next month: each month the count starts from zero against the same cap.\n\nIf the spending is in the other currency, it is converted at the rate recorded in your book, and the answer says so.\n\nWith no rate recorded, that part isn't counted and is declared: no figure is invented.\n\nWith no cap set there is no count: the [[Advisor]] says exactly that, and no surface shows an empty card.\n\nThe [[Central]] card folds, and you can remove it from [[Central]]; it comes back from the [[Study]] fold."],
+        how: ["En [[Estructura]], abre la categoría: su renglón de presupuesto prepara la cifra y su moneda, y Guardar la escribe en el libro.\n\n«Quitar» en el mismo renglón lo borra, también con Guardar.", "In [[Structure]], open the category: its budget row stages the amount and its currency, and Save writes it into the book.\n\n“Remove” on the same row clears it, also with Save."],
+        go: { screen: "desk", anchor: "budgets-card", where: ["Central → Presupuestos", "Central → Budgets"] },
+        keys: ["central.budgets", "study.budgets"],
+      },
+      {
         id: "bateria-app",
         depth: "manual",
         title: ["Protegida de la batería", "Safe from battery saving"],

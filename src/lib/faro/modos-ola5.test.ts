@@ -613,6 +613,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "novedades": { f: "settings.news", m: "esencial" }, // 1.3.346 — Novedades: el tema de las notas nace con su pliegue
     "avisos-pagos": { f: "settings.due-alerts", m: "esencial" }, // 1.3.356 — Ola 6: el tema de los avisos nace con su interruptor
     "vigilancia": { f: "central.drift", m: "esencial" }, // 1.3.496 — Ola 33: el tema de la vigilancia nace con su tarjeta
+    "presupuestos": { f: "central.budgets", m: "esencial" }, // 1.3.522 — el tema del presupuesto nace con su tarjeta (su otra llave es study.budgets, también Esencial)
     "lista-plan": { f: "capture.plan", m: "ritmo" }, // 1.3.357 — la lista-plan (D6): el tema nace con su asiento, en Ritmo por fallo de Oscar
     "lista-espera": { f: "advisor.waitlist", m: "esencial" }, // 1.3.360 — la lista de espera (5c): el tema nace con su asiento, en Esencial por fallo de Oscar
     "compartir": { f: "inbox.link", m: "esencial" }, // 1.3.362 — las puertas de compartir (§18): el tema nace con su asiento, en Esencial como su puerta
@@ -883,7 +884,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 378); // 1.3.496 — Ola 33: nace «vigilancia» (la tarjeta que presenta los avisos); 377 en 1.3.495 — Pieza C9: nacen los cuatro temas de las mini-ayudas del Libro Compartido (compartir-invitacion, compartir-previa, compartir-miembros, compartir-salidas); 373 en 1.3.489 — nace «f-compartido» (la marca de compartido); 372 en 1.3.445 — nace «asesor-relato» (puerto de la Rama Agente); 371 en la Pieza C5 del Libro Compartido (1.3.395); 370 en la Ola 8 (1.3.388); 369 en las preguntas a la mano (1.3.369); 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
+    assert.equal(MANUAL_TOPICS.length, 379); // 1.3.522 — nace «presupuestos» (la tarjeta de Central, el pliegue de Estudio y la ficha de la categoría); 378 en 1.3.496 — Ola 33: nace «vigilancia» (la tarjeta que presenta los avisos); 377 en 1.3.495 — Pieza C9: nacen los cuatro temas de las mini-ayudas del Libro Compartido (compartir-invitacion, compartir-previa, compartir-miembros, compartir-salidas); 373 en 1.3.489 — nace «f-compartido» (la marca de compartido); 372 en 1.3.445 — nace «asesor-relato» (puerto de la Rama Agente); 371 en la Pieza C5 del Libro Compartido (1.3.395); 370 en la Ola 8 (1.3.388); 369 en las preguntas a la mano (1.3.369); 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {

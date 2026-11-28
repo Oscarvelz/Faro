@@ -40,6 +40,25 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.522",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "El presupuesto ya existe, y el Asesor oye más", en: "The budget is here, and the Advisor hears more" },
+    topic: "presupuestos",
+    points: {
+      es: [
+        "Cada categoría puede llevar tu tope del mes, fijado por ti en su ficha de Estructura, en dólares o en córdobas. Central gana la tarjeta «Presupuestos» cuando hay al menos un tope, Estudio su pliegue con la misma cuenta, y el Asesor responde contra tu tope: cuánto llevas, cuánto te queda y si te pasaste. El gasto en la otra moneda se convierte con la tasa anotada en tu libro y la respuesta lo dice; sin tasa, se declara y no se inventa.",
+        "«¿Ya cayó el salario?» ya tiene respuesta: el Asesor confirma la llegada con su día, o dice «todavía no» con la fecha de la última que ve, o declara que ese nombre no está en tu libro.",
+        "El total de tu dinero responde también como «saldo neto», con la resta de lo que debes hecha, como «en cuánto ando» o «con cuánto cuento», dicho en la moneda que nombres con la tasa de tu libro, y juzga tu umbral: «¿me quedan siquiera $100?» recibe su sí o su no contra el total.",
+      ],
+      en: [
+        "Each category can now carry your monthly cap, set by you on its sheet in Structure, in dollars or córdobas. Central gains the “Budgets” card when at least one cap exists, Study its fold with the same count, and the Advisor answers against your cap: how much you've spent, what's left and whether you're over. Spending in the other currency is converted at the rate recorded in your book and the answer says so; with no rate, it's declared, never invented.",
+        "“Has my pay arrived?” now has an answer: the Advisor confirms the arrival with its day, or says “not yet” with the date of the last one it sees, or states that the name isn't in your book.",
+        "Your total money also answers as your “net balance”, with what you owe already subtracted, as “where do I stand” or “what can I count on”, said in the currency you name at your book's rate, and it judges your threshold: “do I even have $100 left?” gets its yes or no against the total.",
+      ],
+    },
+  },
+  {
     version: "1.3.520",
     date: "2026-11-27",
     level: "menor",

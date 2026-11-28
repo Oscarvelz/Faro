@@ -731,19 +731,28 @@ export function buildSheets(ledger: LedgerState, key: string, lang: Lang, names:
     // Ahorro salía como la primera categoría del gasto (54.9% en el espécimen).
     const slices = spendCategorySlices(ledger, key, names, lang);
     const total = slices.reduce((sum, item) => sum + item.minor, 0);
+    // EL PRESUPUESTO (1.3.522): el tope viaja ADITIVO en la hoja — dos
+    // columnas nuevas al final (la cifra en su moneda y la moneda),
+    // llenas solo en las categorías que lo traen; A–C no cambian.
+    const capOf = (id: string) => ledger.structure.categories.find((ct) => ct.id === id);
     sheets.push({
       name: "Categorias",
-      widths: [28, 16, 12],
+      widths: [28, 16, 12, 16, 14],
       merges: ["A1:C1"],
       bars: slices.length ? [{ ref: `B3:B${slices.length + 2}`, color: "FF1B5E43" }] : [],
       rows: [
         [{ v: say(lang, "A dónde se va el gasto", "Where the spending goes"), s: S.section }],
-        [{ v: say(lang, "Categoría", "Category"), s: S.flowHead }, { v: say(lang, "Monto", "Amount"), s: S.flowHead }, { v: "%", s: S.flowHead }],
-        ...slices.map((slice) => [
-          { v: slice.name, s: S.line },
-          { v: slice.minor / 100, s: S.lineNum },
-          { v: total > 0 ? Math.round((slice.minor / total) * 1000) / 10 : 0, s: S.altNum },
-        ]),
+        [{ v: say(lang, "Categoría", "Category"), s: S.flowHead }, { v: say(lang, "Monto", "Amount"), s: S.flowHead }, { v: "%", s: S.flowHead }, { v: say(lang, "Presupuesto", "Budget"), s: S.flowHead }, { v: say(lang, "Moneda del presupuesto", "Budget currency"), s: S.flowHead }],
+        ...slices.map((slice) => {
+          const cap = capOf(slice.id);
+          return [
+            { v: slice.name, s: S.line },
+            { v: slice.minor / 100, s: S.lineNum },
+            { v: total > 0 ? Math.round((slice.minor / total) * 1000) / 10 : 0, s: S.altNum },
+            cap && cap.capMinor !== undefined ? { v: cap.capMinor / 100, s: S.lineNum } : { v: "", s: S.line },
+            cap && cap.capMinor !== undefined ? { v: cap.capCurrency ?? "", s: S.line } : { v: "", s: S.line },
+          ];
+        }),
       ],
     });
   }
