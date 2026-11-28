@@ -40,6 +40,21 @@ export interface NewsEntry {
  * en que se leen en Ajustes. */
 export const NEWS: NewsEntry[] = [
   {
+    version: "1.3.523",
+    date: "2026-11-27",
+    level: "menor",
+    title: { es: "Mayúscula al principio del párrafo", en: "A capital letter opens the paragraph" },
+    topic: "preguntar-asesor",
+    points: {
+      es: [
+        "Las proyecciones del Asesor abrían su párrafo con la etiqueta del plazo en minúscula («para diciembre tendrías…»). Ahora el párrafo abre como mandan las normas básicas de escritura: «Para diciembre tendrías…». En mitad de la frase la etiqueta sigue como va.",
+      ],
+      en: [
+        "The Advisor's projections opened their paragraph with the horizon label in lowercase (“by December you'd have…”). Now the paragraph opens as basic writing rules require: “By December you'd have…”. Mid-sentence, the label stays as it is.",
+      ],
+    },
+  },
+  {
     version: "1.3.522",
     date: "2026-11-27",
     level: "menor",

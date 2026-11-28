@@ -95,4 +95,32 @@ describe("hueco 6 · proyección: el stock más el aporte repetido", () => {
     const r = ask(libroProyeccion(), "Si ganara 500 dólares más al mes, ¿cuánto tendría en un año?");
     if (r.kind === "answer") assert.notEqual(r.family, "proyeccion");
   });
+  /* LA MAYÚSCULA DEL PÁRRAFO (1.3.523, fallo de Oscar sobre la
+   * foto de la 516): los veredictos que abre la etiqueta del
+   * horizonte la llevan en mayúscula — «Para diciembre
+   * tendrías…», no «para diciembre tendrías…». */
+  it("P7: el veredicto del ritmo abre con mayúscula: «¿cuánto tendré ahorrado en diciembre si sigo así?»", () => {
+    const r = ask(libroProyeccion(), "¿Cuánto tendré ahorrado en diciembre si sigo así?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(/^Para diciembre tendrías/.test(r.verdict), r.verdict);
+  });
+  it("P8: el veredicto de cobertura abre con mayúscula: «¿cubro el viaje en 6 meses con 100 dólares al mes?»", () => {
+    const r = ask(libroProyeccion(), "¿Cubro el viaje en 6 meses con 100 dólares al mes?");
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(/^En 6 meses juntarías/.test(r.verdict), r.verdict);
+  });
+  it("P9: en inglés también: la forma oída de la ola 59 abre en mayúscula y la etiqueta queda en minúscula en mitad de la frase", () => {
+    const ledger = libroProyeccion();
+    const ctxEn: ParseCtx = { ledger, lang: "en", today: TODAY, display: "USD", makeId: () => "q1", now: `${TODAY}T12:00:00.000Z` };
+    const r = answerBankQuestion(ledger, KEY, "en", makeNamer(ledger.structure, "en"), "If I save $100 each week, how much money I would have by the end of the year?", ctxEn, TODAY);
+    assert.equal(r.kind, "answer");
+    if (r.kind !== "answer") return;
+    assert.equal(r.family, "proyeccion");
+    assert.ok(/^If you set aside/.test(r.verdict), r.verdict);
+    assert.ok(/, by the end of the year you'd have/.test(r.verdict), r.verdict);
+  });
 });

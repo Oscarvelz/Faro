@@ -398,6 +398,12 @@ function proyeccionAnswer(c: Ctx, folded: string, raw: string): BankResult | nul
   const noteBase = L(c.lang, "El supuesto, dicho: el aporte se repite sin fallar y no rinde interés — tu libro no promete ninguno — y nada se anotó.", "The assumption, stated: the set-aside repeats without fail and earns no interest — your book promises none — and nothing was recorded.");
   const note = fundDeclared ? noteBase : L(c.lang, `Esa meta no trae saldo anotado en tu libro hoy: la proyección parte de cero en ella. ${noteBase}`, `That goal carries no recorded balance in your book today: the projection starts from zero for it. ${noteBase}`);
   const hLabel = horizon ? L(c.lang, horizon.es, horizon.en) : null;
+  /* LA MAYÚSCULA DEL PÁRRAFO (fallo de Oscar, 1.3.523): la
+   * etiqueta del horizonte abre dos veredictos de esta familia
+   * y un párrafo no abre en minúscula — la forma que manda al
+   * abrir lleva su mayúscula; en mitad de la frase, la etiqueta
+   * sigue en minúscula, como va. */
+  const hLead = hLabel ? hLabel.charAt(0).toUpperCase() + hLabel.slice(1) : null;
   const cadLabel = (cd: string) => cd === "weekly" ? L(c.lang, "cada semana", "every week") : cd === "biweekly" ? L(c.lang, "cada quincena", "every two weeks") : cd === "monthly" ? L(c.lang, "cada mes", "every month") : L(c.lang, "cada año", "every year");
   /* EL APORTE TRAÍDO SIN CADENCIA: se pregunta, como la ola 59. */
   if (contribSpan && horizon && !cad) {
@@ -479,14 +485,14 @@ function proyeccionAnswer(c: Ctx, folded: string, raw: string): BankResult | nul
   if (coverMark && horizon && perAmt !== null) {
     return {
       kind: "answer", family: "proyeccion",
-      verdict: L(c.lang, `${hLabel} juntarías ${c.money(total)} en ${fundLabel}: hoy constan ${c.money(stockBase)} y ${juntoTxt}. Si eso cubre lo que preguntas depende de su precio, que no viene en la pregunta ni consta en tu libro.`, `${hLabel} you'd have set aside ${c.money(total)} in ${fundLabel}: today shows ${c.money(stockBase)} and ${juntoTxt}. Whether that covers what you ask depends on its price, which isn't in the question or recorded in your book.`),
+      verdict: L(c.lang, `${hLead} juntarías ${c.money(total)} en ${fundLabel}: hoy constan ${c.money(stockBase)} y ${juntoTxt}. Si eso cubre lo que preguntas depende de su precio, que no viene en la pregunta ni consta en tu libro.`, `${hLead} you'd have set aside ${c.money(total)} in ${fundLabel}: today shows ${c.money(stockBase)} and ${juntoTxt}. Whether that covers what you ask depends on its price, which isn't in the question or recorded in your book.`),
       pieces, note, source: src, lines: 0,
     };
   }
   if (!horizon) return null;
   return {
     kind: "answer", family: "proyeccion",
-    verdict: L(c.lang, `${hLabel} tendrías ${c.money(total)} en ${fundLabel}: hoy constan ${c.money(stockBase)} y ${juntoTxt}.`, `${hLabel} you'd have ${c.money(total)} in ${fundLabel}: today shows ${c.money(stockBase)} and ${juntoTxt}.`),
+    verdict: L(c.lang, `${hLead} tendrías ${c.money(total)} en ${fundLabel}: hoy constan ${c.money(stockBase)} y ${juntoTxt}.`, `${hLead} you'd have ${c.money(total)} in ${fundLabel}: today shows ${c.money(stockBase)} and ${juntoTxt}.`),
     pieces, note, source: src, lines: 0,
   };
 }
