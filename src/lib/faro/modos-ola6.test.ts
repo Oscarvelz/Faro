@@ -219,9 +219,26 @@ describe("ola6 · los temas re-asentados viven en el modo de su función", () =>
     // (su función es central.budgets — la tarjeta de Central, el
     // pliegue de Estudio y la ficha de la categoría). La distribución
     // se mueve a 135 · 113 · 131 sobre 379.
+    // ENMIENDA REGLA DE 50 (línea Windows, 2026-11-27): nace
+    // «eliminar-cuenta» sin modo declarado, como su capítulo (el de
+    // Cuenta: cuenta y cerrar-sesion tampoco lo declaran) — topicMode
+    // lo lee Esencial, como a sus hermanas. La distribución se mueve
+    // a 136 · 113 · 131 sobre 380.
+    // ENMIENDA REGLA DE 50, SECCIÓN CUENTA (línea Windows,
+    // 2026-11-27): nace «privacidad» en el mismo capítulo y sin modo
+    // declarado, Esencial por la misma lectura. La distribución se
+    // mueve a 137 · 113 · 131 sobre 381.
+    // ENMIENDA REGLA DE 50, SECCIÓN CONFIRMACIONES (línea Windows,
+    // 2026-11-27): nace «confirmar» junto a «deshacer», sin modo
+    // declarado, Esencial por la misma lectura de su capítulo. La
+    // distribución se mueve a 138 · 113 · 131 sobre 382.
+    // ENMIENDA REGLA DE 50, SECCIÓN LA AYUDA (línea Windows,
+    // 2026-11-27): nace «ayuda» junto a «confirmar», sin modo
+    // declarado, Esencial por la misma lectura de su capítulo. La
+    // distribución se mueve a 139 · 113 · 131 sobre 383.
     const count = (m: Mode) => MANUAL_TOPICS.filter((t) => topicMode(t) === m).length;
-    assert.equal(MANUAL_TOPICS.length, 379);
-    assert.equal(count("esencial"), 135);
+    assert.equal(MANUAL_TOPICS.length, 383);
+    assert.equal(count("esencial"), 139);
     assert.equal(count("ritmo"), 113);
     assert.equal(count("completo"), 131);
   });

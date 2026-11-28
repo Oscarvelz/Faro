@@ -490,6 +490,8 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "inicio-marca": { f: null, m: "esencial" },
     "sync": { f: null, m: "esencial" },
     "deshacer": { f: null, m: "esencial" },
+    "confirmar": { f: null, m: "esencial" }, // Regla de 50 (línea Windows, puerto 2026-11-27) — nace junto a «deshacer», sin función propia, en Esencial como su capítulo
+    "ayuda": { f: null, m: "esencial" }, // Regla de 50 (línea Windows, puerto 2026-11-27) — nace junto a «confirmar», sin función propia, en Esencial como su capítulo
     "exportar": { f: "export.panel", m: "ritmo" },
     "tema-rapido": { f: null, m: "esencial" },
     "vista": { f: "nav.tablet-views", m: "esencial" },
@@ -618,6 +620,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "lista-espera": { f: "advisor.waitlist", m: "esencial" }, // 1.3.360 — la lista de espera (5c): el tema nace con su asiento, en Esencial por fallo de Oscar
     "compartir": { f: "inbox.link", m: "esencial" }, // 1.3.362 — las puertas de compartir (§18): el tema nace con su asiento, en Esencial como su puerta
     "nombre": { f: "account.name", m: "esencial" }, // 1.3.363 — la Pieza 0 (§19.5): el tema nace con su asiento, en Esencial como la fila que nombra (corregir el propio nombre es esencial)
+    "privacidad": { f: null, m: "esencial" }, // Regla de 50 (línea Windows, puerto 2026-11-27) — nace tras «nombre», sin función propia, en Esencial como su capítulo
     "saldo-proyectado": { f: "advisor.projection", m: "completo" }, // 1.3.365 — el saldo proyectado (§19.1): el tema nace con su asiento, en Completo — interpretar es su oficio
     "cambios-precio": { f: "study.prices", m: "completo" }, // 1.3.366 — el vigilante de fijos (§19.3): el tema nace con su asiento (la evidencia en Estudio; su otra llave es advisor.price-watch, también Completo) — interpretar precios es su oficio
     "bitacora": { f: "folios.logbook", m: "esencial" }, // 1.3.367 — la Bitácora: el tema nace con su asiento, en Esencial como la sección que nombra (leer la propia historia es esencial)
@@ -877,6 +880,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
     "compartir-miembros": { f: "books.share-admin", m: "ritmo" }, // 1.3.495 — Pieza C9
     "compartir-salidas": { f: "books.share-admin", m: "ritmo" }, // 1.3.495 — Pieza C9
     "cerrar-sesion": { f: null, m: "esencial" },
+    "eliminar-cuenta": { f: null, m: "esencial" }, // Regla de 50 (línea Windows, puerto 2026-11-27) — nace tras «cerrar-sesion», sin función propia, en Esencial como su capítulo
     "sin-red": { f: null, m: "esencial" },
     "actualizacion": { f: null, m: "esencial" },
   };
@@ -884,7 +888,7 @@ describe("ola5 · O5-C6: el mapa completo tema→función (los 360, sin excepci�
   it("completitud: el mapa nombra exactamente los temas que existen", () => {
     assert.deepEqual(Object.keys(MAPA).sort(), MANUAL_TOPICS.map((t) => t.id).sort(),
       "un tema que nazca mañana sin declarar su función — o uno que muera sin salir del mapa — rompe esta cerca");
-    assert.equal(MANUAL_TOPICS.length, 379); // 1.3.522 — nace «presupuestos» (la tarjeta de Central, el pliegue de Estudio y la ficha de la categoría); 378 en 1.3.496 — Ola 33: nace «vigilancia» (la tarjeta que presenta los avisos); 377 en 1.3.495 — Pieza C9: nacen los cuatro temas de las mini-ayudas del Libro Compartido (compartir-invitacion, compartir-previa, compartir-miembros, compartir-salidas); 373 en 1.3.489 — nace «f-compartido» (la marca de compartido); 372 en 1.3.445 — nace «asesor-relato» (puerto de la Rama Agente); 371 en la Pieza C5 del Libro Compartido (1.3.395); 370 en la Ola 8 (1.3.388); 369 en las preguntas a la mano (1.3.369); 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
+    assert.equal(MANUAL_TOPICS.length, 383); // Regla de 50 (línea Windows, puerto 2026-11-27) — nacen «eliminar-cuenta», «privacidad», «confirmar» y «ayuda»; 379 en 1.3.522 — nace «presupuestos» (la tarjeta de Central, el pliegue de Estudio y la ficha de la categoría); 378 en 1.3.496 — Ola 33: nace «vigilancia» (la tarjeta que presenta los avisos); 377 en 1.3.495 — Pieza C9: nacen los cuatro temas de las mini-ayudas del Libro Compartido (compartir-invitacion, compartir-previa, compartir-miembros, compartir-salidas); 373 en 1.3.489 — nace «f-compartido» (la marca de compartido); 372 en 1.3.445 — nace «asesor-relato» (puerto de la Rama Agente); 371 en la Pieza C5 del Libro Compartido (1.3.395); 370 en la Ola 8 (1.3.388); 369 en las preguntas a la mano (1.3.369); 368 en la Bitácora (1.3.367); 367 en el vigilante de fijos (1.3.366); 366 en el saldo proyectado (1.3.365); 365 en la Pieza 0 (1.3.363); 364 en las puertas de compartir (1.3.362)
   });
 
   it("modo: cada tema vive en el modo que el mapa declara (una mutación ciega en CUALQUIER tema corre roja)", () => {

@@ -6660,6 +6660,7 @@ export function Settings() {
           <button type="button" className="btn secondary" onClick={exportJson}>{t("settings.export")}</button>
           <label className="btn secondary">{t("settings.import")}<input type="file" accept="application/json,application/gzip,.json,.gz" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.currentTarget.value = ""; }} /></label>
           <button type="button" className="btn ghost" onClick={pickFolder}>{t("settings.folder")}</button>
+          <Hint topic="archivo-respaldo" />
           {hasConflict ? <button type="button" className="btn" onClick={restoreConflict}>{t("settings.conflict")}</button> : null}
         </div>
         <h2 className="serif mt-4 text-xl lab-head" data-anchor="aj-activity">{t("settings.activity")}<Hint topic="actividad" /></h2>

@@ -4,6 +4,7 @@ import { EXPORT_KINDS, canShareFiles, exportPdf, exportWorkbook, pdfFile, pickFo
 import { exportDuesCalendar } from "@/lib/faro/calendar-export";
 import type { LineKind } from "@/lib/faro/types";
 import { useFaro } from "./provider";
+import { Hint } from "./hint";
 
 const EMPTY: ExportPick = {
   scope: "month",
@@ -71,7 +72,7 @@ export function ExportPanel({ open, onOpenChange }: { open: boolean; onOpenChang
       </button>
       {open ? (
         <div className="export-sheet" role="dialog" aria-label={t("export.open")}>
-          <p className="export-kicker">{t("export.scope")}</p>
+          <p className="export-kicker">{t("export.scope")}<Hint topic="exportar" /></p>
           <div className="export-picks">
             {scope("month", t("export.month"))}
             {scope("year", t("export.year"))}

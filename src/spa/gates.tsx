@@ -52,11 +52,13 @@ export function UserButton() {
       <div className="flex items-center gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-full bg-black/10 text-sm font-medium dark:bg-white/20">{label.charAt(0).toUpperCase()}</span>
         <span className="text-sm font-medium">{user.email || label}</span>
+        <Hint topic="privacidad" />
       </div>
       {gone ? (
         <div className="grid gap-2">
           <span className="text-sm text-muted">{w("acct.gone")}</span>
           <button type="button" className="btn" onClick={askSignInAgain}>{w("acct.again")}</button>
+          <Hint topic="entrar-de-nuevo" />
         </div>
       ) : null}
       <div className="grid gap-1">
@@ -149,6 +151,7 @@ export function UserButton() {
         >
           {w("acct.del")}
         </button>
+        <Hint topic="eliminar-cuenta" />
       </div>
     </div>
   );
@@ -199,7 +202,7 @@ export function NameRow() {
   };
   return (
     <div className="grid gap-1" data-anchor="aj-name">
-      <span className="text-sm font-medium lab-head">{w("name.row")}</span>
+      <span className="text-sm font-medium lab-head">{w("name.row")}<Hint topic="nombre" /></span>
       {gone ? (
         <span className="text-sm text-muted">{w("acct.gone")}</span>
       ) : open ? (

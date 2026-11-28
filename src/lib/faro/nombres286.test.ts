@@ -58,6 +58,20 @@ const BARE_OK: ReadonlyArray<readonly [string, string, 0 | 1, string, number]> =
   // tema de escanear recibos, que es otra función. Declarado en la 1.3.333, cuando
   // «Scan» entró en LINKS como el nombre nuevo del botón de la cámara.
   ["retiro-primerica", "what", 1, "Scan", 1],
+  // REGLA DE 50 (línea Windows, puerto a canon 2026-11-27): los textos de la
+  // campaña citan estas frases tal cual en sus bancos de construcción — la cita
+  // es la respuesta fijada antes de correr — y el nombre va desnudo dentro de
+  // la prosa citada, como palabra de la frase y no como salto. Marcarlo
+  // rompería la cita del banco; se declara desnudo a propósito, frase a frase.
+  ["confirmar", "what", 0, "Deshacer", 1],
+  ["confirmar", "what", 1, "Undo", 1],
+  ["modos", "what", 0, "Esencial", 1],
+  ["modos", "what", 1, "Essential", 1],
+  ["copias", "what", 0, "El libro compartido", 1],
+  ["copias", "what", 1, "The shared book", 1],
+  ["copias", "what", 1, "Backups", 1],
+  ["eliminar-cuenta", "what", 0, "Ajustes", 2],
+  ["eliminar-cuenta", "what", 1, "Settings", 2],
 ];
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
