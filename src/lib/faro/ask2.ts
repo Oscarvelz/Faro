@@ -13750,6 +13750,91 @@ function ecoConversor(state: LedgerState, lang: Lang, frame: ConvoFrame, raw: st
   };
 }
 
+/* HERENCIA · EL ECO ARITMÉTICO (examen de conversaciones,
+ * 2026-11-28): «¿y el doble de eso?» no es una pregunta nueva ni
+ * un ajuste de ejes: es una operación cerrada sobre la cifra que
+ * el usuario está mirando, la hermana del eco conversor. La forma
+ * es cerrada — quitados el multiplicador, la anáfora y las
+ * muletillas no puede quedar una pregunta escondida — y el
+ * veredicto declara la operación y la cifra base: la aritmética
+ * no se disfraza de dato del libro. */
+const ECO_ARITH_FILLER = new Set(["y", "and", "el", "la", "de", "del", "eso", "ese", "esa", "esto", "that", "it", "the", "of", "cuanto", "how", "much", "es", "seria", "would", "be", "en", "in"]);
+function ecoAritmetico(state: LedgerState, lang: Lang, frame: ConvoFrame, raw: string): Extract<BankResult, { kind: "answer" }> | null {
+  const bare = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!bare || bare.split(/\s+/).length > 8) return null;
+  if (amountsIn(raw, state.settings.display).length) return null;
+  const m = /\b(doble|triple|mitad|double|half)\b/.exec(bare);
+  if (!m) return null;
+  const rest = bare.replace(m[0], " ").split(/\s+/).filter((w) => w && !ECO_ARITH_FILLER.has(w));
+  if (rest.length) return null;
+  const pieces = frame.pieces.filter((p) => p.minor !== 0);
+  const head = pieces[pieces.length - 1];
+  if (!head) return null;
+  const display = state.settings.display;
+  const word = m[1];
+  const factor = word === "doble" || word === "double" ? 2 : word === "triple" ? 3 : 0.5;
+  const out = factor === 0.5 ? Math.round(head.minor / 2) : head.minor * factor;
+  const wordCap = word === "doble" || word === "double" ? L(lang, "El doble", "Double") : word === "triple" ? L(lang, "El triple", "Triple") : L(lang, "La mitad", "Half");
+  return {
+    kind: "answer", family: "calculadora",
+    verdict: L(lang, `${wordCap} de «${head.label}» — ${fmtAny(lang, head.minor, display)} — ${factor === 0.5 ? "es" : "son"} ${fmtAny(lang, out, display)}.`, `${wordCap} of "${head.label}" — ${fmtAny(lang, head.minor, display)} — is ${fmtAny(lang, out, display)}.`),
+    pieces: [{ label: head.label, minor: out }],
+    note: L(lang, "Viene de tu respuesta anterior.", "From your previous answer."),
+    source: frame.source, lines: 0,
+  };
+}
+
+/* HERENCIA · EL ECO DE COMPARACIÓN (examen de conversaciones,
+ * 2026-11-28): «¿y el mes pasado fue más?» trae el período y la
+ * comparativa, pero su forma no es la de la reescritura de ejes y
+ * la lectura fresca comparaba el libro entero, perdiendo el
+ * asunto del hilo. Esta puerta re-pregunta la pregunta DEL MARCO
+ * en los dos períodos por la costura de siempre y compara las
+ * piezas titulares de las dos respuestas del propio motor: el
+ * sí o el no sale de las cifras del libro, con las dos a la
+ * vista. Si alguna de las dos lecturas no responde, o el período
+ * no mueve la cifra (la familia no oye períodos), la puerta cede
+ * y el turno sigue su camino. */
+function ecoComparacion(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, parseCtx: ParseCtx, today: string, mode: BookMode | undefined, learned: LearnedAlias[] | undefined, lang: Lang): Extract<BankResult, { kind: "answer" }> | null {
+  if (frame.family === "total") return null;
+  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!f || f.split(/\s+/).length > 8) return null;
+  const p2 = periodPhraseIn(f);
+  if (!p2) return null;
+  if (frame.periodPhrase && samePeriodPhrase(frame.periodPhrase, p2)) return null;
+  const cmp = /\b(mas|menos|mayor|menor|more|less|higher|lower)\b/.exec(f);
+  if (!cmp) return null;
+  let rest = replaceWholeWord(f, p2, " ");
+  rest = rest.replace(cmp[0], " ");
+  const STOP = new Set(["y", "and", "fue", "era", "es", "was", "it", "que", "what", "el", "the"]);
+  if (rest.split(/\s+/).filter((w) => w && !STOP.has(w)).length) return null;
+  const q2 = frame.periodPhrase ? replaceWholeWord(frame.question, frame.periodPhrase, p2) : `${frame.question} ${p2}`;
+  if (q2 === frame.question) return null;
+  const r1 = answerSingle(state, key, lang, names, frame.question, parseCtx, today, undefined, mode, learned);
+  const r2 = answerSingle(state, key, lang, names, q2, parseCtx, today, undefined, mode, learned);
+  if (r1.kind !== "answer" || r2.kind !== "answer") return null;
+  const headOf = (r: Extract<BankResult, { kind: "answer" }>) => [...r.pieces].reverse().find((p) => p.minor !== 0) ?? r.pieces[r.pieces.length - 1];
+  const h1 = headOf(r1);
+  const h2 = headOf(r2);
+  if (!h1 || !h2) return null;
+  if (h1.minor === h2.minor && r1.verdict === r2.verdict) return null;
+  const display = state.settings.display;
+  const askedUp = /^(mas|mayor|more|higher)$/.test(cmp[1]);
+  const dir = h2.minor === h1.minor
+    ? L(lang, "igual", "the same")
+    : (h2.minor > h1.minor) === askedUp ? cmp[1] : (askedUp ? L(lang, "menos", "less") : L(lang, "más", "more"));
+  const p1Name = frame.periodPhrase ?? L(lang, "este período", "this period");
+  const p2Name = p2.charAt(0).toUpperCase() + p2.slice(1);
+  const dirName = lang === "es" && dir === "mas" ? "más" : dir;
+  return {
+    kind: "answer", family: r1.family,
+    verdict: L(lang, `${p2Name} fue ${dirName}: ${fmtAny(lang, h2.minor, display)} contra ${fmtAny(lang, h1.minor, display)} de ${p1Name}.`, `${p2Name} was ${dirName}: ${fmtAny(lang, h2.minor, display)} against ${fmtAny(lang, h1.minor, display)} in ${p1Name}.`),
+    pieces: [{ label: p2, minor: h2.minor }, { label: p1Name, minor: h1.minor }],
+    note: L(lang, `Viene de tu pregunta anterior («${frame.question}»): comparé los dos períodos.`, `From your previous question ("${frame.question}"): I compared both periods.`),
+    source: r1.source, lines: 0,
+  };
+}
+
 export function answerBankQuestion(
   state: LedgerState,
   key: string,
@@ -13818,6 +13903,17 @@ export function answerBankQuestion(
   if (!pin && convo) {
     const eco = ecoConversor(state, lang, convo, raw);
     if (eco) return { ...eco, convo: buildConvoFrame(state, key, names, raw, today, eco) };
+  }
+  // HERENCIA · LOS ECOS SOBRE LA CIFRA DEL MARCO (examen de
+  // conversaciones, 2026-11-28): la operación aritmética y la
+  // comparación de períodos sobre la pregunta anterior se juzgan
+  // con el eco conversor, antes de la reescritura de ejes: no
+  // cambian un eje, transforman la cifra que el usuario mira.
+  if (!pin && convo) {
+    const ea = ecoAritmetico(state, lang, convo, raw);
+    if (ea) return { ...ea, convo: buildConvoFrame(state, key, names, raw, today, ea) };
+    const ec = ecoComparacion(state, key, names, convo, raw, parseCtx, today, mode, learned, lang);
+    if (ec) return { ...ec, convo: buildConvoFrame(state, key, names, raw, today, ec) };
   }
   // OLA 19: el seguimiento se reescribe sobre el marco ANTES que
   // cualquier otra lectura — es una pregunta sobre la pregunta
@@ -13916,7 +14012,38 @@ export function answerBankQuestion(
   if (single.kind === "unknown" && convo && !pin && followUpShaped(raw)) {
     return repairResult(convo, lang, askFrame ?? null);
   }
+  /* HERENCIA · EL VETO DEL ROBO GENÉRICO (examen de
+   * conversaciones, 2026-11-28): un seguimiento corto y
+   * anafórico que no trae señal propia — ni período, ni
+   * ciudadano, ni persona, ni cuenta, ni un verbo de familia —
+   * y cuya lectura fresca cae en OTRA familia que la del marco
+   * no se sirve: era la respuesta segura a otra pregunta, la
+   * especie mayor de las equivocadas del examen. Cae en la
+   * reparación honesta y contada, como el silencio de siempre:
+   * el veto no inventa la respuesta del hilo, se niega a
+   * servir la ajena. */
+  if (single.kind === "answer" && convo && !pin && roboGenerico(state, key, names, convo, raw, lang, today, single)) {
+    return repairResult(convo, lang, askFrame ?? null);
+  }
   return withConvo(single, raw);
+}
+
+/* ¿Es esta respuesta fresca un robo genérico? El turno es
+ * corto, abre con «y» o trae la anáfora («eso», «en total»),
+ * no nombra ningún eje ni verbo de familia, y la familia
+ * fresca difiere de la del marco. */
+const ROBO_VERBS = /\b(debo|debes|deuda|deudas|pagar|pague|pagado|pagando|alcanza|alcanzar|falta|faltan|sobra|sobran|queda|quedan|cuesta|cuestan|vale|valen|gane|ganar|ingresa|ingreso|owe|owes|pay|paid|paying|reach|afford)\b/;
+function roboGenerico(state: LedgerState, key: string, names: Namer, frame: ConvoFrame, raw: string, lang: Lang, today: string, single: Extract<BankResult, { kind: "answer" }>): boolean {
+  if (String(single.family) === frame.family) return false;
+  const f = foldQ(raw).replace(/[¿?¡!.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!f || f.split(/\s+/).length > 8) return false;
+  if (!/^(y|and)\b/.test(f) && !/\b(eso|ese|esa|esto|that|it)\b/.test(f) && !/\ben total\b|\bin total\b/.test(f)) return false;
+  if (periodPhraseIn(f)) return false;
+  if (ROBO_VERBS.test(f)) return false;
+  if (frameCitizenIn(state, names, f, lang)) return false;
+  if (framePersonHit(state, f, today)) return false;
+  if (frameAccountIn(state, names, key, f)) return false;
+  return true;
 }
 
 /* ¿Tiene esta frase forma de seguimiento? Corta, y abre con «y»/«no»
